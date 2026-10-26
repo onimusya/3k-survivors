@@ -24,8 +24,8 @@
 <p>Last updated: <span id="lu"></span></p>
 <script>document.getElementById('lu').textContent = new Date().toISOString();</script>
 <div class="cards">
-  <div class="card"><div>Pieces passed</div><div class="v">17 / 17</div></div>
-  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 316</div></div>
+  <div class="card"><div>Pieces passed</div><div class="v">18 / 18</div></div>
+  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 317</div></div>
   <div class="card"><div>Bar (target)</div><div class="v">60 FPS / 300 enemies</div></div>
 </div>
 <table>
@@ -40,6 +40,7 @@
   <tr><td>XP + leveling</td><td class="state-PASSED">PASSED</td><td>2</td><td>Icon cards + tags</td><td>None</td></tr>
   <tr><td>Weapon evolution</td><td class="state-PASSED">PASSED</td><td>2</td><td>Lv 8 + Passive</td><td>None</td></tr>
   <tr><td>Treasure chests</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
+  <tr><td>Map decorations &amp; Heart/Bomb drops</td><td class="state-PASSED">PASSED</td><td>1</td><td>48 Props + +30HP / 240px AoE</td><td>None</td></tr>
   <tr><td>Heroes (Three Kingdoms)</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
   <tr><td>Pre-game starting perks (3 choices)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Vanguard/Aegis/Windfoot</td><td>None</td></tr>
   <tr><td>HUD + mobile controls</td><td class="state-PASSED">PASSED</td><td>3</td><td>12-slot loadout</td><td>None</td></tr>
@@ -59,6 +60,7 @@
   <div>[2026-10-26] Pre-game 3-perk selection (Vanguard Edict, Imperial Aegis, Windfoot Mandate) integrated into portrait &amp; landscape menu, HUD, Game-Over summary, and combat stat formulas</div>
   <div>[2026-10-26] Integrated Game Audio &amp; SFX (uisfx CC0 arcade cues + earshot physical swish/impact WAV recipes in assets/sfx/, SoundManager in src/audio.js, and persistent Mute UI toggle on Menu &amp; HUD)</div>
   <div>[2026-10-26] Upgraded renderer to 1.0x native resolution + 2.0x HiDPI TextStyle + roundPixels + CSS-composited terrain, responsive multi-resolution UI/world scaling (390×844, 844×390, 1280×800), and 6-pool weapon/hit VFX (directional crescent slash + echo, stepped spear lance + tip shockwave, counter-rotating whirlwind rings, directional hit sparks, enemy hit squash-stretch)</div>
+  <div>[2026-10-26] Added toroidal scrolling battlefield decorations (trees, pines, rocks, grass, mountains, war banners in propLayer) and random/periodic Heart (+30 HP) &amp; Thunder Bomb (240px AoE explosion + shockwave + camera shake) item drops</div>
 </div>
 </body>
 </html>

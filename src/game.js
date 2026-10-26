@@ -17,6 +17,8 @@ export class Game {
     this.stage.addChild(this.uiLayer);
     this.bgGrid = new Container();
     this.world.addChildAt(this.bgGrid, 0);
+    this.propLayer = new Container();
+    this.world.addChild(this.propLayer);
     this.enemyContainer = new ParticleContainer({
       texture: null,
       dynamicProperties: { position: true, rotation: false, vertex: true, uvs: true, color: true },
@@ -24,12 +26,16 @@ export class Game {
     this.world.addChild(this.enemyContainer);
     this.enemyLayer = new Graphics();
     this.world.addChild(this.enemyLayer);
+    this.playerLayer = new Container();
+    this.world.addChild(this.playerLayer);
     this.projLayer = new Container();
     this.gemLayer = new Container();
+    this.itemLayer = new Container();
     this.chestLayer = new Container();
     this.fxLayer = new Container();
     this.world.addChild(this.projLayer);
     this.world.addChild(this.gemLayer);
+    this.world.addChild(this.itemLayer);
     this.world.addChild(this.chestLayer);
     this.world.addChild(this.fxLayer);
     this.state = 'menu'; // menu | playing | levelup | gameover
@@ -38,12 +44,13 @@ export class Game {
     this.kills = 0;
     this.gold = 0;
 
+    this.props = [];
     this.enemies = [];
     this.projectiles = [];
     this.gems = [];
+    this.items = [];
     this.chests = [];
     this.particles = [];
-
     this.enemyPool = null;
     this.enemySerial = 0;
     this.projPool = null;
@@ -160,6 +167,7 @@ export class Game {
     this.heroAttackFrames = this.assets.heroAttackFrames;
     this.effectTextures = this.assets.effects;
     this.iconTextures = this.assets.icons;
+    this.propTextures = this.assets.props;
 
     this.appEl = document.getElementById('app');
     if (this.appEl) {
@@ -198,6 +206,15 @@ export class Game {
         active:false, x:0, y:0, val:1, magnet:false, vy:0, sprite,
       };
     }, (g) => { g.active = false; g.sprite.visible = false; });
+    this.itemPool = new Pool(() => {
+      const sprite = new Sprite(this.effectTextures.heart);
+      sprite.anchor.set(0.5);
+      sprite.visible = false;
+      this.itemLayer.addChild(sprite);
+      return {
+        active:false, kind:'heart', x:0, y:0, magnet:false, phase:0, sprite,
+      };
+    }, (it) => { it.active = false; it.sprite.visible = false; });
     const makeFxPool = (tex) => new Pool(() => {
       const sprite = new Sprite(tex);
       sprite.anchor.set(0.5);
@@ -567,6 +584,8 @@ export class Game {
     this.projectiles.length = 0;
     for (const g of this.gems) this.gemPool.release(g);
     this.gems.length = 0;
+    for (const it of this.items) this.itemPool.release(it);
+    this.items.length = 0;
     for (const c of this.chests) { c.sprite.destroy(); }
     this.chests.length = 0;
     for (const pt of this.particles) {
@@ -575,6 +594,7 @@ export class Game {
     this.particles.length = 0;
 
     this.time = 0;
+    this.itemTimer = 14;
     this.kills = 0;
     this.gold = 0;
     this.xp = 0;
@@ -590,7 +610,7 @@ export class Game {
     if (this.playerShadow) this.playerShadow.destroy();
     this.playerShadow = new Graphics();
     this.playerShadow.ellipse(0, 14, 14, 5).fill({ color:0x000000, alpha:0.38 });
-    this.world.addChild(this.playerShadow);
+    this.playerLayer.addChild(this.playerShadow);
     const directions = this.heroFrames[this.hero.id];
     this.playerSprite = new AnimatedSprite({
       textures: directions[0],
@@ -601,7 +621,7 @@ export class Game {
     });
     this.playerSprite.anchor.set(0.5, 0.625);
     this.playerSprite.scale.set(1.5);
-    this.world.addChild(this.playerSprite);
+    this.playerLayer.addChild(this.playerSprite);
     const maxHp = this.hero.hp + (this.perk?.hpBonus || 0);
     this.player = {
       x:0, y:0, vx:0, vy:0, hp:maxHp, maxHp,
@@ -612,6 +632,49 @@ export class Game {
     this.recomputeStats();
     this._loadoutDirty = true;
     this.camX = 0; this.camY = 0;
+    this.setupProps();
+    this.spawnItem('heart', -110, -75);
+    this.spawnItem('bomb', 120, -65);
+  }
+
+  setupProps() {
+    if (!this.propTextures) return;
+    if (this.props.length === 0) {
+      const propOrder = [
+        'grass', 'tree', 'rock', 'grass', 'pine', 'mountain',
+        'rock', 'grass', 'tree', 'banner', 'pine', 'grass',
+      ];
+      const cols = 8, rows = 6;
+      const span = 1600;
+      const cellW = span / cols, cellH = span / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const idx = r * cols + c;
+          const kind = propOrder[(idx * 7 + r * 3) % propOrder.length];
+          const tex = this.propTextures[kind] || this.propTextures.tree;
+          const sprite = new Sprite(tex);
+          sprite.anchor.set(0.5, 0.75);
+          const sc = kind === 'mountain' || kind === 'tree' || kind === 'pine' ? 1.5 : (kind === 'rock' || kind === 'banner' ? 1.25 : 1.0);
+          sprite.scale.set(sc);
+          this.propLayer.addChild(sprite);
+          this.props.push({ kind, x: 0, y: 0, cellW, cellH, idx, r, c, sprite });
+        }
+      }
+    }
+    const half = 800;
+    for (const pr of this.props) {
+      const jx = (((pr.idx * 73 + 19) % 97) / 97 - 0.5) * pr.cellW * 0.72;
+      const jy = (((pr.idx * 41 + 53) % 89) / 89 - 0.5) * pr.cellH * 0.72;
+      let x = -half + (pr.c + 0.5) * pr.cellW + jx;
+      let y = -half + (pr.r + 0.5) * pr.cellH + jy;
+      if (Math.hypot(x, y) < 85) {
+        x += x >= 0 ? 95 : -95;
+      }
+      pr.x = Math.round(x);
+      pr.y = Math.round(y);
+      pr.sprite.x = pr.x;
+      pr.sprite.y = pr.y;
+    }
   }
 
   recomputeStats() {
@@ -1014,6 +1077,7 @@ export class Game {
       this.appEl.style.backgroundPosition = `${rx}px ${ry}px`;
     }
     // update joystick knob visual only on active touch or state transition
+    this.updateProps();
     if (this.joystick.active) {
       const kx = this.joystick.originX + this.joystick.x * 60;
       const ky = this.joystick.originY + this.joystick.y * 60;
@@ -1066,6 +1130,7 @@ export class Game {
     this.renderEnemies();
     this.renderProjectiles();
     this.renderGems();
+    this.renderItems();
     this.renderChests();
     this.renderParticles();
 
@@ -1086,8 +1151,81 @@ export class Game {
       this.bossTimer = 120;
       this.spawnElite();
     }
-    // cap enemies? allow 300+
-    // no cap, but pool grows
+    // periodic battlefield item drops (heart / bomb)
+    this.itemTimer = (this.itemTimer ?? 14) - dt;
+    if (this.itemTimer <= 0) {
+      this.itemTimer = 16;
+      if (this.items.length < 10) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 160 + Math.random() * 140;
+        const kind = (this.player.hp < this.player.maxHp * 0.75 || Math.random() < 0.55) ? 'heart' : 'bomb';
+        this.spawnItem(kind, this.player.x + Math.cos(ang) * dist, this.player.y + Math.sin(ang) * dist);
+      }
+    }
+  }
+
+  updateProps() {
+    const span = 1600, half = 800;
+    const cx = this.camX, cy = this.camY;
+    for (const pr of this.props) {
+      if (pr.x - cx < -half) pr.x += span;
+      else if (pr.x - cx > half) pr.x -= span;
+      if (pr.y - cy < -half) pr.y += span;
+      else if (pr.y - cy > half) pr.y -= span;
+      pr.sprite.x = Math.round(pr.x);
+      pr.sprite.y = Math.round(pr.y);
+    }
+  }
+
+  spawnItem(kind, x, y) {
+    if (this.items.length >= 14) return null;
+    const it = this.itemPool.acquire();
+    it.active = true;
+    it.kind = kind;
+    it.x = Math.round(x);
+    it.y = Math.round(y);
+    it.magnet = false;
+    it.phase = Math.random() * Math.PI * 2;
+    it.sprite.texture = kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart;
+    it.sprite.scale.set(1.25);
+    it.sprite.visible = true;
+    it.sprite.x = it.x;
+    it.sprite.y = it.y;
+    this.items.push(it);
+    return it;
+  }
+
+  collectItem(it) {
+    if (!it || !it.active) return;
+    it.active = false;
+    const p = this.player;
+    if (it.kind === 'heart') {
+      const healAmt = 30;
+      p.hp = Math.min(p.maxHp, p.hp + healAmt);
+      this.sfx.play('heal');
+      this.spawnShockwave(p.x, p.y, 0xff6b8b, 0.35, 1.45, 0.24);
+      this.spawnSparkBurst(p.x, p.y, -Math.PI / 2, 0x6bffb0, 4, 130, 0.75, 1.2);
+      this.showFloatText(p.x, p.y - 14, `+${healAmt} HP`, 0x6bffb0);
+    } else if (it.kind === 'bomb') {
+      this.explodeBomb(it.x, it.y);
+    }
+  }
+
+  explodeBomb(x, y) {
+    this.sfx.play('bomb');
+    this.shake = 14;
+    this.spawnShockwave(x, y, 0xff6b3d, 0.45, 3.6, 0.34);
+    this.spawnShockwave(x, y, 0xffe066, 0.25, 2.3, 0.24);
+    this.spawnSparkBurst(x, y, 0, 0xffae42, 8, 220, 0.95, Math.PI / 4);
+    this.showFloatText(x, y - 16, 'KABOOM!', 0xffd166);
+    const blastRadius2 = 240 * 240;
+    const blastDmg = 85 * (this.player?.dmgMul || 1);
+    for (const e of this.enemies) {
+      if (!e.active) continue;
+      if (dist2(e.x, e.y, x, y) <= blastRadius2) {
+        this.damageEnemy(e, blastDmg, x, y);
+      }
+    }
   }
 
   spawnEnemy() {
@@ -1426,6 +1564,26 @@ export class Game {
     for (let i = this.gems.length - 1; i >= 0; i--) {
       if (!this.gems[i].active) { this.gemPool.release(this.gems[i]); this.gems.splice(i,1); }
     }
+    // items pickup (heart / bomb)
+    for (const it of this.items) {
+      if (!it.active) continue;
+      const d2 = dist2(it.x, it.y, p.x, p.y);
+      if (d2 < 85 * 85) it.magnet = true;
+      if (it.magnet) {
+        const ang = angleTo(it.x, it.y, p.x, p.y);
+        it.x += Math.cos(ang) * 280 * dt;
+        it.y += Math.sin(ang) * 280 * dt;
+      }
+      if (d2 < 20 * 20) {
+        this.collectItem(it);
+      }
+    }
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      if (!this.items[i].active) {
+        this.itemPool.release(this.items[i]);
+        this.items.splice(i, 1);
+      }
+    }
     // chests interact
     if (this.rightTap) {
       const rt = this.rightTap;
@@ -1486,6 +1644,15 @@ export class Game {
       this.spawnSparkBurst(e.x, e.y, ang, e.color, e.isBoss ? 5 : 2, 155, e.isBoss ? 0.95 : 0.68, 1.9);
       if (e.isBoss) {
         this.spawnChest(e.x, e.y);
+      }
+      if (this.items.length < 12) {
+        const dropRoll = Math.random();
+        const heartChance = this.player.hp < this.player.maxHp * 0.7 ? 0.055 : 0.03;
+        if (dropRoll < heartChance) {
+          this.spawnItem('heart', e.x, e.y);
+        } else if (dropRoll < heartChance + 0.025) {
+          this.spawnItem('bomb', e.x, e.y);
+        }
       }
       e.active = false;
     }
@@ -2048,6 +2215,16 @@ export class Game {
       gm.sprite.x = gm.x;
       gm.sprite.y = gm.y + Math.sin(this.animTime * 6 + gm.x * 0.03) * 2;
       gm.sprite.scale.set(0.8 + Math.min(gm.val, 5) * 0.08);
+    }
+  }
+  renderItems() {
+    for (const it of this.items) {
+      if (!it.active) continue;
+      it.sprite.visible = true;
+      it.sprite.x = Math.round(it.x);
+      it.sprite.y = Math.round(it.y + Math.sin(this.animTime * 5 + it.phase) * 2.5);
+      const pulse = 1.2 + Math.sin(this.animTime * 7 + it.phase) * 0.1;
+      it.sprite.scale.set(pulse);
     }
   }
   renderChests() {

@@ -341,6 +341,54 @@ def make_terrain():
     return image
 
 
+def make_props_atlas():
+    prop_kinds = ("tree", "pine", "rock", "grass", "mountain", "banner")
+    w, h = 48, 48
+    sheet = Image.new("RGBA", (w * len(prop_kinds), h), (0, 0, 0, 0))
+    for idx, kind in enumerate(prop_kinds):
+        cell = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        d = ImageDraw.Draw(cell)
+        if kind == "tree":
+            ellipse(d, (11, 37, 37, 44), (10, 14, 12, 110), outline=None)
+            rect(d, (20, 26, 27, 41), (104, 66, 38, 255))
+            line(d, [(23, 28), (23, 40)], (134, 88, 52, 255), width=1)
+            ellipse(d, (7, 10, 29, 30), (42, 98, 52, 255))
+            ellipse(d, (18, 9, 40, 29), (48, 112, 58, 255))
+            ellipse(d, (12, 4, 36, 25), (62, 136, 68, 255))
+            ellipse(d, (16, 6, 31, 18), (92, 168, 86, 255), outline=None)
+        elif kind == "pine":
+            ellipse(d, (13, 38, 35, 44), (10, 14, 12, 110), outline=None)
+            rect(d, (21, 30, 26, 42), (96, 60, 35, 255))
+            polygon(d, [(24, 16), (9, 34), (39, 34)], (36, 86, 54, 255))
+            polygon(d, [(24, 10), (12, 26), (36, 26)], (48, 108, 66, 255))
+            polygon(d, [(24, 4), (15, 18), (33, 18)], (68, 136, 82, 255))
+        elif kind == "rock":
+            ellipse(d, (7, 33, 41, 42), (10, 14, 12, 105), outline=None)
+            polygon(d, [(8, 36), (12, 20), (25, 15), (38, 22), (41, 36)], (96, 102, 108, 255))
+            polygon(d, [(13, 21), (25, 16), (33, 22), (22, 27)], (138, 146, 154, 255), outline=None)
+            polygon(d, [(6, 38), (9, 28), (18, 26), (22, 38)], (78, 84, 90, 255))
+            line(d, [(16, 36), (22, 31), (29, 36)], (56, 62, 66, 255), width=1)
+        elif kind == "grass":
+            for gx, gy, gh in ((14, 34, 10), (19, 36, 13), (24, 35, 11), (29, 37, 12), (34, 34, 9)):
+                line(d, [(gx, gy), (gx - 3, gy - gh)], (68, 134, 68, 255), width=2)
+                line(d, [(gx, gy), (gx + 3, gy - gh + 2)], (98, 168, 82, 255), width=2)
+            for fx, fy, col in ((16, 24, (242, 204, 84, 255)), (28, 25, (235, 112, 98, 255))):
+                d.rectangle((fx - 1, fy - 1, fx + 1, fy + 1), fill=col)
+        elif kind == "mountain":
+            ellipse(d, (3, 36, 45, 44), (10, 14, 12, 115), outline=None)
+            polygon(d, [(3, 40), (16, 12), (31, 40)], (76, 82, 92, 255))
+            polygon(d, [(16, 40), (30, 7), (45, 40)], (94, 102, 114, 255))
+            polygon(d, [(30, 8), (24, 20), (30, 17), (36, 21)], (226, 234, 242, 255), outline=None)
+            polygon(d, [(16, 13), (12, 22), (16, 19), (20, 22)], (206, 216, 226, 255), outline=None)
+        elif kind == "banner":
+            ellipse(d, (15, 38, 33, 44), (10, 14, 12, 105), outline=None)
+            line(d, [(20, 7), (20, 41)], (188, 152, 78, 255), width=2)
+            polygon(d, [(21, 9), (37, 11), (33, 19), (38, 27), (21, 29)], (196, 48, 44, 255))
+            line(d, [(23, 13), (33, 14)], (245, 204, 88, 255), width=2)
+            line(d, [(23, 24), (33, 24)], (245, 204, 88, 255), width=2)
+        sheet.paste(cell, (idx * w, 0))
+    return sheet
+
 def make_effects():
     slash = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(slash)
@@ -416,6 +464,23 @@ def make_effects():
     polygon(d, [(12, 4), (5, 1), (2, 4), (5, 7)], (244, 220, 157, 255))
     line(d, [(1, 4), (10, 4)], (129, 76, 40, 255), width=2)
     save(projectile, "effects/projectile.png")
+
+    heart = Image.new("RGBA", (20, 20), (0, 0, 0, 0))
+    d = ImageDraw.Draw(heart)
+    polygon(d, [(10, 17), (2, 10), (2, 5), (6, 2), (10, 6), (14, 2), (18, 5), (18, 10)], (238, 62, 84, 255))
+    polygon(d, [(10, 14), (4, 9), (4, 6), (6, 4), (10, 7), (14, 4), (16, 6), (16, 9)], (255, 112, 132, 255), outline=None)
+    d.rectangle((5, 5, 7, 7), fill=(255, 235, 240, 255))
+    save(heart, "effects/heart.png")
+
+    bomb = Image.new("RGBA", (22, 22), (0, 0, 0, 0))
+    d = ImageDraw.Draw(bomb)
+    ellipse(d, (2, 5, 19, 21), (56, 62, 74, 255), outline=(235, 196, 96, 255))
+    rect(d, (4, 12, 17, 15), (228, 72, 58, 255), outline=None)
+    ellipse(d, (6, 7, 11, 11), (156, 168, 184, 255), outline=None)
+    rect(d, (9, 2, 13, 6), (218, 176, 84, 255))
+    line(d, [(11, 2), (15, 1), (18, 3)], (245, 214, 136, 255), width=2)
+    polygon(d, [(18, 0), (19, 3), (21, 3), (19, 5), (18, 7), (17, 5), (15, 3), (17, 3)], (255, 242, 112, 255), outline=None)
+    save(bomb, "effects/bomb.png")
 
     vignette = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     pixels = []
@@ -508,6 +573,7 @@ def main():
         atlas.paste(make_enemy_sheet(enemy_id), (0, row * ENEMY_CELL[1]))
     save(atlas, "enemies/atlas.png")
     save(make_terrain(), "terrain/ground.png")
+    save(make_props_atlas(), "terrain/props.png")
     make_effects()
     print(f"Generated original pixel art in {OUT}")
 

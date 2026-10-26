@@ -8,6 +8,7 @@ const SFX_URLS = {
   evolve: new URL('../assets/sfx/evolve.ogg', import.meta.url).href,
   chest: new URL('../assets/sfx/chest.ogg', import.meta.url).href,
   gem: new URL('../assets/sfx/gem.ogg', import.meta.url).href,
+  heal: new URL('../assets/sfx/heal.ogg', import.meta.url).href,
   gameover: new URL('../assets/sfx/gameover.ogg', import.meta.url).href,
   slash: new URL('../assets/sfx/slash.wav', import.meta.url).href,
   thrust: new URL('../assets/sfx/thrust.wav', import.meta.url).href,
@@ -15,6 +16,7 @@ const SFX_URLS = {
   shoot: new URL('../assets/sfx/shoot.wav', import.meta.url).href,
   hit: new URL('../assets/sfx/hit.wav', import.meta.url).href,
   hurt: new URL('../assets/sfx/hurt.wav', import.meta.url).href,
+  bomb: new URL('../assets/sfx/bomb.wav', import.meta.url).href,
 };
 
 // Map semantic cues to uisfx (https://uisfx.com) arcade synthesizer cues
@@ -25,6 +27,7 @@ const UISFX_CUE_MAP = {
   upgrade: 'bonus',
   evolve: 'achievement',
   chest: 'reward',
+  heal: 'success',
   toggleOn: 'toggle-on',
   toggleOff: 'toggle-off',
 };
@@ -44,6 +47,8 @@ const CUE_CONFIG = {
   shoot: { vol: 0.34, minIntervalMs: 75, jitter: 0.12 },
   hit: { vol: 0.32, minIntervalMs: 65, jitter: 0.14 },
   hurt: { vol: 0.62, minIntervalMs: 180, jitter: 0.06 },
+  heal: { vol: 0.56, minIntervalMs: 100, jitter: 0.02 },
+  bomb: { vol: 0.78, minIntervalMs: 140, jitter: 0.05 },
   toggleOn: { vol: 0.40, minIntervalMs: 40, jitter: 0.0 },
   toggleOff: { vol: 0.40, minIntervalMs: 40, jitter: 0.0 },
 };

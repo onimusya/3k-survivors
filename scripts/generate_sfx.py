@@ -126,6 +126,7 @@ def main():
         "evolve.ogg": ("arcade", "achievement.ogg"),
         "chest.ogg": ("arcade", "reward.ogg"),
         "gem.ogg": ("arcade", "snap.ogg"),
+        "heal.ogg": ("arcade", "success.ogg"),
         "gameover.ogg": ("cinematic", "error.ogg"),
     }
     for dest_name, (pack, src_name) in uisfx_map.items():
@@ -140,7 +141,8 @@ def main():
     save_wav(make_bow_shot(seed=104), "shoot.wav")
     save_wav(make_impact(0.11, 210.0, 58.0, 0.018, 0.048, crack_amp=0.65, seed=105), "hit.wav")
     save_wav(make_impact(0.22, 145.0, 36.0, 0.032, 0.095, crack_amp=0.85, seed=106), "hurt.wav")
-    print(f"Generated and bundled 14 SFX files in {OUT}")
+    save_wav(make_impact(0.38, 165.0, 28.0, 0.045, 0.165, crack_amp=1.15, seed=107), "bomb.wav")
+    print(f"Generated and bundled 16 SFX files in {OUT}")
 
 
 if __name__ == "__main__":

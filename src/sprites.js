@@ -11,6 +11,8 @@ const HERO_SHEETS = {
 
 const ENEMY_ATLAS = new URL('../assets/sprites/enemies/atlas.png', import.meta.url).href;
 const TERRAIN = new URL('../assets/sprites/terrain/ground.png', import.meta.url).href;
+const PROPS_ATLAS = new URL('../assets/sprites/terrain/props.png', import.meta.url).href;
+const PROP_IDS = ['tree', 'pine', 'rock', 'grass', 'mountain', 'banner'];
 const VIGNETTE = new URL('../assets/sprites/ui/vignette.png', import.meta.url).href;
 const ICONS_ATLAS = new URL('../assets/sprites/ui/icons.png', import.meta.url).href;
 const ICON_IDS = [
@@ -27,6 +29,8 @@ const EFFECTS = {
   impact: new URL('../assets/sprites/effects/impact.png', import.meta.url).href,
   gem: new URL('../assets/sprites/effects/gem.png', import.meta.url).href,
   chest: new URL('../assets/sprites/effects/chest.png', import.meta.url).href,
+  heart: new URL('../assets/sprites/effects/heart.png', import.meta.url).href,
+  bomb: new URL('../assets/sprites/effects/bomb.png', import.meta.url).href,
   projectile: new URL('../assets/sprites/effects/projectile.png', import.meta.url).href,
 };
 
@@ -112,6 +116,11 @@ export async function loadSpriteAssets() {
   }
 
   const terrain = nearest(await Assets.load(TERRAIN));
+  const propsBase = nearest(await Assets.load(PROPS_ATLAS));
+  const props = {};
+  for (let i = 0; i < PROP_IDS.length; i++) {
+    props[PROP_IDS[i]] = frame(propsBase.source, i * 48, 0, 48, 48, `prop-${PROP_IDS[i]}`);
+  }
   const vignette = nearest(await Assets.load(VIGNETTE));
   const iconsBase = nearest(await Assets.load(ICONS_ATLAS));
   const icons = {};
@@ -123,7 +132,7 @@ export async function loadSpriteAssets() {
     effectFrames[id] = nearest(await Assets.load(url));
   }));
 
-  return { heroFrames, heroAttackFrames, enemyFrames, terrain, vignette, icons, effects: effectFrames, enemyBase };
+  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, effects: effectFrames, enemyBase };
 }
 
 export const SPRITE_MANIFEST = {
