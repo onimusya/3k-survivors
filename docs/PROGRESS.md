@@ -2,7 +2,7 @@
 
 ## 1. Current Milestone Summary
 - **Milestone:** Phase 2 — Combat Math, Pre-Game Perks & Vampire Survivors HUD/Modal Parity
-- **Pieces Passed:** **15 / 15**
+- **Pieces Passed:** **16 / 16**
 - **Measured Performance:** **60–61 FPS** sustained across 6-second stress windows with **313–320 active enemies** at `390×844` mobile viewport (target: `60 FPS / 300+ enemies`)
 - **Responsive Viewports Verified:** `390×844` (Mobile Portrait) and `844×390` (Mobile Landscape)
 - **Live HTML Dashboard:** [`../progress.html`](../progress.html)
@@ -28,6 +28,7 @@
 | 13 | Fallen in Battle Game-Over modal | `PASSED` | 2 | `Portrait + Arsenal` | `src/game.js` (`gameOver`) |
 | 14 | Pixel-art sprite & icon pipeline | `PASSED` | 2 | `Deterministic PNGs` | `scripts/generate_sprites.py`, `src/sprites.js` (`loadSpriteAssets`) |
 | 15 | 300+ enemy performance gate | `PASSED` | 6 | `60–61 FPS @ 320` | `src/game.js` (`setupPools`, `hitPool`, `slashPool`, `textPool`) |
+| 16 | Game Audio & SFX (`uisfx` + `earshot`) | `PASSED` | 1 | `14 Cues + Mute Toggle` | `src/audio.js` (`SoundManager`), `scripts/generate_sfx.py`, `assets/sfx/*` |
 
 ---
 
@@ -60,3 +61,7 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
   - Unified passive and perk stat calculations in `recomputeStats()`.
   - Added 3 pre-game Starting Perks (`Vanguard Edict`, `Imperial Aegis`, `Windfoot Mandate`) to the Hero Selection Menu.
   - Generated `16×16` pixel-art weapon/passive icon atlas (`assets/sprites/ui/icons.png`) and built the centered 12-slot HUD loadout bar, icon Level-Up cards, and `FALLEN IN BATTLE` Game-Over summary modal.
+- **`[2026-10-26]` Game Audio & SFX Integration (`uisfx` + `earshot`):**
+  - Installed `uisfx` (`CC0-1.0` audio) and created `scripts/generate_sfx.py` to bundle 8 `uisfx` `.ogg` cues (`select`, `start`, `levelup`, `upgrade`, `evolve`, `chest`, `gem`, `gameover`) and render 6 physical combat `.wav` cues (`slash`, `thrust`, `spin`, `shoot`, `hit`, `hurt`) using `earshot` Strouhal swish and Bessel membrane impact recipes.
+  - Built `SoundManager` in `src/audio.js` with WebAudio `AudioBuffer` decoding, micro-pitch jitter, per-cue cooldown throttling, and `localStorage` mute persistence.
+  - Added on-screen `SFX / MUTE` toggle buttons to both the Hero Selection Menu and the gameplay HUD.

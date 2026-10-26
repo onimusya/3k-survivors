@@ -11,7 +11,8 @@
     "deploy": "npm run build && bash scripts/deploy-pages.sh"
   },
   "dependencies": {
-    "pixi.js": "^8.22.0"
+    "pixi.js": "^8.22.0",
+    "uisfx": "^0.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

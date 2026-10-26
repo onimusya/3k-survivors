@@ -394,6 +394,7 @@ def make_effects():
     icon_ids = (
         "blade", "spear", "bow", "fan", "halberd", "daggers",
         "might", "armor", "swiftness", "cooldown", "area", "growth", "heal",
+        "sound_on", "sound_off",
     )
     icons = Image.new("RGBA", (16 * len(icon_ids), 16), (0, 0, 0, 0))
     for idx, kind in enumerate(icon_ids):
@@ -435,6 +436,14 @@ def make_effects():
         elif kind == "heal":
             rect(cd, (6, 3, 9, 12), (255, 96, 112, 255), outline=None)
             rect(cd, (3, 6, 12, 9), (255, 96, 112, 255), outline=None)
+        elif kind == "sound_on":
+            polygon(cd, [(2, 6), (5, 6), (9, 3), (9, 13), (5, 10), (2, 10)], (242, 199, 91, 255))
+            cd.arc((8, 4, 13, 12), 300, 60, fill=(107, 255, 176, 255), width=1)
+            cd.arc((9, 2, 15, 14), 300, 60, fill=(107, 255, 176, 255), width=1)
+        elif kind == "sound_off":
+            polygon(cd, [(2, 6), (5, 6), (9, 3), (9, 13), (5, 10), (2, 10)], (154, 166, 180, 255))
+            line(cd, [(11, 5), (15, 11)], (255, 107, 107, 255), width=2)
+            line(cd, [(15, 5), (11, 11)], (255, 107, 107, 255), width=2)
         icons.paste(cell, (idx * 16, 0))
     save(icons, "ui/icons.png")
 

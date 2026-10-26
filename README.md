@@ -10,6 +10,7 @@ A mobile-first, Three Kingdoms-themed action survival game inspired by *Vampire 
 - **3 Pre-Game Starting Perks (War Decrees):** Choose between **Vanguard Edict** (`+20% DMG, +10% Area`), **Imperial Aegis** (`+35 Max HP, +2 Armor`), or **Windfoot Mandate** (`+15% SPD, -10% CD, +25% XP`) before deploying.
 - **Weapon Progression (Lv 1–8) & Evolutions:** Every weapon level scales damage (`+15%/lv`), area (`+8%/lv`), cooldown (`-5%/lv`), projectile/target count (`+1` at Lv 3, 5, 7), and pierce (`+1` at Lv 4, 7). Reaching **Lv 8** with the weapon's paired passive (`Lv 1+`) unlocks its ultimate evolution via Boss Chests.
 - **Vampire Survivors-Style HUD & Modals:** Safe-area-aware top HUD with a centered **12-slot weapon & passive loadout bar**, pixel-art icon Level-Up cards with stat deltas, and a tactical Game-Over summary card.
+- **Game Audio & SFX (`uisfx` + `earshot`):** Combines CC0 arcade UI/reward sound cues from [uisfx.com](https://uisfx.com) with physical blade/spear swish and Bessel-membrane impact `.wav` recipes from [earshot](https://leonxlnx.github.io/earshot-site/), complete with micro-pitch jitter, per-cue throttling, and a persistent `localStorage` Mute Toggle (`M` key or on-screen `SFX` button).
 - **Locked 60 FPS Horde Engine:** Batched `ParticleContainer` enemy rendering, object pooling (`enemyPool`, `projPool`, `gemPool`, `hitPool`, `slashPool`, `textPool`), `SpatialHash` collision queries, and viewport-sized terrain tiling.
 
 ---
@@ -35,10 +36,11 @@ npm run build
 npm run preview
 ```
 
-### Regenerating Pixel-Art Assets
-All sprites (`assets/sprites/`) are deterministically generated from Python primitives:
+### Regenerating Pixel-Art & SFX Assets
+All sprites (`assets/sprites/`) and combat/UI audio (`assets/sfx/`) are deterministically generated:
 ```bash
 python3 scripts/generate_sprites.py
+python3 scripts/generate_sfx.py
 ```
 
 ---
@@ -59,16 +61,21 @@ Development progress, architecture, combat formulas, and upcoming milestones are
 
 ```text
 3k-survivors/
-├── assets/sprites/          # Generated pixel-art PNG sheets (heroes, enemies, terrain, effects, UI icons)
+├── assets/
+│   ├── sfx/                 # 14 bundled CC0 uisfx (.ogg) & earshot physical combat (.wav) SFX
+│   └── sprites/             # Generated pixel-art PNG sheets (heroes, enemies, terrain, effects, UI icons)
 ├── docs/                    # Engineering & development progress documentation
 │   ├── ARCHITECTURE.md
 │   ├── COMBAT_MATH.md
 │   ├── PROGRESS.md
 │   └── ROADMAP.md
 ├── scripts/
+│   ├── deploy-pages.sh      # GitHub Pages (gh-pages) deployment script
+│   ├── generate_sfx.py      # Deterministic combat WAV synthesizer + uisfx bundler
 │   └── generate_sprites.py  # Deterministic pixel-art asset generator
 ├── src/
 │   ├── main.js              # PixiJS 8 Application bootstrap (0.75x resolution, high-performance)
+│   ├── audio.js             # WebAudio SoundManager (uisfx arcade + decoded AudioBuffers + mute state)
 │   ├── game.js              # Core Game loop, UI modals, HUD, input, combat, and rendering
 │   ├── data.js              # Heroes, Starting Perks, Weapons, Evolutions, Passives, Enemies
 │   ├── sprites.js           # Texture loader and frame slicer (nearest-neighbor filtering)

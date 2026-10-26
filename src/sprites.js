@@ -16,6 +16,7 @@ const ICONS_ATLAS = new URL('../assets/sprites/ui/icons.png', import.meta.url).h
 const ICON_IDS = [
   'blade', 'spear', 'bow', 'fan', 'halberd', 'daggers',
   'might', 'armor', 'swiftness', 'cooldown', 'area', 'growth', 'heal',
+  'sound_on', 'sound_off',
 ];
 const EFFECTS = {
   slash: new URL('../assets/sprites/effects/slash.png', import.meta.url).href,

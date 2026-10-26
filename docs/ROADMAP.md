@@ -9,6 +9,8 @@
 - [x] **Phase 3 — Combat Math, Pre-Game Perks & VS Loadout Parity**
   - Weapon Lv 1–8 scaling (`getWeaponStats`), unified passive + perk stat calculations (`recomputeStats`), 3 pre-game Starting Perks (`Vanguard Edict`, `Imperial Aegis`, `Windfoot Mandate`), centered 12-slot HUD loadout bar, icon Level-Up cards, and `FALLEN IN BATTLE` Game-Over summary.
 
+- [x] **Phase 4 — Game Audio & SFX (`uisfx` + `earshot`)**
+  - Bundled CC0 `uisfx` arcade cues + `earshot` physical swish/impact `.wav` recipes (`assets/sfx/`), `SoundManager` (`src/audio.js`) with micro-pitch jitter and cooldown throttling, and persistent Mute UI toggle on Menu & HUD.
 ---
 
 ## Upcoming Backlog Tracks
@@ -26,12 +28,8 @@
   - Extract pure combat/progression math (`computePlayerStats`, `computeWeaponStats`, `canEvolveWeapon`) into `src/combat.js`.
   - Add `tests/combat.test.js` using `node:test` and `node:assert/strict` to guard weapon Lv 1–8 scaling, passive + perk compounding, evolution rules, and `SpatialHash` queries.
 
-### Track 5 — Zero-Asset Procedural WebAudio SFX
-- **Goal:** Add tactile audio feedback with zero external audio files.
-- **Scope:**
-  - Implement a lightweight WebAudio synthesizer (`src/audio.js`) for weapon swings/shots, hit sparks, XP gem pickup chime, level-up fanfare, and chest evolution.
-  - Add a mute toggle button in the top-right HUD corner.
-
+### Track 5 — Extended Audio & Ambient Battle BGM (Optional)
+- **Goal:** Add an optional low-footprint looping battle drum/guqin bed that ducks before heavy hits (`earshot` `stop_down` mix pattern).
 ### Track 6 — Timed Wave Events & Boss Variety
 - **Goal:** Deepen mid-run pacing beyond linear spawn-rate scaling.
 - **Scope:**

@@ -3,6 +3,7 @@ import { HEROES, STARTING_PERKS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEV
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets } from './sprites.js';
+import { SoundManager } from './audio.js';
 
 export class Game {
   constructor(app) {
@@ -66,9 +67,13 @@ export class Game {
     this.touchIds = new Map();
     this.shake = 0;
     this.keys = {};
-    window.addEventListener('keydown', (e) => { this.keys[e.key] = true; });
+    this.sfx = new SoundManager();
+    window.addEventListener('keydown', (e) => {
+      this.keys[e.key] = true;
+      this.sfx.unlock();
+      if (e.key === 'm' || e.key === 'M') this.toggleSound();
+    });
     window.addEventListener('keyup', (e) => { this.keys[e.key] = false; });
-
     this.fpsSamples = [];
     this.lastFpsTime = performance.now();
     this.frameCount = 0;
@@ -81,11 +86,21 @@ export class Game {
   }
 
   async start() {
-    this.assets = await loadSpriteAssets();
+    const [assets] = await Promise.all([loadSpriteAssets(), this.sfx.preload()]);
+    this.assets = assets;
     this.setupTextures();
     this.setupPools();
     this.buildMenu();
     this.app.ticker.add((t) => this.tick(t.deltaTime));
+  }
+
+  toggleSound() {
+    this.sfx.toggleMute();
+    if (this.state === 'menu') this.buildMenu();
+    else if (this.hud) {
+      this._loadoutDirty = true;
+      this.renderHudSlots();
+    }
   }
 
   setupResize() {
@@ -248,6 +263,32 @@ export class Game {
     sub.y = topSafe + (bannerH - topSafe) * 0.7;
     this.menuContainer.addChild(sub);
 
+
+    const muteBtn = new Container();
+    const muteW = 58, muteH = 22;
+    const muteBg = new Graphics();
+    muteBg.roundRect(0, 0, muteW, muteH, 4)
+      .fill({ color:0x16202b, alpha:0.95 })
+      .stroke({ color:this.sfx.enabled ? 0x6bffb0 : 0x52606e, width:1.2, alpha:0.85 });
+    muteBtn.addChild(muteBg);
+    const muteIconKey = this.sfx.enabled ? 'sound_on' : 'sound_off';
+    if (this.iconTextures?.[muteIconKey]) {
+      const mic = new Sprite(this.iconTextures[muteIconKey]);
+      mic.x = 5; mic.y = 3;
+      muteBtn.addChild(mic);
+    }
+    const muteTxt = new Text({
+      text: this.sfx.enabled ? 'SFX' : 'MUTE',
+      style: new TextStyle({ fill:this.sfx.enabled ? 0xd8f5e5 : 0x9aa6b4, fontSize:8.5, fontFamily:'monospace', fontWeight:'bold' }),
+    });
+    muteTxt.x = 24; muteTxt.y = 6;
+    muteBtn.addChild(muteTxt);
+    muteBtn.x = W - margin - muteW;
+    muteBtn.y = bannerH + (landscape ? 2 : 5);
+    muteBtn.eventMode = 'static';
+    muteBtn.cursor = 'pointer';
+    muteBtn.on('pointertap', () => this.toggleSound());
+    this.menuContainer.addChild(muteBtn);
     const section = new Text({
       text:'1. CHOOSE YOUR WARRIOR',
       style: new TextStyle({ fill:0xe7e2d2, fontSize:landscape ? 10 : 11, fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.2 }),
@@ -469,18 +510,24 @@ export class Game {
   }
 
   selectHero(hero) {
+    this.sfx.unlock();
     if (this.selectedHero.id === hero.id) return;
     this.selectedHero = hero;
+    this.sfx.play('select');
     this.buildMenu();
   }
 
   selectPerk(perk) {
+    this.sfx.unlock();
     if (this.selectedPerk?.id === perk.id) return;
     this.selectedPerk = perk;
+    this.sfx.play('select');
     this.buildMenu();
   }
 
   startRun(hero, perk = this.selectedPerk) {
+    this.sfx.unlock();
+    this.sfx.play('start');
     this.hero = hero;
     this.perk = perk || this.selectedPerk || STARTING_PERKS[0];
     this.menuContainer.visible = false;
@@ -603,6 +650,8 @@ export class Game {
 
     this.hudKills = new Text({ text:'K:0 · FOES:0', style: new TextStyle({ fill:0xc9d1da, fontSize:10, fontFamily:'monospace', fontWeight:'bold', stroke:{ color:0x090c12, width:2 } }) });
     this.hud.addChild(this.hudKills);
+    this.hudPerk = new Text({ text:'', style: new TextStyle({ fill:0xf5c84c, fontSize:9.5, fontFamily:'monospace', fontWeight:'bold', stroke:{ color:0x090c12, width:2 } }) });
+    this.hud.addChild(this.hudPerk);
 
     this.hudSlots = new Container();
     this.hud.addChild(this.hudSlots);
@@ -623,6 +672,17 @@ export class Game {
       this.hudSlotsBadges.addChild(badge);
       return { icon, badge };
     });
+    this.hudMuteBtn = new Container();
+    this.hudMuteBg = new Graphics();
+    this.hudMuteIcon = new Sprite();
+    this.hudMuteBtn.addChild(this.hudMuteBg, this.hudMuteIcon);
+    this.hudMuteBtn.eventMode = 'static';
+    this.hudMuteBtn.cursor = 'pointer';
+    this.hudMuteBtn.on('pointertap', (e) => {
+      e.stopPropagation?.();
+      this.toggleSound();
+    });
+    this.hudSlots.addChild(this.hudMuteBtn);
 
     // joystick base
     if (this.joyBase) this.joyBase.destroy();
@@ -637,6 +697,7 @@ export class Game {
     this._lastHudText = '';
     this._lastHudTime = '';
     this._lastHudKills = '';
+    this._lastHudPerk = '';
     this._joyWasActive = true;
     this._loadoutDirty = true;
 
@@ -674,6 +735,8 @@ export class Game {
     this.hudTime.x = W / 2; this.hudTime.y = hudTop + 29;
     this.hudKills.anchor = { x:1, y: 0 };
     this.hudKills.x = W - 18; this.hudKills.y = hudTop + 32;
+    this.hudPerk.anchor = { x:1, y: 0 };
+    this.hudPerk.x = W - 18; this.hudPerk.y = hudTop + 17;
     this._lastHpQuant = -1;
     this._lastXpQuant = -1;
     this._loadoutDirty = true;
@@ -685,10 +748,9 @@ export class Game {
     const hudTop = this.hudTop ?? (this.H > this.W ? 34 : 8);
     const slotY = hudTop + 49;
     const slotSize = 22;
-    const step = 26;
-    const groupGap = 12;
-    const totalW = 6 * step - (step - slotSize) + groupGap + 6 * step - (step - slotSize);
-    const startX = Math.max(16, Math.round((this.W - totalW) / 2));
+    const step = 25;
+    const groupGap = 10;
+    const startX = 18;
     const bg = this.hudSlotsBg;
     bg.clear();
 
@@ -761,6 +823,21 @@ export class Game {
         item.badge.visible = false;
       }
     }
+    if (this.hudMuteBtn) {
+      const mx = this.W - 18 - slotSize;
+      this.hudMuteBtn.x = mx;
+      this.hudMuteBtn.y = slotY;
+      this.hudMuteBg.clear();
+      this.hudMuteBg.rect(0, 0, slotSize, slotSize)
+        .fill({ color:0x131d28, alpha:0.96 })
+        .stroke({ color:this.sfx.enabled ? 0x6bffb0 : 0x52606e, width:1.3, alpha:0.9 });
+      const iconKey = this.sfx.enabled ? 'sound_on' : 'sound_off';
+      if (this.iconTextures?.[iconKey]) {
+        this.hudMuteIcon.texture = this.iconTextures[iconKey];
+        this.hudMuteIcon.x = 3;
+        this.hudMuteIcon.y = 3;
+      }
+    }
     this._loadoutDirty = false;
   }
 
@@ -789,6 +866,7 @@ export class Game {
   }
 
   onPointerDown(e) {
+    this.sfx.unlock();
     const r = this.app.canvas.getBoundingClientRect();
     const x = (e.clientX - r.left) * (this.W / r.width);
     const y = (e.clientY - r.top) * (this.H / r.height);
@@ -1087,6 +1165,7 @@ export class Game {
         }
       }
       // visual slash
+      this.sfx.play('slash');
       this.spawnSlash(p.x, p.y, wd ? wd.color : 0x5fd38d, area);
     } else if (type === 'thrust') {
       // line in facing direction (joystick or nearest enemy)
@@ -1106,15 +1185,18 @@ export class Game {
           if (perp < 20*area) this.damageEnemy(e, dmg, p.x, p.y);
         }
       }
+      this.sfx.play('thrust');
       this.spawnThrust(p.x, p.y, ang, len, wd ? wd.color : 0xd35f5f);
     } else if (type === 'spin') {
       this.beginAttack(p.direction, 0.34);
       for (const e of this.enemies) {
         if (dist2(e.x,e.y,p.x,p.y) < (110*area)**2) this.damageEnemy(e, dmg, p.x, p.y);
       }
+      this.sfx.play('spin');
       this.spawnSpin(p.x, p.y, area, wd ? wd.color : 0xd38f5f);
     } else if (type === 'projectile' || type === 'magic_bolt') {
       // fire at nearest enemy (or multiple)
+      this.sfx.play('shoot');
       const count = (wd ? 5 : (w.id === 'daggers' ? 2 : 1)) + bonusCount;
       const pierce = (wd ? 3 : 1) + bonusPierce;
       const targets = this.nearestEnemies(p.x, p.y, count);
@@ -1293,6 +1375,7 @@ export class Game {
         if (d2 < 14*14) {
           this.xp += g.val * p.xpMul;
           g.active = false;
+          this.sfx.play('gem');
         }
       }
       // auto magnet range
@@ -1321,6 +1404,7 @@ export class Game {
     p.hp -= actual;
     p.invuln = 0.35;
     this.shake = 10;
+    this.sfx.play('hurt');
     this.flashScreen(0xff0000, 0.25);
     if (p.hp <= 0) {
       p.hp = 0;
@@ -1332,6 +1416,7 @@ export class Game {
     const armor = 0;
     e.hp -= dmg;
     e.hitFlash = 0.1;
+    this.sfx.play('hit');
     this.spawnHitSpark(e.x, e.y, e.color, e.isBoss ? 0.68 : 0.38);
     if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
       this._floatTextThisFrame++;
@@ -1394,12 +1479,14 @@ export class Game {
         w.evoId = base.evo;
         evolved = true;
         this._loadoutDirty = true;
+        this.sfx.play('evolve');
         this.showFloatText(c.x, c.y, 'EVOLVED: ' + EVOLUTIONS[base.evo].name, 0xffd700);
       }
     }
     if (!evolved) {
       // random upgrade
       this.gold += 10;
+      this.sfx.play('chest');
       this.showFloatText(c.x, c.y, '+10 Gold', 0xffd700);
     }
     // remove chest
@@ -1455,6 +1542,7 @@ export class Game {
     this.xp -= this.xpNext;
     this.xpNext = LEVEL_XP(this.level);
     this.state = 'levelup';
+    this.sfx.play('levelup');
     this.showLevelUpUI();
   }
 
@@ -1620,6 +1708,7 @@ export class Game {
   }
 
   pickChoice(ch) {
+    this.sfx.play('upgrade');
     ch.apply();
     if (this._loadoutDirty) this.renderHudSlots();
     if (this.luContainer) {
@@ -1814,11 +1903,15 @@ export class Game {
       this.hudXp.clear();
       if (xpRatio > 0) this.hudXp.roundRect(18, hudTop + 7, barW * xpRatio, 8, 3).fill(0x4c8dff);
     }
-    const perkTag = this.perk ? ` · ${this.perk.short}` : '';
-    const heroText = `${this.hero.name.toUpperCase()} · LV ${this.level}${perkTag}`;
+    const heroText = `${this.hero.name.toUpperCase()} · LV ${this.level}`;
     if (heroText !== this._lastHudText) {
       this._lastHudText = heroText;
       this.hudText.text = heroText;
+    }
+    const perkText = this.perk ? `★ PERK: ${this.perk.short}` : '';
+    if (perkText !== this._lastHudPerk) {
+      this._lastHudPerk = perkText;
+      this.hudPerk.text = perkText;
     }
     const mins = Math.floor(this.time / 60);
     const secs = Math.floor(this.time % 60);
@@ -1854,6 +1947,7 @@ export class Game {
 
   gameOver() {
     this.state = 'gameover';
+    this.sfx.play('gameover');
     if (this.goContainer) this.goContainer.destroy({ children:true });
     this.goContainer = new Container();
     this.uiLayer.addChild(this.goContainer);
