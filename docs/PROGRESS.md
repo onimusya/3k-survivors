@@ -14,8 +14,8 @@
 | # | Piece | State | Rounds | Score / Result | Key Files & Symbols |
 |---:|---|---|---:|---|---|
 | 1 | Core engine + responsive viewport | `PASSED` | 2 | `60 FPS` | `src/main.js`, `src/game.js` (`applyViewportSize`, `tick`) |
-| 2 | Input / touch joystick + keyboard | `PASSED` | 2 | `Idle-cached` | `src/game.js` (`setupInput`, `onPointerDown/Move/Up`) |
-| 3 | Player movement + camera lerp | `PASSED` | 1 | `OK` | `src/game.js` (`updatePlaying`, `renderPlayer`) |
+| 2 | Input / floating touch joystick + keyboard | `PASSED` | 3 | `Full-screen thumb anchor` | `src/game.js` (`setupInput`, `onPointerDown/Move/Up`) |
+| 3 | Player movement + obstacle collision | `PASSED` | 2 | `Tree/Rock/Mountain block` | `src/game.js` (`updatePlaying`, `resolvePropCollisions`, `renderPlayer`) |
 | 4 | Enemy hordes + staggered ranged AI | `PASSED` | 4 | `60 FPS @ 319` | `src/game.js` (`spawnEnemy`, `updateEnemies`, `renderEnemies`) |
 | 5 | Weapon Lv 1–8 scaling | `PASSED` | 2 | `+15% DMG / +Proj` | `src/game.js` (`getWeaponStats`, `fireWeapon`, `describeWeaponUpgrade`) |
 | 6 | Unified passive stat math (all 6) | `PASSED` | 2 | `Verified` | `src/game.js` (`recomputeStats`, `applyPassive`), `src/data.js` (`PASSIVES`) |
@@ -74,3 +74,6 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
 - **`[2026-10-26]` Battlefield Decorations & Heart/Bomb Item Drops:**
   - Generated `assets/sprites/terrain/props.png` (`tree`, `pine`, `rock`, `grass`, `mountain`, `banner`) and `heart.png` / `bomb.png` pickup sprites in `scripts/generate_sprites.py` plus `bomb.wav` and `heal.ogg` in `scripts/generate_sfx.py`.
   - Implemented a 48-prop toroidal wrap-around decoration layer (`propLayer`) and pooled `Heart` (`+30 HP` heal) + `Bomb` (`240px` radius `85 * dmgMul` AoE blast + double shockwave + camera shake) drops in `src/game.js`, maintaining **60–61 FPS** with 310+ active enemies.
+- **`[2026-10-26]` Solid Obstacle Collision & Full-Screen Floating Touch Joystick:**
+  - Added circular obstacle collision (`resolvePropCollisions`) for `tree` (`r=17`), `pine` (`r=15`), `rock` (`r=17`), and `mountain` (`r=25`) props while keeping `grass` walkable.
+  - Updated `onPointerDown` and `updatePlaying` so the mobile touch joystick anchors dynamically wherever the player places their thumb on screen (left, center, or right) and hides cleanly on release instead of sticking to the bottom-left corner.

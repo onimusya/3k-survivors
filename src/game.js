@@ -647,6 +647,7 @@ export class Game {
       const cols = 8, rows = 6;
       const span = 1600;
       const cellW = span / cols, cellH = span / rows;
+      const solidRadii = { tree: 17, pine: 15, rock: 17, mountain: 25 };
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
@@ -657,7 +658,8 @@ export class Game {
           const sc = kind === 'mountain' || kind === 'tree' || kind === 'pine' ? 1.5 : (kind === 'rock' || kind === 'banner' ? 1.25 : 1.0);
           sprite.scale.set(sc);
           this.propLayer.addChild(sprite);
-          this.props.push({ kind, x: 0, y: 0, cellW, cellH, idx, r, c, sprite });
+          const radius = solidRadii[kind] || 0;
+          this.props.push({ kind, solid: radius > 0, radius, x: 0, y: 0, cellW, cellH, idx, r, c, sprite });
         }
       }
     }
@@ -667,13 +669,32 @@ export class Game {
       const jy = (((pr.idx * 41 + 53) % 89) / 89 - 0.5) * pr.cellH * 0.72;
       let x = -half + (pr.c + 0.5) * pr.cellW + jx;
       let y = -half + (pr.r + 0.5) * pr.cellH + jy;
-      if (Math.hypot(x, y) < 85) {
-        x += x >= 0 ? 95 : -95;
+      if (Math.hypot(x, y) < 105) {
+        x += x >= 0 ? 110 : -110;
       }
       pr.x = Math.round(x);
       pr.y = Math.round(y);
       pr.sprite.x = pr.x;
       pr.sprite.y = pr.y;
+    }
+  }
+
+  resolvePropCollisions(entity, entityRadius = 12) {
+    for (const pr of this.props) {
+      if (!pr.solid) continue;
+      const cy = pr.y - 6;
+      const dx = entity.x - pr.x;
+      const dy = entity.y - cy;
+      const minDist = entityRadius + pr.radius;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < minDist * minDist) {
+        const d = Math.sqrt(d2) || 0.001;
+        const overlap = minDist - d;
+        const nx = d > 0.01 ? dx / d : 1;
+        const ny = d > 0.01 ? dy / d : 0;
+        entity.x += nx * overlap;
+        entity.y += ny * overlap;
+      }
     }
   }
 
@@ -799,12 +820,13 @@ export class Game {
     this.hudW = hudW;
 
     const joyR = 52;
-    const jx = 72, jy = H - (portrait ? 84 : 68);
-    this.joyOrigin = { x:jx, y:jy, r:joyR };
-    this.joyBase.clear();
-    this.joyBase.circle(jx, jy, joyR).fill({ color:0xffffff, alpha:0.035 }).stroke({ color:0xffffff, alpha:0.12, width:1.5 });
-    this.joyKnob.clear();
-    this.joyKnob.circle(jx, jy, 21).fill({ color:0xffffff, alpha:0.14 }).stroke({ color:0xffffff, alpha:0.2, width:1 });
+    if (!this.joyOrigin) {
+      this.joyOrigin = { x: Math.round(W / 2), y: Math.round(H * 0.78), r: joyR };
+    }
+    if (!this.joystick.active) {
+      this.joyBase.clear();
+      this.joyKnob.clear();
+    }
 
     this.hudPanel.clear();
     this.hudPanel.roundRect(hudX, hudTop, hudW, 78, 8)
@@ -962,18 +984,20 @@ export class Game {
     const r = this.app.canvas.getBoundingClientRect();
     const x = (e.clientX - r.left) * (this.W / r.width);
     const y = (e.clientY - r.top) * (this.H / r.height);
-    if (x < this.W * 0.5) {
-      // joystick
+    this.rightTap = { x, y, t: performance.now() };
+    if (this.state !== 'playing') return;
+    const hudBottom = (this.hudTop ?? (this.H > this.W ? 34 : 8)) + 78;
+    const inHud = y <= hudBottom && x >= (this.hudX ?? 8) && x <= (this.hudX ?? 8) + (this.hudW ?? (this.W - 16));
+    if (!inHud && !this.joystick.active) {
       this.joystick.active = true;
       this.joystick.id = e.pointerId;
-      this.joystick.originX = x;
-      this.joystick.originY = y;
+      this.joystick.originX = Math.round(x);
+      this.joystick.originY = Math.round(y);
+      this.joyOrigin = { x: this.joystick.originX, y: this.joystick.originY, r: 52 };
       this.joystick.curX = x;
       this.joystick.curY = y;
-      this.joystick.x = 0; this.joystick.y = 0;
-    } else {
-      // right side tap: could be interact chest; handled in tick
-      this.rightTap = { x, y, t: performance.now() };
+      this.joystick.x = 0;
+      this.joystick.y = 0;
     }
   }
   onPointerMove(e) {
@@ -1053,7 +1077,7 @@ export class Game {
     p.vy = my * spd;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-
+    this.resolvePropCollisions(p, 12);
     // camera
     this.camX += (p.x - this.camX) * 0.15;
     this.camY += (p.y - this.camY) * 0.15;
@@ -1079,18 +1103,16 @@ export class Game {
     // update joystick knob visual only on active touch or state transition
     this.updateProps();
     if (this.joystick.active) {
-      const kx = this.joystick.originX + this.joystick.x * 60;
-      const ky = this.joystick.originY + this.joystick.y * 60;
+      const kx = Math.round(this.joystick.originX + this.joystick.x * 52);
+      const ky = Math.round(this.joystick.originY + this.joystick.y * 52);
       this.joyKnob.clear();
-      this.joyKnob.circle(kx, ky, 22).fill({ color:0xffffff, alpha:0.2 });
+      this.joyKnob.circle(kx, ky, 22).fill({ color:0xffffff, alpha:0.24 }).stroke({ color:0xf5c84c, alpha:0.45, width:1.5 });
       this.joyBase.clear();
-      this.joyBase.circle(this.joystick.originX, this.joystick.originY, 52).fill({ color:0xffffff, alpha:0.05 }).stroke({ color:0xffffff, alpha:0.14, width:1.5 });
+      this.joyBase.circle(this.joystick.originX, this.joystick.originY, 52).fill({ color:0xffffff, alpha:0.06 }).stroke({ color:0xffffff, alpha:0.2, width:1.5 });
       this._joyWasActive = true;
     } else if (this._joyWasActive) {
       this.joyKnob.clear();
-      this.joyKnob.circle(this.joyOrigin.x, this.joyOrigin.y, 21).fill({ color:0xffffff, alpha:0.14 });
       this.joyBase.clear();
-      this.joyBase.circle(this.joyOrigin.x, this.joyOrigin.y, 52).fill({ color:0xffffff, alpha:0.035 }).stroke({ color:0xffffff, alpha:0.12, width:1.5 });
       this._joyWasActive = false;
     }
 
@@ -1184,6 +1206,9 @@ export class Game {
     it.kind = kind;
     it.x = Math.round(x);
     it.y = Math.round(y);
+    this.resolvePropCollisions(it, 12);
+    it.x = Math.round(it.x);
+    it.y = Math.round(it.y);
     it.magnet = false;
     it.phase = Math.random() * Math.PI * 2;
     it.sprite.texture = kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart;
@@ -1584,12 +1609,22 @@ export class Game {
         this.items.splice(i, 1);
       }
     }
-    // chests interact
+    // chests interact (walk over chest or tap chest)
+    for (let i = this.chests.length - 1; i >= 0; i--) {
+      const c = this.chests[i];
+      if (dist2(c.x, c.y, p.x, p.y) < 34 * 34) {
+        this.openChest(c);
+      }
+    }
     if (this.rightTap) {
       const rt = this.rightTap;
       this.rightTap = null;
-      for (const c of this.chests) {
-        if (dist2(c.x, c.y, rt.x + this.camX - this.W/2, rt.y + this.camY - this.H/2) < 60*60) {
+      const ws = this.worldScale || 1;
+      const tapWX = (rt.x - this.W / 2) / ws + this.camX;
+      const tapWY = (rt.y - this.H / 2) / ws + this.camY;
+      for (let i = this.chests.length - 1; i >= 0; i--) {
+        const c = this.chests[i];
+        if (dist2(c.x, c.y, tapWX, tapWY) < 60 * 60) {
           this.openChest(c);
         }
       }

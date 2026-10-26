@@ -31,8 +31,8 @@
 <table>
   <tr><th>Piece</th><th>State</th><th>Rounds</th><th>Score</th><th>Biggest remaining gap</th></tr>
   <tr><td>Core engine + multi-res UI scaling</td><td class="state-PASSED">PASSED</td><td>3</td><td>1.0x Res + 2.0x Text</td><td>None</td></tr>
-  <tr><td>Input / touch joystick</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
-  <tr><td>Player movement + camera</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
+  <tr><td>Input / floating touch joystick</td><td class="state-PASSED">PASSED</td><td>2</td><td>Full-screen thumb anchor</td><td>None</td></tr>
+  <tr><td>Player movement + obstacle collision</td><td class="state-PASSED">PASSED</td><td>2</td><td>Tree/Rock/Mountain block</td><td>None</td></tr>
   <tr><td>Enemy hordes + AI</td><td class="state-PASSED">PASSED</td><td>4</td><td>60–61 FPS @316</td><td>None</td></tr>
   <tr><td>Combat / weapons (Lv 1–8 scaling)</td><td class="state-PASSED">PASSED</td><td>2</td><td>+15% DMG / +Proj</td><td>None</td></tr>
   <tr><td>Weapon attack &amp; hit VFX (6 pools)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Slash/Spear/Spin/Ring/Spark</td><td>None</td></tr>
@@ -61,6 +61,7 @@
   <div>[2026-10-26] Integrated Game Audio &amp; SFX (uisfx CC0 arcade cues + earshot physical swish/impact WAV recipes in assets/sfx/, SoundManager in src/audio.js, and persistent Mute UI toggle on Menu &amp; HUD)</div>
   <div>[2026-10-26] Upgraded renderer to 1.0x native resolution + 2.0x HiDPI TextStyle + roundPixels + CSS-composited terrain, responsive multi-resolution UI/world scaling (390×844, 844×390, 1280×800), and 6-pool weapon/hit VFX (directional crescent slash + echo, stepped spear lance + tip shockwave, counter-rotating whirlwind rings, directional hit sparks, enemy hit squash-stretch)</div>
   <div>[2026-10-26] Added toroidal scrolling battlefield decorations (trees, pines, rocks, grass, mountains, war banners in propLayer) and random/periodic Heart (+30 HP) &amp; Thunder Bomb (240px AoE explosion + shockwave + camera shake) item drops</div>
+  <div>[2026-10-26] Added solid obstacle collision blocking for trees, pines, rocks, and mountains (resolvePropCollisions) and converted mobile navigation controller to a full-screen floating joystick that anchors at any thumb touch point</div>
 </div>
 </body>
 </html>
