@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -62,10 +62,15 @@ export class Game {
     this.selectedHero = HEROES[0];
     this.perk = STARTING_PERKS[0];
     this.selectedPerk = STARTING_PERKS[0];
+    this.selectedMapIndex = 0;
+    this.mapIndex = 0;
+    this.stageIndex = 0;
+    this.stageProgress = 0;
+    this.currentWave = 1;
+    this.stageBoss = null;
     this.player = null;
     this.weapons = []; // {id, level, ...}
     this.passives = {}; // id -> level
-
     this.xp = 0;
     this.level = 1;
     this.xpNext = LEVEL_XP(1);
@@ -333,6 +338,28 @@ export class Game {
     muteBtn.cursor = 'pointer';
     muteBtn.on('pointertap', () => this.toggleSound());
     this.menuContainer.addChild(muteBtn);
+    const curMap = CAMPAIGN_MAPS[this.selectedMapIndex || 0] || CAMPAIGN_MAPS[0];
+    const mapBtn = new Container();
+    const mapBtnW = Math.round(112 * s), mapBtnH = Math.round(22 * s);
+    const mapBg = new Graphics();
+    mapBg.roundRect(0, 0, mapBtnW, mapBtnH, 4)
+      .fill({ color:0x16202b, alpha:0.95 })
+      .stroke({ color:0xf5c84c, width:1.2, alpha:0.85 });
+    mapBtn.addChild(mapBg);
+    const mapTxt = new Text({
+      text: `MAP ${(this.selectedMapIndex || 0) + 1}: ${curMap.short}`,
+      style: new TextStyle({ fill:0xfff3c4, fontSize:Math.round(8.5 * s), fontFamily:'monospace', fontWeight:'bold' }),
+    });
+    mapTxt.anchor.set(0.5);
+    mapTxt.x = Math.round(mapBtnW / 2);
+    mapTxt.y = Math.round(mapBtnH / 2);
+    mapBtn.addChild(mapTxt);
+    mapBtn.x = gridX;
+    mapBtn.y = Math.round(bannerH + extraY + (landscape ? 2 : 5) * s);
+    mapBtn.eventMode = 'static';
+    mapBtn.cursor = 'pointer';
+    mapBtn.on('pointertap', () => this.cycleMap());
+    this.menuContainer.addChild(mapBtn);
 
     const section = new Text({
       text:'1. CHOOSE YOUR WARRIOR',
@@ -564,18 +591,46 @@ export class Game {
     this.buildMenu();
   }
 
-  startRun(hero, perk = this.selectedPerk) {
+  cycleMap() {
+    this.sfx.unlock();
+    this.selectedMapIndex = ((this.selectedMapIndex || 0) + 1) % CAMPAIGN_MAPS.length;
+    this.sfx.play('select');
+    this.buildMenu();
+  }
+
+  getStageSpec() {
+    const map = CAMPAIGN_MAPS[this.mapIndex] || CAMPAIGN_MAPS[0];
+    const stage = map.levels[this.stageIndex] || map.levels[0];
+    return {
+      map,
+      stage,
+      mapNum: this.mapIndex + 1,
+      levelNum: this.stageIndex + 1,
+      totalDuration: stage.waves * stage.waveDuration,
+    };
+  }
+
+  applyMapTheme() {
+    const { map } = this.getStageSpec();
+    if (this.appEl) {
+      this.appEl.style.backgroundColor = map.bgColor || '#1e241b';
+      this.appEl.style.filter = map.bgFilter || 'none';
+    }
+  }
+
+  startRun(hero, perk = this.selectedPerk, mapIndex = this.selectedMapIndex) {
     this.sfx.unlock();
     this.sfx.play('start');
     this.hero = hero;
     this.perk = perk || this.selectedPerk || STARTING_PERKS[0];
+    this.mapIndex = mapIndex ?? this.selectedMapIndex ?? 0;
+    this.stageIndex = 0;
     this.menuContainer.visible = false;
     if (this.gameOverContainer) this.gameOverContainer.visible = false;
     this.resetRun();
     this.state = 'playing';
     this.buildHud();
   }
-
   resetRun() {
     // clear world
     for (const e of this.enemies) this.enemyPool.release(e);
@@ -595,12 +650,15 @@ export class Game {
 
     this.time = 0;
     this.itemTimer = 14;
+    this.stageProgress = 0;
+    this.currentWave = 1;
+    this.stageBoss = null;
     this.kills = 0;
     this.gold = 0;
     this.xp = 0;
     this.level = 1;
     this.xpNext = LEVEL_XP(1);
-
+    this.applyMapTheme();
     const w = WEAPONS[hero_weapon(this.hero)];
     this.weapons = [{ id: this.hero.weapon, level:1, data: w, evo:false }];
     this.passives = {};
@@ -639,15 +697,16 @@ export class Game {
 
   setupProps() {
     if (!this.propTextures) return;
+    const { map } = this.getStageSpec();
+    const propOrder = map.propOrder || [
+      'grass', 'tree', 'rock', 'grass', 'pine', 'mountain',
+      'rock', 'grass', 'tree', 'banner', 'pine', 'grass',
+    ];
+    const solidRadii = { tree: 17, pine: 15, rock: 17, mountain: 25 };
     if (this.props.length === 0) {
-      const propOrder = [
-        'grass', 'tree', 'rock', 'grass', 'pine', 'mountain',
-        'rock', 'grass', 'tree', 'banner', 'pine', 'grass',
-      ];
       const cols = 8, rows = 6;
       const span = 1600;
       const cellW = span / cols, cellH = span / rows;
-      const solidRadii = { tree: 17, pine: 15, rock: 17, mountain: 25 };
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
@@ -662,15 +721,26 @@ export class Game {
           this.props.push({ kind, solid: radius > 0, radius, x: 0, y: 0, cellW, cellH, idx, r, c, sprite });
         }
       }
+    } else {
+      for (const pr of this.props) {
+        const kind = propOrder[(pr.idx * 7 + pr.r * 3) % propOrder.length];
+        pr.kind = kind;
+        pr.radius = solidRadii[kind] || 0;
+        pr.solid = pr.radius > 0;
+        pr.sprite.texture = this.propTextures[kind] || this.propTextures.tree;
+        const sc = kind === 'mountain' || kind === 'tree' || kind === 'pine' ? 1.5 : (kind === 'rock' || kind === 'banner' ? 1.25 : 1.0);
+        pr.sprite.scale.set(sc);
+      }
     }
     const half = 800;
+    const cx = this.camX || 0, cy = this.camY || 0;
     for (const pr of this.props) {
       const jx = (((pr.idx * 73 + 19) % 97) / 97 - 0.5) * pr.cellW * 0.72;
       const jy = (((pr.idx * 41 + 53) % 89) / 89 - 0.5) * pr.cellH * 0.72;
-      let x = -half + (pr.c + 0.5) * pr.cellW + jx;
-      let y = -half + (pr.r + 0.5) * pr.cellH + jy;
-      if (Math.hypot(x, y) < 105) {
-        x += x >= 0 ? 110 : -110;
+      let x = cx - half + (pr.c + 0.5) * pr.cellW + jx;
+      let y = cy - half + (pr.r + 0.5) * pr.cellH + jy;
+      if (Math.hypot(x - cx, y - cy) < 105) {
+        x += x >= cx ? 110 : -110;
       }
       pr.x = Math.round(x);
       pr.y = Math.round(y);
@@ -744,6 +814,16 @@ export class Game {
     this.hud.addChild(this.hudXpBg);
     this.hudXp = new Graphics();
     this.hud.addChild(this.hudXp);
+    this.hudWaveBg = new Graphics();
+    this.hud.addChild(this.hudWaveBg);
+    this.hudWaveFill = new Graphics();
+    this.hud.addChild(this.hudWaveFill);
+    this.hudWaveText = new Text({
+      text: '',
+      style: new TextStyle({ fill: 0xffffff, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold', stroke: { color: 0x06080c, width: 2 } }),
+    });
+    this.hudWaveText.anchor.set(0.5);
+    this.hud.addChild(this.hudWaveText);
 
     this.hudText = new Text({ text:'', style: new TextStyle({ fill:0xf2eee2, fontSize:11, fontFamily:'monospace', fontWeight:'bold', stroke:{ color:0x090c12, width:2 } }) });
     this.hud.addChild(this.hudText);
@@ -797,6 +877,9 @@ export class Game {
 
     this._lastHpQuant = -1;
     this._lastXpQuant = -1;
+    this._lastWaveQuant = -1;
+    this._lastWaveBossMode = null;
+    this._lastHudWaveText = '';
     this._lastHudText = '';
     this._lastHudTime = '';
     this._lastHudKills = '';
@@ -829,7 +912,7 @@ export class Game {
     }
 
     this.hudPanel.clear();
-    this.hudPanel.roundRect(hudX, hudTop, hudW, 78, 8)
+    this.hudPanel.roundRect(hudX, hudTop, hudW, 92, 8)
       .fill({ color:0x070b10, alpha:0.86 })
       .stroke({ color:0x8f7a3e, width:1, alpha:0.55 });
 
@@ -838,19 +921,29 @@ export class Game {
     this.hudBarX = barX;
     this.hudBarW = barW;
     this.hudXpBg.clear();
-    this.hudXpBg.roundRect(barX, hudTop + 7, barW, 8, 3).fill(0x151b29).stroke({ color:0xd4a017, width:1, alpha:0.75 });
+    this.hudXpBg.roundRect(barX, hudTop + 6, barW, 7, 3).fill(0x151b29).stroke({ color:0xd4a017, width:1, alpha:0.75 });
     this.hudHpBg.clear();
-    this.hudHpBg.roundRect(barX, hudTop + 20, Math.round(Math.min(136, barW * 0.42)), 6, 2).fill(0x2b1418);
+    this.hudHpBg.roundRect(barX, hudTop + 18, Math.round(Math.min(136, barW * 0.42)), 6, 2).fill(0x2b1418);
 
-    this.hudText.x = barX; this.hudText.y = hudTop + 31;
+    this.hudWaveBg.clear();
+    this.hudWaveBg.roundRect(barX, hudTop + 29, barW, 11, 3)
+      .fill(0x121824)
+      .stroke({ color:0x607084, width:1, alpha:0.8 });
+    this.hudWaveBg.moveTo(Math.round(barX + barW / 3), hudTop + 29).lineTo(Math.round(barX + barW / 3), hudTop + 40).stroke({ color:0x607084, width:1, alpha:0.7 });
+    this.hudWaveBg.moveTo(Math.round(barX + (barW * 2) / 3), hudTop + 29).lineTo(Math.round(barX + (barW * 2) / 3), hudTop + 40).stroke({ color:0x607084, width:1, alpha:0.7 });
+    this.hudWaveText.x = Math.round(W / 2);
+    this.hudWaveText.y = Math.round(hudTop + 34.5);
+
+    this.hudText.x = barX; this.hudText.y = hudTop + 44;
     this.hudTime.anchor = { x:0.5, y: 0 };
-    this.hudTime.x = Math.round(W / 2); this.hudTime.y = hudTop + 29;
+    this.hudTime.x = Math.round(W / 2); this.hudTime.y = hudTop + 42;
     this.hudKills.anchor = { x:1, y: 0 };
-    this.hudKills.x = barX + barW; this.hudKills.y = hudTop + 32;
+    this.hudKills.x = barX + barW; this.hudKills.y = hudTop + 45;
     this.hudPerk.anchor = { x:1, y: 0 };
-    this.hudPerk.x = barX + barW; this.hudPerk.y = hudTop + 17;
+    this.hudPerk.x = barX + barW; this.hudPerk.y = hudTop + 16;
     this._lastHpQuant = -1;
     this._lastXpQuant = -1;
+    this._lastWaveQuant = -1;
     this._loadoutDirty = true;
     this.renderHudSlots();
   }
@@ -858,7 +951,7 @@ export class Game {
   renderHudSlots() {
     if (!this.hudSlots || !this.hudSlotsBg) return;
     const hudTop = this.hudTop ?? (this.H > this.W ? 34 : 8);
-    const slotY = hudTop + 49;
+    const slotY = hudTop + 62;
     const slotSize = 22;
     const step = 25;
     const groupGap = 10;
@@ -986,7 +1079,7 @@ export class Game {
     const y = (e.clientY - r.top) * (this.H / r.height);
     this.rightTap = { x, y, t: performance.now() };
     if (this.state !== 'playing') return;
-    const hudBottom = (this.hudTop ?? (this.H > this.W ? 34 : 8)) + 78;
+    const hudBottom = (this.hudTop ?? (this.H > this.W ? 34 : 8)) + 92;
     const inHud = y <= hudBottom && x >= (this.hudX ?? 8) && x <= (this.hudX ?? 8) + (this.hudW ?? (this.W - 16));
     if (!inHud && !this.joystick.active) {
       this.joystick.active = true;
@@ -1160,17 +1253,21 @@ export class Game {
   }
 
   handleSpawns(dt) {
-    // spawn rate increases over time
+    const { map, stage } = this.getStageSpec();
+    this.updateStageProgression(dt, map, stage);
+
+    // spawn rate increases with stage spawnMul and time
     this.spawnTimer = (this.spawnTimer || 0) - dt;
     if (this.spawnTimer <= 0) {
-      this.spawnTimer = Math.max(0.05, 0.6 - this.time * 0.005);
-      const count = 1 + Math.floor(this.time / 60);
+      const baseInterval = Math.max(0.05, 0.6 - this.time * 0.004);
+      this.spawnTimer = Math.max(0.04, baseInterval / (stage.spawnMul || 1));
+      const count = 1 + Math.floor(this.time / 60) + (this.currentWave - 1);
       for (let i = 0; i < count; i++) this.spawnEnemy();
     }
-    // elite boss every 2 min
-    this.bossTimer = (this.bossTimer || 120) - dt;
+    // periodic elite lieutenant every 90s
+    this.bossTimer = (this.bossTimer || 90) - dt;
     if (this.bossTimer <= 0) {
-      this.bossTimer = 120;
+      this.bossTimer = 90;
       this.spawnElite();
     }
     // periodic battlefield item drops (heart / bomb)
@@ -1183,6 +1280,68 @@ export class Game {
         const kind = (this.player.hp < this.player.maxHp * 0.75 || Math.random() < 0.55) ? 'heart' : 'bomb';
         this.spawnItem(kind, this.player.x + Math.cos(ang) * dist, this.player.y + Math.sin(ang) * dist);
       }
+    }
+  }
+
+  updateStageProgression(dt, map, stage) {
+    const totalDuration = stage.waves * stage.waveDuration;
+    if (this.stageBoss) {
+      if (!this.stageBoss.active || this.stageBoss.hp <= 0) {
+        this.stageBoss = null;
+        this.advanceStage();
+      }
+      return;
+    }
+
+    this.stageProgress += dt;
+    const ratio = clamp(this.stageProgress / totalDuration, 0, 1);
+    const wave = Math.min(stage.waves, 1 + Math.floor(ratio * stage.waves));
+    if (wave > this.currentWave) {
+      this.currentWave = wave;
+      this.sfx.play('select');
+      this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${wave}/${stage.waves}!`, 0xf5c84c);
+      for (let i = 0; i < 6 + wave * 3; i++) this.spawnEnemy();
+    }
+
+    if (this.stageProgress >= totalDuration) {
+      this.stageProgress = totalDuration;
+      if (stage.bossStage) {
+        this.stageBoss = this.spawnMapBoss(map, stage);
+        this.sfx.play('hurt');
+        this.shake = 12;
+        this.showFloatText(this.player.x, this.player.y - 30, `BOSS: ${map.boss.name.toUpperCase()}!`, 0xff5f5f);
+      } else {
+        this.advanceStage();
+      }
+    }
+  }
+
+  advanceStage() {
+    const prevMap = CAMPAIGN_MAPS[this.mapIndex] || CAMPAIGN_MAPS[0];
+    const wasBossStage = this.stageIndex >= prevMap.levels.length - 1;
+    this.gold += wasBossStage ? 50 : 20;
+    const healAmt = Math.round(this.player.maxHp * (wasBossStage ? 0.5 : 0.3));
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + healAmt);
+    this.sfx.play('evolve');
+    this.spawnShockwave(this.player.x, this.player.y, 0xf5c84c, 0.4, 2.5, 0.3);
+
+    if (!wasBossStage) {
+      this.stageIndex++;
+      this.stageProgress = 0;
+      this.currentWave = 1;
+      this.stageBoss = null;
+      const { mapNum, levelNum, stage } = this.getStageSpec();
+      this.showFloatText(this.player.x, this.player.y - 28, `STAGE ${mapNum}-${levelNum}: ${stage.name.toUpperCase()}!`, 0x6bffb0);
+    } else {
+      this.mapIndex = (this.mapIndex + 1) % CAMPAIGN_MAPS.length;
+      this.stageIndex = 0;
+      this.stageProgress = 0;
+      this.currentWave = 1;
+      this.stageBoss = null;
+      this.applyMapTheme();
+      this.setupProps();
+      const { map, mapNum } = this.getStageSpec();
+      this.showFloatText(this.player.x, this.player.y - 30, `MAP ${mapNum}: ${map.short}!`, 0xffe066);
     }
   }
 
@@ -1254,11 +1413,10 @@ export class Game {
   }
 
   spawnEnemy() {
-    // pick type by weights
+    const { stage } = this.getStageSpec();
     const types = ['soldier','soldier','soldier','archer','cavalry'];
     const t = pick(types);
     const d = ENEMY_TYPES[t];
-    // spawn offscreen around player
     const ang = Math.random() * Math.PI * 2;
     const r = 420 + Math.random() * 120;
     const x = this.player.x + Math.cos(ang) * r;
@@ -1277,14 +1435,16 @@ export class Game {
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
-    e.hp = d.hp * (1 + this.time * 0.02);
+    e.hp = d.hp * (stage.hpMul || 1) * (1 + this.time * 0.015);
     e.maxHp = e.hp;
-    e.speed = d.speed;
-    e.dmg = d.dmg;
+    e.speed = d.speed * (stage.speedMul || 1);
+    e.dmg = d.dmg * (stage.dmgMul || 1);
     e.size = d.size;
     e.xp = d.xp;
     e.color = d.color;
     e.ranged = !!d.ranged;
+    e.isBoss = false;
+    e.isMapBoss = false;
     e.shootCd = 1.4 + e.phase * 2.4;
     e.hitFlash = 0;
     e.knock = 0;
@@ -1293,6 +1453,7 @@ export class Game {
   }
 
   spawnElite() {
+    const { stage } = this.getStageSpec();
     const d = ENEMY_TYPES.elite;
     const ang = Math.random() * Math.PI * 2;
     const r = 300;
@@ -1310,17 +1471,54 @@ export class Game {
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
-    e.hp = d.hp * (1 + this.time * 0.05);
+    e.hp = d.hp * (stage.hpMul || 1) * (1 + this.time * 0.03);
     e.maxHp = e.hp;
-    e.speed = d.speed;
-    e.dmg = d.dmg;
+    e.speed = d.speed * (stage.speedMul || 1);
+    e.dmg = d.dmg * (stage.dmgMul || 1);
     e.size = d.size;
     e.xp = d.xp;
     e.color = d.color;
     e.ranged = false;
     e.isBoss = true;
+    e.isMapBoss = false;
     e.hitFlash = 0; e.knock=0; e.kx=0; e.ky=0;
     this.enemies.push(e);
+    return e;
+  }
+
+  spawnMapBoss(map, stage) {
+    const b = map.boss;
+    const ang = Math.random() * Math.PI * 2;
+    const r = 240;
+    const x = this.player.x + Math.cos(ang) * r;
+    const y = this.player.y + Math.sin(ang) * r;
+    const e = this.enemyPool.acquire();
+    e.active = true;
+    e.type = 'elite';
+    e.x = x; e.y = y;
+    e.sprite.texture = this.enemyTextures.elite[0];
+    e.sprite.tint = 0xffffff;
+    e.sprite.alpha = 1;
+    const sc = b.scale || 1.8;
+    e.baseScale = sc;
+    e.sprite.scaleX = sc;
+    e.sprite.scaleY = sc;
+    e.phase = (this.enemySerial++ * 0.61803398875) % 1;
+    e.hp = b.hp * (stage.hpMul || 1);
+    e.maxHp = e.hp;
+    e.speed = b.speed;
+    e.dmg = b.dmg;
+    e.size = 26;
+    e.xp = 45;
+    e.color = b.color || 0xf5c84c;
+    e.ranged = true;
+    e.shootCd = 1.2;
+    e.isBoss = true;
+    e.isMapBoss = true;
+    e.bossName = b.name;
+    e.hitFlash = 0; e.knock = 0; e.kx = 0; e.ky = 0;
+    this.enemies.push(e);
+    return e;
   }
 
   handleWeapons(dt) {
@@ -1674,6 +1872,9 @@ export class Game {
         this.gems.push(g);
       }
       this.kills++;
+      if (!this.stageBoss) {
+        this.stageProgress += 0.35;
+      }
       // pooled death shockwave + directional spark burst
       this.spawnShockwave(e.x, e.y, e.color, 0.3, e.isBoss ? 1.85 : 1.05, 0.22);
       this.spawnSparkBurst(e.x, e.y, ang, e.color, e.isBoss ? 5 : 2, 155, e.isBoss ? 0.95 : 0.68, 1.9);
@@ -1690,6 +1891,10 @@ export class Game {
         }
       }
       e.active = false;
+      if (e.isMapBoss && this.stageBoss === e) {
+        this.stageBoss = null;
+        this.advanceStage();
+      }
     }
   }
 
@@ -1814,7 +2019,7 @@ export class Game {
     const panelW = bw + 24;
     const panelH = 58 + choices.length * 74 + 12;
     const panelX = (this.W - panelW) / 2;
-    const panelY = Math.max((this.hudTop ?? 34) + 84, (this.H - panelH) / 2);
+    const panelY = Math.max((this.hudTop ?? 34) + 98, (this.H - panelH) / 2);
 
     const panel = new Graphics();
     panel.roundRect(panelX + 3, panelY + 5, panelW, panelH, 8).fill({ color:0x000000, alpha:0.55 });
@@ -2285,14 +2490,37 @@ export class Game {
       this._lastHpQuant = hpQuant;
       const hpW = Math.round(Math.min(136, barW * 0.42));
       this.hudHp.clear();
-      if (hpRatio > 0) this.hudHp.roundRect(barX, hudTop + 20, Math.round(hpW * hpRatio), 6, 2).fill(0xe5484d);
+      if (hpRatio > 0) this.hudHp.roundRect(barX, hudTop + 18, Math.round(hpW * hpRatio), 6, 2).fill(0xe5484d);
     }
     const xpRatio = Math.max(0, Math.min(1, this.xp / this.xpNext));
     const xpQuant = Math.round(xpRatio * 200);
     if (xpQuant !== this._lastXpQuant) {
       this._lastXpQuant = xpQuant;
       this.hudXp.clear();
-      if (xpRatio > 0) this.hudXp.roundRect(barX, hudTop + 7, Math.round(barW * xpRatio), 8, 3).fill(0x4c8dff);
+      if (xpRatio > 0) this.hudXp.roundRect(barX, hudTop + 6, Math.round(barW * xpRatio), 7, 3).fill(0x4c8dff);
+    }
+    const { map, stage, mapNum, levelNum, totalDuration } = this.getStageSpec();
+    const bossActive = Boolean(this.stageBoss && this.stageBoss.active && this.stageBoss.hp > 0);
+    const waveRatio = bossActive
+      ? clamp(this.stageBoss.hp / this.stageBoss.maxHp, 0, 1)
+      : clamp(this.stageProgress / totalDuration, 0, 1);
+    const waveQuant = Math.round(waveRatio * 200);
+    if (waveQuant !== this._lastWaveQuant || bossActive !== this._lastWaveBossMode) {
+      this._lastWaveQuant = waveQuant;
+      this._lastWaveBossMode = bossActive;
+      this.hudWaveFill.clear();
+      if (waveRatio > 0) {
+        const fillCol = bossActive ? 0xe5484d : (stage.bossStage && this.currentWave === stage.waves ? 0xff9f43 : 0xd4a017);
+        this.hudWaveFill.roundRect(barX, hudTop + 29, Math.round(barW * waveRatio), 11, 3).fill(fillCol);
+      }
+    }
+    const pct = Math.round(waveRatio * 100);
+    const waveLabel = bossActive
+      ? `BOSS: ${map.boss.name.toUpperCase()} · HP ${Math.ceil(this.stageBoss.hp)}/${Math.ceil(this.stageBoss.maxHp)}`
+      : `MAP ${mapNum}-${levelNum} ${map.short} · WAVE ${this.currentWave}/${stage.waves} (${pct}%)`;
+    if (waveLabel !== this._lastHudWaveText) {
+      this._lastHudWaveText = waveLabel;
+      this.hudWaveText.text = waveLabel;
     }
     const heroText = `${this.hero.name.toUpperCase()} · LV ${this.level}`;
     if (heroText !== this._lastHudText) {
@@ -2346,7 +2574,7 @@ export class Game {
     const panelW = Math.min(320, this.W - 32);
     const panelH = 266;
     const panelX = (this.W - panelW) / 2;
-    const panelY = Math.max((this.hudTop ?? 34) + 84, (this.H - panelH) / 2);
+    const panelY = Math.max((this.hudTop ?? 34) + 98, (this.H - panelH) / 2);
 
     const panel = new Graphics();
     panel.roundRect(panelX + 4, panelY + 6, panelW, panelH, 8).fill({ color:0x000000, alpha:0.65 });
@@ -2377,10 +2605,11 @@ export class Game {
 
     const mins = Math.floor(this.time / 60);
     const secs = Math.floor(this.time % 60).toString().padStart(2, '0');
+    const { map, mapNum, levelNum } = this.getStageSpec();
     const summaryLines = [
       `WARRIOR:  ${this.hero ? this.hero.name.toUpperCase() : 'UNKNOWN'} (${this.perk ? this.perk.short : 'NONE'})`,
-      `SURVIVED: ${mins}:${secs}   •   LV ${this.level}`,
-      `SLAIN:    ${this.kills} FOES   •   GOLD ${this.gold}`,
+      `STAGE:    MAP ${mapNum}-${levelNum} (${map.short})  •  LV ${this.level}`,
+      `SLAIN:    ${this.kills} FOES   •   TIME ${mins}:${secs}   •   G:${this.gold}`,
     ];
     const s = new Text({
       text: summaryLines.join('\n'),

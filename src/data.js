@@ -80,3 +80,48 @@ export const ENEMY_TYPES = {
 };
 
 export const LEVEL_XP = (lvl) => Math.floor(20 * Math.pow(1.15, lvl - 1));
+
+export const CAMPAIGN_MAPS = [
+  {
+    id: 'outskirts',
+    name: 'Yellow Turban Outskirts',
+    short: 'OUTSKIRTS',
+    bgColor: '#1e241b',
+    bgFilter: 'none',
+    propOrder: ['grass', 'tree', 'rock', 'grass', 'pine', 'banner', 'tree', 'grass', 'rock', 'grass', 'tree', 'mountain'],
+    boss: { name: 'Zhang Jiao', title: 'Heaven General', hp: 220, dmg: 20, speed: 75, color: 0xf5c84c, scale: 1.75 },
+    levels: [
+      { level: 1, name: 'Village Perimeter', waves: 3, waveDuration: 18, hpMul: 1.0, dmgMul: 1.0, speedMul: 1.0, spawnMul: 1.0, bossStage: false },
+      { level: 2, name: 'Granary Siege', waves: 3, waveDuration: 20, hpMul: 1.35, dmgMul: 1.15, speedMul: 1.06, spawnMul: 1.2, bossStage: false },
+      { level: 3, name: 'Altar of Heaven', waves: 3, waveDuration: 20, hpMul: 1.7, dmgMul: 1.3, speedMul: 1.12, spawnMul: 1.35, bossStage: true },
+    ],
+  },
+  {
+    id: 'hulao',
+    name: 'Hulao Pass Fortress',
+    short: 'HULAO PASS',
+    bgColor: '#261b16',
+    bgFilter: 'sepia(0.32) hue-rotate(-18deg) saturate(1.15)',
+    propOrder: ['rock', 'mountain', 'banner', 'pine', 'rock', 'grass', 'mountain', 'banner', 'rock', 'pine', 'mountain', 'rock'],
+    boss: { name: 'Hua Xiong', title: 'Demon Vanguard', hp: 420, dmg: 28, speed: 84, color: 0xff5f5f, scale: 1.85 },
+    levels: [
+      { level: 1, name: 'Outer Gatehouse', waves: 3, waveDuration: 20, hpMul: 2.2, dmgMul: 1.5, speedMul: 1.15, spawnMul: 1.45, bossStage: false },
+      { level: 2, name: 'Iron Ramparts', waves: 3, waveDuration: 22, hpMul: 2.8, dmgMul: 1.7, speedMul: 1.2, spawnMul: 1.6, bossStage: false },
+      { level: 3, name: 'Warlord Bastion', waves: 3, waveDuration: 22, hpMul: 3.5, dmgMul: 1.9, speedMul: 1.25, spawnMul: 1.8, bossStage: true },
+    ],
+  },
+  {
+    id: 'redcliffs',
+    name: 'Red Cliffs Armada',
+    short: 'RED CLIFFS',
+    bgColor: '#161f28',
+    bgFilter: 'hue-rotate(155deg) saturate(0.85) brightness(0.95)',
+    propOrder: ['pine', 'rock', 'banner', 'grass', 'mountain', 'pine', 'banner', 'rock', 'pine', 'grass', 'mountain', 'banner'],
+    boss: { name: 'Cao Ren', title: 'Grand Commander', hp: 680, dmg: 36, speed: 90, color: 0x6b9fff, scale: 1.95 },
+    levels: [
+      { level: 1, name: 'Misty Riverbank', waves: 3, waveDuration: 22, hpMul: 4.4, dmgMul: 2.15, speedMul: 1.28, spawnMul: 1.95, bossStage: false },
+      { level: 2, name: 'Chained Armada', waves: 3, waveDuration: 24, hpMul: 5.5, dmgMul: 2.4, speedMul: 1.32, spawnMul: 2.1, bossStage: false },
+      { level: 3, name: 'Crimson Flagship', waves: 3, waveDuration: 24, hpMul: 6.8, dmgMul: 2.7, speedMul: 1.38, spawnMul: 2.3, bossStage: true },
+    ],
+  },
+];

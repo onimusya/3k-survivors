@@ -2,8 +2,8 @@
 
 ## 1. Current Milestone Summary
 - **Milestone:** Phase 2 — Combat Math, Pre-Game Perks & Vampire Survivors HUD/Modal Parity
-- **Pieces Passed:** **18 / 18**
-- **Measured Performance:** **60–61 FPS** sustained across 6-second stress windows with **309–316 active enemies** at `1.0×` native render resolution (`2.0×` HiDPI text resolution)
+- **Pieces Passed:** **19 / 19**
+- **Measured Performance:** **58–61 FPS** sustained across 6-second stress windows with **374–381 active enemies** at `1.0×` native render resolution (`2.0×` HiDPI text resolution)
 - **Responsive Viewports Verified:** `390×844` (Mobile Portrait), `844×390` (Mobile Landscape), and `1280×800` (Tablet/Desktop)
 - **Live HTML Dashboard:** [`../progress.html`](../progress.html)
 
@@ -31,6 +31,7 @@
 | 16 | Game Audio & SFX (`uisfx` + `earshot`) | `PASSED` | 1 | `14 Cues + Mute Toggle` | `src/audio.js` (`SoundManager`), `scripts/generate_sfx.py`, `assets/sfx/*` |
 | 17 | Multi-res sharp rendering & weapon VFX | `PASSED` | 1 | `1.0x Res + 6 FX Pools` | `src/main.js`, `src/game.js` (`computeLayoutMetrics`, `spawnSlash/Thrust/Spin/Shockwave/SparkBurst`) |
 | 18 | Map decorations & Heart/Bomb drops | `PASSED` | 1 | `48 Props + Heal/AoE Bomb` | `src/game.js` (`setupProps`, `updateProps`, `spawnItem`, `collectItem`, `explodeBomb`) |
+| 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 1 | `3 Maps × 3 Levels + Boss` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
 
 ---
 
@@ -77,3 +78,7 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
 - **`[2026-10-26]` Solid Obstacle Collision & Full-Screen Floating Touch Joystick:**
   - Added circular obstacle collision (`resolvePropCollisions`) for `tree` (`r=17`), `pine` (`r=15`), `rock` (`r=17`), and `mountain` (`r=25`) props while keeping `grass` walkable.
   - Updated `onPointerDown` and `updatePlaying` so the mobile touch joystick anchors dynamically wherever the player places their thumb on screen (left, center, or right) and hides cleanly on release instead of sticking to the bottom-left corner.
+- **`[2026-10-26]` Multi-Map Campaign, Progressive Level Difficulty, Map Bosses & Wave Progress HUD:**
+  - Added `CAMPAIGN_MAPS` in `src/data.js` defining 3 Three Kingdoms maps (`Yellow Turban Outskirts`, `Hulao Pass Fortress`, `Red Cliffs Armada`), each with 3 progressive levels (`1-1` to `3-3`), distinct terrain themes & prop weights, and a final Level 3 Map Boss (`Zhang Jiao`, `Hua Xiong`, `Cao Ren`).
+  - Implemented `updateStageProgression`, `advanceStage`, and `spawnMapBoss` in `src/game.js` so completing 3 waves advances to the next level, Level 3 spawns the Map Boss, and defeating the Map Boss transitions to the next Map.
+  - Added a 3-segment Wave & Boss HP Progress Bar (`hudWaveBg`, `hudWaveFill`, `hudWaveText`) inside the battle HUD.
