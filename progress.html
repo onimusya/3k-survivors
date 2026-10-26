@@ -24,17 +24,18 @@
 <p>Last updated: <span id="lu"></span></p>
 <script>document.getElementById('lu').textContent = new Date().toISOString();</script>
 <div class="cards">
-  <div class="card"><div>Pieces passed</div><div class="v">16 / 16</div></div>
-  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 318</div></div>
+  <div class="card"><div>Pieces passed</div><div class="v">17 / 17</div></div>
+  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 316</div></div>
   <div class="card"><div>Bar (target)</div><div class="v">60 FPS / 300 enemies</div></div>
 </div>
 <table>
   <tr><th>Piece</th><th>State</th><th>Rounds</th><th>Score</th><th>Biggest remaining gap</th></tr>
-  <tr><td>Core engine + viewport</td><td class="state-PASSED">PASSED</td><td>2</td><td>60 FPS</td><td>None</td></tr>
+  <tr><td>Core engine + multi-res UI scaling</td><td class="state-PASSED">PASSED</td><td>3</td><td>1.0x Res + 2.0x Text</td><td>None</td></tr>
   <tr><td>Input / touch joystick</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
   <tr><td>Player movement + camera</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
-  <tr><td>Enemy hordes + AI</td><td class="state-PASSED">PASSED</td><td>3</td><td>60 FPS @300</td><td>Resolution 0.75x</td></tr>
+  <tr><td>Enemy hordes + AI</td><td class="state-PASSED">PASSED</td><td>4</td><td>60–61 FPS @316</td><td>None</td></tr>
   <tr><td>Combat / weapons (Lv 1–8 scaling)</td><td class="state-PASSED">PASSED</td><td>2</td><td>+15% DMG / +Proj</td><td>None</td></tr>
+  <tr><td>Weapon attack &amp; hit VFX (6 pools)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Slash/Spear/Spin/Ring/Spark</td><td>None</td></tr>
   <tr><td>Passive stat math (all 6 passives)</td><td class="state-PASSED">PASSED</td><td>2</td><td>Verified</td><td>None</td></tr>
   <tr><td>XP + leveling</td><td class="state-PASSED">PASSED</td><td>2</td><td>Icon cards + tags</td><td>None</td></tr>
   <tr><td>Weapon evolution</td><td class="state-PASSED">PASSED</td><td>2</td><td>Lv 8 + Passive</td><td>None</td></tr>
@@ -57,6 +58,7 @@
   <div>[2026-10-26] Track 1 &amp; 2 complete: Weapon Lv 1–8 stat/projectile scaling, unified passive stat math (recomputeStats), 16×16 pixel-art weapon/passive icon sheet, 12-slot HUD loadout bar, icon Level-Up cards, and Fallen in Battle Game-Over modal — verified at 60–61 FPS with 313–320 enemies</div>
   <div>[2026-10-26] Pre-game 3-perk selection (Vanguard Edict, Imperial Aegis, Windfoot Mandate) integrated into portrait &amp; landscape menu, HUD, Game-Over summary, and combat stat formulas</div>
   <div>[2026-10-26] Integrated Game Audio &amp; SFX (uisfx CC0 arcade cues + earshot physical swish/impact WAV recipes in assets/sfx/, SoundManager in src/audio.js, and persistent Mute UI toggle on Menu &amp; HUD)</div>
+  <div>[2026-10-26] Upgraded renderer to 1.0x native resolution + 2.0x HiDPI TextStyle + roundPixels + CSS-composited terrain, responsive multi-resolution UI/world scaling (390×844, 844×390, 1280×800), and 6-pool weapon/hit VFX (directional crescent slash + echo, stepped spear lance + tip shockwave, counter-rotating whirlwind rings, directional hit sparks, enemy hit squash-stretch)</div>
 </div>
 </body>
 </html>

@@ -1,12 +1,16 @@
-import { Application } from 'pixi.js';
+import { Application, TextStyle } from 'pixi.js';
 import { Game } from './game.js';
+
+TextStyle.defaultTextStyle.resolution = 2;
 
 const app = new Application();
 await app.init({
   background: 0x0b0f1a,
+  backgroundAlpha: 0,
   resizeTo: window,
   antialias: false,
-  resolution: 0.75,
+  roundPixels: true,
+  resolution: 1,
   autoDensity: true,
   powerPreference: 'high-performance',
 });

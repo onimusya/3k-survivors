@@ -20,6 +20,10 @@ const ICON_IDS = [
 ];
 const EFFECTS = {
   slash: new URL('../assets/sprites/effects/slash.png', import.meta.url).href,
+  spear: new URL('../assets/sprites/effects/spear.png', import.meta.url).href,
+  whirlwind: new URL('../assets/sprites/effects/whirlwind.png', import.meta.url).href,
+  shockwave: new URL('../assets/sprites/effects/shockwave.png', import.meta.url).href,
+  spark: new URL('../assets/sprites/effects/spark.png', import.meta.url).href,
   impact: new URL('../assets/sprites/effects/impact.png', import.meta.url).href,
   gem: new URL('../assets/sprites/effects/gem.png', import.meta.url).href,
   chest: new URL('../assets/sprites/effects/chest.png', import.meta.url).href,

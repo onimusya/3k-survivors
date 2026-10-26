@@ -2,9 +2,9 @@
 
 ## 1. Current Milestone Summary
 - **Milestone:** Phase 2 — Combat Math, Pre-Game Perks & Vampire Survivors HUD/Modal Parity
-- **Pieces Passed:** **16 / 16**
-- **Measured Performance:** **60–61 FPS** sustained across 6-second stress windows with **313–320 active enemies** at `390×844` mobile viewport (target: `60 FPS / 300+ enemies`)
-- **Responsive Viewports Verified:** `390×844` (Mobile Portrait) and `844×390` (Mobile Landscape)
+- **Pieces Passed:** **17 / 17**
+- **Measured Performance:** **60–61 FPS** sustained across 6-second stress windows with **309–316 active enemies** at `1.0×` native render resolution (`2.0×` HiDPI text resolution)
+- **Responsive Viewports Verified:** `390×844` (Mobile Portrait), `844×390` (Mobile Landscape), and `1280×800` (Tablet/Desktop)
 - **Live HTML Dashboard:** [`../progress.html`](../progress.html)
 
 ---
@@ -29,6 +29,7 @@
 | 14 | Pixel-art sprite & icon pipeline | `PASSED` | 2 | `Deterministic PNGs` | `scripts/generate_sprites.py`, `src/sprites.js` (`loadSpriteAssets`) |
 | 15 | 300+ enemy performance gate | `PASSED` | 6 | `60–61 FPS @ 320` | `src/game.js` (`setupPools`, `hitPool`, `slashPool`, `textPool`) |
 | 16 | Game Audio & SFX (`uisfx` + `earshot`) | `PASSED` | 1 | `14 Cues + Mute Toggle` | `src/audio.js` (`SoundManager`), `scripts/generate_sfx.py`, `assets/sfx/*` |
+| 17 | Multi-res sharp rendering & weapon VFX | `PASSED` | 1 | `1.0x Res + 6 FX Pools` | `src/main.js`, `src/game.js` (`computeLayoutMetrics`, `spawnSlash/Thrust/Spin/Shockwave/SparkBurst`) |
 
 ---
 
@@ -65,3 +66,7 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
   - Installed `uisfx` (`CC0-1.0` audio) and created `scripts/generate_sfx.py` to bundle 8 `uisfx` `.ogg` cues (`select`, `start`, `levelup`, `upgrade`, `evolve`, `chest`, `gem`, `gameover`) and render 6 physical combat `.wav` cues (`slash`, `thrust`, `spin`, `shoot`, `hit`, `hurt`) using `earshot` Strouhal swish and Bessel membrane impact recipes.
   - Built `SoundManager` in `src/audio.js` with WebAudio `AudioBuffer` decoding, micro-pitch jitter, per-cue cooldown throttling, and `localStorage` mute persistence.
   - Added on-screen `SFX / MUTE` toggle buttons to both the Hero Selection Menu and the gameplay HUD.
+- **`[2026-10-26]` Sharp 1.0× Resolution, Multi-Resolution UI Scaling & Weapon Attack VFX:**
+  - Upgraded `src/main.js` from `resolution: 0.75` to `resolution: 1` (`roundPixels: true`, `TextStyle.defaultTextStyle.resolution = 2`) with CSS-composited pixel-art terrain on `#app`, eliminating sub-pixel sprite and font blur while maintaining **60–61 FPS** with 310+ active enemies.
+  - Added `computeLayoutMetrics()` (`uiScale`, `worldScale`) and centered HUD/Menu scaling across `390×844`, `844×390`, and `1280×800` viewports.
+  - Added `spear.png`, `whirlwind.png`, `shockwave.png`, and `spark.png` in `scripts/generate_sprites.py` and 4 new FX pools (`thrustPool`, `spinPool`, `ringPool`, `sparkPool`) in `src/game.js` for directional blade echoes, spear lance lunges, dual counter-rotating whirlwinds, shockwave rings, directional hit sparks, and enemy hit squash-and-stretch.

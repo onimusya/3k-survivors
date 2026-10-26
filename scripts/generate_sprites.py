@@ -344,20 +344,59 @@ def make_terrain():
 def make_effects():
     slash = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(slash)
-    d.arc((5, 5, 58, 58), 205, 335, fill=(255, 240, 187, 255), width=5)
-    d.arc((9, 9, 54, 54), 215, 325, fill=(255, 174, 73, 190), width=2)
+    d.arc((3, 3, 60, 60), 198, 342, fill=(255, 168, 64, 185), width=8)
+    d.arc((5, 5, 58, 58), 204, 336, fill=(255, 236, 158, 255), width=5)
+    d.arc((7, 7, 56, 56), 212, 328, fill=(255, 255, 255, 255), width=2)
+    d.arc((13, 13, 50, 50), 218, 320, fill=(255, 210, 96, 175), width=2)
+    for px, py in ((14, 18), (24, 10), (38, 10), (49, 18), (53, 28)):
+        d.rectangle((px - 1, py - 1, px + 1, py + 1), fill=(255, 252, 210, 255))
     save(slash, "effects/slash.png")
+
+    spear = Image.new("RGBA", (64, 28), (0, 0, 0, 0))
+    d = ImageDraw.Draw(spear)
+    polygon(d, [(2, 14), (42, 4), (63, 14), (42, 24)], (255, 224, 180, 235), outline=(255, 255, 255, 255))
+    polygon(d, [(8, 14), (45, 8), (61, 14), (45, 20)], (255, 250, 220, 255), outline=None)
+    d.rectangle((4, 12, 58, 16), fill=(255, 255, 255, 255))
+    for cx in (18, 30, 42):
+        polygon(d, [(cx, 3), (cx + 7, 14), (cx, 25), (cx + 3, 14)], (255, 255, 255, 245), outline=None)
+    save(spear, "effects/spear.png")
+
+    whirlwind = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    d = ImageDraw.Draw(whirlwind)
+    d.ellipse((6, 6, 58, 58), outline=(255, 156, 72, 170), width=4)
+    d.ellipse((10, 10, 54, 54), outline=(255, 234, 154, 245), width=2)
+    for start_ang in (0, 90, 180, 270):
+        d.arc((3, 3, 61, 61), start_ang, start_ang + 58, fill=(255, 252, 224, 255), width=4)
+        d.arc((12, 12, 52, 52), start_ang + 25, start_ang + 75, fill=(255, 186, 82, 210), width=3)
+    save(whirlwind, "effects/whirlwind.png")
+
+    shockwave = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+    d = ImageDraw.Draw(shockwave)
+    d.ellipse((3, 3, 44, 44), outline=(255, 232, 148, 245), width=3)
+    d.ellipse((8, 8, 39, 39), outline=(255, 255, 255, 200), width=1)
+    for a in range(0, 360, 45):
+        x0 = 24 + int(sin(a * pi / 180) * 14)
+        y0 = 24 + int(sin((a + 90) * pi / 180) * 14)
+        x1 = 24 + int(sin(a * pi / 180) * 22)
+        y1 = 24 + int(sin((a + 90) * pi / 180) * 22)
+        d.line((x0, y0, x1, y1), fill=(255, 248, 204, 240), width=2)
+    save(shockwave, "effects/shockwave.png")
+
+    spark = Image.new("RGBA", (20, 20), (0, 0, 0, 0))
+    d = ImageDraw.Draw(spark)
+    polygon(d, [(10, 1), (12, 8), (19, 10), (12, 12), (10, 19), (8, 12), (1, 10), (8, 8)], (255, 238, 142, 255), outline=None)
+    polygon(d, [(10, 4), (11, 9), (16, 10), (11, 11), (10, 16), (9, 11), (4, 10), (9, 9)], (255, 255, 255, 255), outline=None)
+    save(spark, "effects/spark.png")
 
     impact = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     d = ImageDraw.Draw(impact)
-    for radius, color in ((13, (255, 238, 166, 255)), (9, (255, 145, 57, 255)), (5, (255, 249, 220, 255))):
+    for radius, color in ((14, (255, 238, 166, 255)), (10, (255, 145, 57, 255)), (5, (255, 255, 255, 255))):
         d.ellipse((16 - radius, 16 - radius, 16 + radius, 16 + radius), outline=color, width=2)
     for a in range(0, 360, 45):
         x = 16 + int(sin(a * pi / 180) * 14)
         y = 16 + int(sin((a + 90) * pi / 180) * 14)
-        d.rectangle((x - 1, y - 1, x + 1, y + 1), fill=(255, 222, 131, 255))
+        d.rectangle((x - 1, y - 1, x + 1, y + 1), fill=(255, 245, 190, 255))
     save(impact, "effects/impact.png")
-
     gem = Image.new("RGBA", (14, 14), (0, 0, 0, 0))
     d = ImageDraw.Draw(gem)
     polygon(d, [(7, 1), (12, 5), (10, 12), (4, 12), (2, 5)], (60, 225, 170, 255))

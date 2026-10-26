@@ -2,7 +2,7 @@ import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle,
 import { HEROES, STARTING_PERKS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
-import { loadSpriteAssets } from './sprites.js';
+import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
 import { SoundManager } from './audio.js';
 
 export class Game {
@@ -119,11 +119,22 @@ export class Game {
     window.addEventListener('orientationchange', onResize);
   }
 
-  applyViewportSize() {
+  computeLayoutMetrics() {
+    const minDim = Math.min(this.W, this.H);
+    this.uiScale = clamp(minDim / 390, 0.88, 1.45);
+    this.worldScale = minDim > 520 ? clamp(minDim / 500, 1.0, 1.35) : 1.0;
+  }
+
+  applyViewportSize(force = false) {
     const nextW = window.innerWidth || this.app.screen.width;
     const nextH = window.innerHeight || this.app.screen.height;
+    if (!force && nextW === this.W && nextH === this.H) return;
+    if (this.app?.renderer && (this.app.screen.width !== nextW || this.app.screen.height !== nextH)) {
+      this.app.renderer.resize(nextW, nextH);
+    }
     this.W = nextW;
     this.H = nextH;
+    this.computeLayoutMetrics();
     this.layoutVignette();
     if (this.hud) this.layoutHud();
     if (this.menuContainer) {
@@ -136,9 +147,10 @@ export class Game {
   }
 
   layoutVignette() {
-    if (this.terrain) {
-      this.terrain.width = this.W + 32;
-      this.terrain.height = this.H + 32;
+    this.computeLayoutMetrics();
+    if (this.appEl) {
+      const tilePx = Math.round(128 * (this.worldScale || 1));
+      this.appEl.style.backgroundSize = `${tilePx}px ${tilePx}px`;
     }
   }
 
@@ -149,14 +161,14 @@ export class Game {
     this.effectTextures = this.assets.effects;
     this.iconTextures = this.assets.icons;
 
-    this.terrain = new TilingSprite({
-      texture: this.assets.terrain,
-      width: this.W + 32,
-      height: this.H + 32,
-    });
-    this.terrain.tileScale.set(2);
-    this.terrain.alpha = 1;
-    this.bgGrid.addChild(this.terrain);
+    this.appEl = document.getElementById('app');
+    if (this.appEl) {
+      this.appEl.style.backgroundColor = '#1e221c';
+      this.appEl.style.backgroundImage = `url("${SPRITE_MANIFEST.terrain}")`;
+      this.appEl.style.backgroundRepeat = 'repeat';
+      this.appEl.style.imageRendering = 'pixelated';
+    }
+    this.terrain = { width: this.W, height: this.H, x: 0, y: 0, visible: false, tilePosition: { set() {} } };
     this.layoutVignette();
   }
 
@@ -164,9 +176,9 @@ export class Game {
     this.enemyContainer.texture = this.assets.enemyBase;
     this.enemyPool = new Pool(() => {
       const p = new Particle(this.enemyTextures.soldier[0]);
-      p.anchorX = 0.5; p.anchorY = 0.64;
+      p.anchorX = 0.5; p.anchorY = 0.625;
       this.enemyContainer.addParticle(p);
-      return { active:false, type:'soldier', x:0, y:0, hp:0, maxHp:0, speed:0, dmg:0, size:14, xp:1, color:0x7a7a7a, hitFlash:0, knock:0, kx:0, ky:0, ranged:false, isBoss:false, shootCd:0, sprite:p, frame:-1 };
+      return { active:false, type:'soldier', x:0, y:0, hp:0, maxHp:0, speed:0, dmg:0, size:14, baseScale:1, xp:1, color:0x7a7a7a, hitFlash:0, knock:0, kx:0, ky:0, ranged:false, isBoss:false, shootCd:0, sprite:p, frame:-1 };
     }, (e) => { e.active = false; if (e.sprite) { e.sprite.alpha = 0; } });
     this.projPool = new Pool(() => {
       const sprite = new Sprite(this.effectTextures.projectile);
@@ -174,7 +186,7 @@ export class Game {
       sprite.visible = false;
       this.projLayer.addChild(sprite);
       return {
-        active:false, x:0, y:0, vx:0, vy:0, dmg:0, life:0, pierce:0, size:6, color:0xffffff, hit:new Set(), fromEnemy:false, homing:false, sprite,
+        active:false, x:0, y:0, vx:0, vy:0, dmg:0, life:0, pierce:0, size:6, color:0xffffff, hit:new Set(), fromEnemy:false, homing:false, isMagic:false, sprite,
       };
     }, (p) => { p.active = false; p.hit.clear(); p.sprite.visible = false; });
     this.gemPool = new Pool(() => {
@@ -186,20 +198,19 @@ export class Game {
         active:false, x:0, y:0, val:1, magnet:false, vy:0, sprite,
       };
     }, (g) => { g.active = false; g.sprite.visible = false; });
-    this.hitPool = new Pool(() => {
-      const sprite = new Sprite(this.effectTextures.impact);
+    const makeFxPool = (tex) => new Pool(() => {
+      const sprite = new Sprite(tex);
       sprite.anchor.set(0.5);
       sprite.visible = false;
       this.fxLayer.addChild(sprite);
       return { active:false, sprite };
-    }, (h) => { h.active = false; h.sprite.visible = false; h.sprite.rotation = 0; });
-    this.slashPool = new Pool(() => {
-      const sprite = new Sprite(this.effectTextures.slash);
-      sprite.anchor.set(0.5);
-      sprite.visible = false;
-      this.fxLayer.addChild(sprite);
-      return { active:false, sprite };
-    }, (s) => { s.active = false; s.sprite.visible = false; s.sprite.rotation = 0; });
+    }, (item) => { item.active = false; item.sprite.visible = false; item.sprite.rotation = 0; });
+    this.hitPool = makeFxPool(this.effectTextures.impact);
+    this.slashPool = makeFxPool(this.effectTextures.slash);
+    this.thrustPool = makeFxPool(this.effectTextures.spear || this.effectTextures.slash);
+    this.spinPool = makeFxPool(this.effectTextures.whirlwind || this.effectTextures.slash);
+    this.ringPool = makeFxPool(this.effectTextures.shockwave || this.effectTextures.impact);
+    this.sparkPool = makeFxPool(this.effectTextures.spark || this.effectTextures.impact);
     this.floatTextStyle = new TextStyle({
       fill: 0xffffff,
       fontSize: 13,
@@ -221,22 +232,26 @@ export class Game {
     this.menuContainer = new Container();
     this.uiLayer.addChild(this.menuContainer);
 
+    this.computeLayoutMetrics();
     const W = this.W;
     const H = this.H;
     const landscape = W >= H;
-    const margin = landscape ? 20 : 16;
-    const gap = 8;
-    const topSafe = landscape ? 8 : 28;
-    const bottomSafe = landscape ? 16 : 38;
+    const s = landscape
+      ? clamp(H / 390, 0.9, 1.38)
+      : clamp(Math.min(W / 390, H / 844), 0.88, 1.38);
+    const margin = Math.round((landscape ? 20 : 16) * s);
+    const gap = Math.round(8 * s);
+    const topSafe = Math.round(landscape ? 8 * s : 28 * s);
+    const bottomSafe = Math.round(landscape ? 16 * s : 36 * s);
 
     const bg = new Graphics();
     bg.rect(0, 0, W, H).fill({ color:0x0b1117, alpha:0.98 });
     const menuTerrain = new TilingSprite({ texture:this.assets.terrain, width:W, height:H });
-    menuTerrain.tileScale.set(landscape ? 1.15 : 1.45);
+    menuTerrain.tileScale.set(2);
     menuTerrain.alpha = 0.28;
     this.menuContainer.addChild(bg, menuTerrain);
 
-    const bannerH = landscape ? 62 : Math.min(114, topSafe + 84);
+    const bannerH = Math.round(landscape ? 62 * s : Math.min(114 * s, topSafe + 84 * s));
     const banner = new Graphics();
     banner.rect(0, 0, W, bannerH).fill({ color:0x121a21, alpha:0.96 });
     banner.moveTo(0, bannerH - 2).lineTo(W, bannerH - 2).stroke({ color:0xd4a017, width:2, alpha:0.9 });
@@ -247,25 +262,37 @@ export class Game {
 
     const title = new Text({
       text:'3K SURVIVORS',
-      style: new TextStyle({ fill:0xf2c75b, fontSize:landscape ? 22 : 29, fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.6, stroke:{ color:0x080b10, width:5 } }),
+      style: new TextStyle({ fill:0xf2c75b, fontSize:Math.round((landscape ? 22 : 28) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.5, stroke:{ color:0x080b10, width:Math.round(5 * s) } }),
     });
     title.anchor.set(0.5);
-    title.x = W / 2;
-    title.y = topSafe + (bannerH - topSafe) * 0.36;
+    title.x = Math.round(W / 2);
+    title.y = Math.round(topSafe + (bannerH - topSafe) * 0.36);
     this.menuContainer.addChild(title);
 
     const sub = new Text({
       text:'ROMANCE OF THE THREE KINGDOMS',
-      style: new TextStyle({ fill:0xcbd3dc, fontSize:landscape ? 8.5 : 9.5, fontFamily:'monospace', letterSpacing:1.0 }),
+      style: new TextStyle({ fill:0xcbd3dc, fontSize:Math.round((landscape ? 9 : 10) * s), fontFamily:'monospace', letterSpacing:1.0 }),
     });
     sub.anchor.set(0.5);
-    sub.x = W / 2;
-    sub.y = topSafe + (bannerH - topSafe) * 0.7;
+    sub.x = Math.round(W / 2);
+    sub.y = Math.round(topSafe + (bannerH - topSafe) * 0.7);
     this.menuContainer.addChild(sub);
 
-
+    const cols = landscape ? 3 : 2;
+    const rows = landscape ? 2 : 3;
+    const maxGridW = Math.round((landscape ? 740 : 440) * s);
+    const availGridW = Math.min(W - margin * 2, maxGridW);
+    const cardW = Math.floor((availGridW - gap * (cols - 1)) / cols);
+    const cardH = Math.round((landscape ? 70 : 90) * s);
+    const perkH = Math.round((landscape ? 48 : 66) * s);
+    const deployH = Math.round((landscape ? 40 : 48) * s);
+    const contentH = Math.round((landscape ? 24 : 30) * s) + rows * cardH + (rows - 1) * gap + Math.round((landscape ? 24 : 30) * s) + perkH + Math.round((landscape ? 10 : 14) * s) + deployH + (landscape ? 16 : 36);
+    const extraY = Math.max(0, Math.floor((H - bannerH - bottomSafe - contentH) * 0.45));
+    const gridY = Math.round(bannerH + extraY + (landscape ? 24 : 30) * s);
+    const totalGridW = cols * cardW + (cols - 1) * gap;
+    const gridX = Math.round((W - totalGridW) / 2);
     const muteBtn = new Container();
-    const muteW = 58, muteH = 22;
+    const muteW = Math.round(58 * s), muteH = Math.round(22 * s);
     const muteBg = new Graphics();
     muteBg.roundRect(0, 0, muteW, muteH, 4)
       .fill({ color:0x16202b, alpha:0.95 })
@@ -274,36 +301,33 @@ export class Game {
     const muteIconKey = this.sfx.enabled ? 'sound_on' : 'sound_off';
     if (this.iconTextures?.[muteIconKey]) {
       const mic = new Sprite(this.iconTextures[muteIconKey]);
-      mic.x = 5; mic.y = 3;
+      mic.x = Math.round(5 * s); mic.y = Math.round((muteH - 16) / 2);
       muteBtn.addChild(mic);
     }
     const muteTxt = new Text({
       text: this.sfx.enabled ? 'SFX' : 'MUTE',
-      style: new TextStyle({ fill:this.sfx.enabled ? 0xd8f5e5 : 0x9aa6b4, fontSize:8.5, fontFamily:'monospace', fontWeight:'bold' }),
+      style: new TextStyle({ fill:this.sfx.enabled ? 0xd8f5e5 : 0x9aa6b4, fontSize:Math.round(9 * s), fontFamily:'monospace', fontWeight:'bold' }),
     });
-    muteTxt.x = 24; muteTxt.y = 6;
+    muteTxt.x = Math.round(24 * s); muteTxt.y = Math.round((muteH - muteTxt.height) / 2);
     muteBtn.addChild(muteTxt);
-    muteBtn.x = W - margin - muteW;
-    muteBtn.y = bannerH + (landscape ? 2 : 5);
+    muteBtn.x = gridX + totalGridW - muteW;
+    muteBtn.y = Math.round(bannerH + extraY + (landscape ? 2 : 5) * s);
     muteBtn.eventMode = 'static';
     muteBtn.cursor = 'pointer';
     muteBtn.on('pointertap', () => this.toggleSound());
     this.menuContainer.addChild(muteBtn);
+
     const section = new Text({
       text:'1. CHOOSE YOUR WARRIOR',
-      style: new TextStyle({ fill:0xe7e2d2, fontSize:landscape ? 10 : 11, fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.2 }),
+      style: new TextStyle({ fill:0xe7e2d2, fontSize:Math.round((landscape ? 10 : 11) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.1 }),
     });
     section.anchor.set(0.5);
-    section.x = W / 2;
-    section.y = bannerH + (landscape ? 12 : 16);
+    section.x = Math.round(W / 2);
+    section.y = Math.round(bannerH + extraY + (landscape ? 12 : 16) * s);
     this.menuContainer.addChild(section);
 
-    const cols = landscape ? 3 : 2;
-    const rows = landscape ? 2 : 3;
-    const cardW = Math.min(240, (W - margin * 2 - gap * (cols - 1)) / cols);
-    const gridY = bannerH + (landscape ? 24 : 30);
-    const cardH = landscape ? 70 : 90;
-    const gridX = (W - (cols * cardW + (cols - 1) * gap)) / 2;
+    const portraitW = Math.round(46 * s);
+    const thumbScale = s >= 1.2 ? 1.5 : 1.25;
 
     HEROES.forEach((h, i) => {
       const bx = gridX + (i % cols) * (cardW + gap);
@@ -327,58 +351,60 @@ export class Game {
       btn.addChild(panel);
 
       const portrait = new Graphics();
-      portrait.roundRect(9, 8, 44, cardH - 16, 5)
+      portrait.roundRect(8, 8, portraitW, cardH - 16, 4)
         .fill({ color:selected ? 0x101922 : 0x090f15, alpha:0.9 })
         .stroke({ color:selected ? 0xf5c84c : 0x3b4754, width:1, alpha:selected ? 0.9 : 0.5 });
       btn.addChild(portrait);
 
       const thumb = new Sprite(this.heroFrames[h.id][0][0]);
-      thumb.anchor.set(0.5, 0.62);
-      thumb.scale.set(landscape ? 1.08 : 1.16);
-      thumb.x = 31;
-      thumb.y = 8 + (cardH - (selected ? 24 : 16)) / 2;
+      thumb.anchor.set(0.5, 0.625);
+      thumb.scale.set(thumbScale);
+      thumb.x = Math.round(8 + portraitW / 2);
+      thumb.y = Math.round(8 + (cardH - (selected ? 24 : 16)) / 2);
       btn.addChild(thumb);
 
-      const textX = 59;
+      const textX = Math.round(14 + portraitW);
       const maxTextW = cardW - textX - 8;
       const name = new Text({
         text:h.name.toUpperCase(),
-        style: new TextStyle({ fill:selected ? 0xfff3c4 : 0xffffff, fontSize:landscape ? 10 : 11, fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.2 }),
+        style: new TextStyle({ fill:selected ? 0xfff3c4 : 0xffffff, fontSize:Math.round((landscape ? 10 : 11) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.2 }),
       });
       if (name.width > maxTextW) {
         name.scale.set(maxTextW / name.width);
       }
-      name.x = textX; name.y = 8;
+      name.x = textX; name.y = Math.round(8 * s);
       btn.addChild(name);
 
       const desc = new Text({
         text:h.desc,
-        style: new TextStyle({ fill:selected ? 0xd8e1ea : 0xaeb8c2, fontSize:landscape ? 8 : 8.5, fontFamily:'monospace', wordWrap:true, wordWrapWidth:maxTextW, breakWords:true }),
+        style: new TextStyle({ fill:selected ? 0xd8e1ea : 0xaeb8c2, fontSize:Math.round(9 * s), fontFamily:'monospace', wordWrap:true, wordWrapWidth:maxTextW, breakWords:true }),
       });
-      desc.x = textX; desc.y = 24;
+      desc.x = textX; desc.y = Math.round(24 * s);
       btn.addChild(desc);
 
       const stats = new Text({
         text:`HP ${h.hp}  SPD ${h.speed.toFixed(1)}`,
-        style: new TextStyle({ fill:selected ? 0xf5c84c : 0xbac6d2, fontSize:8.5, fontFamily:'monospace', fontWeight:'bold' }),
+        style: new TextStyle({ fill:selected ? 0xf5c84c : 0xbac6d2, fontSize:Math.round(9 * s), fontFamily:'monospace', fontWeight:'bold' }),
       });
-      stats.x = textX; stats.y = cardH - 19;
+      stats.x = textX; stats.y = Math.round(cardH - 19 * s);
       btn.addChild(stats);
 
       if (selected) {
-        const badgeW = 38;
-        const badgeH = 11;
+        const badgeW = Math.round(38 * s);
+        const badgeH = Math.round(11 * s);
+        const bxBadge = Math.round(8 + (portraitW - badgeW) / 2);
+        const byBadge = Math.round(cardH - badgeH - 10);
         const badge = new Graphics();
-        badge.roundRect(12, cardH - badgeH - 10, badgeW, badgeH, 2)
+        badge.roundRect(bxBadge, byBadge, badgeW, badgeH, 2)
           .fill(0xf5c84c);
         btn.addChild(badge);
         const marker = new Text({
           text:'PICK',
-          style:new TextStyle({ fill:0x141008, fontSize:7.5, fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.3 }),
+          style:new TextStyle({ fill:0x141008, fontSize:Math.round(8 * s), fontFamily:'monospace', fontWeight:'bold' }),
         });
         marker.anchor.set(0.5);
-        marker.x = 12 + badgeW / 2;
-        marker.y = cardH - badgeH / 2 - 10;
+        marker.x = Math.round(bxBadge + badgeW / 2);
+        marker.y = Math.round(byBadge + badgeH / 2);
         btn.addChild(marker);
       }
 
@@ -391,20 +417,17 @@ export class Game {
 
     const gridBottom = gridY + rows * cardH + (rows - 1) * gap;
 
-    // 3 Pre-game Starting Perks (War Decrees)
     const perkHeader = new Text({
       text:'2. CHOOSE STARTING PERK (1 OF 3)',
-      style: new TextStyle({ fill:0xe7e2d2, fontSize:landscape ? 10 : 11, fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.1 }),
+      style: new TextStyle({ fill:0xe7e2d2, fontSize:Math.round((landscape ? 10 : 11) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.0 }),
     });
     perkHeader.anchor.set(0.5);
-    perkHeader.x = W / 2;
-    perkHeader.y = gridBottom + (landscape ? 12 : 16);
+    perkHeader.x = Math.round(W / 2);
+    perkHeader.y = Math.round(gridBottom + (landscape ? 12 : 16) * s);
     this.menuContainer.addChild(perkHeader);
 
-    const perkY = gridBottom + (landscape ? 24 : 30);
-    const perkH = landscape ? 48 : 66;
-    const totalGridW = cols * cardW + (cols - 1) * gap;
-    const perkW = (totalGridW - gap * 2) / 3;
+    const perkY = Math.round(gridBottom + (landscape ? 24 : 30) * s);
+    const perkW = Math.floor((totalGridW - gap * 2) / 3);
 
     STARTING_PERKS.forEach((pk, idx) => {
       const px = gridX + idx * (perkW + gap);
@@ -422,26 +445,26 @@ export class Game {
       if (this.iconTextures?.[pk.icon]) {
         const ic = new Sprite(this.iconTextures[pk.icon]);
         ic.x = 8;
-        ic.y = landscape ? 8 : 7;
+        ic.y = Math.round(7 * s);
         pBtn.addChild(ic);
       }
 
       const pTitle = new Text({
         text: pk.short,
-        style: new TextStyle({ fill:isSel ? 0xfff3c4 : 0xffffff, fontSize:landscape ? 9.5 : 9.5, fontFamily:'monospace', fontWeight:'bold' }),
+        style: new TextStyle({ fill:isSel ? 0xfff3c4 : 0xffffff, fontSize:Math.round(10 * s), fontFamily:'monospace', fontWeight:'bold' }),
       });
       pTitle.x = 27;
-      pTitle.y = landscape ? 8 : 8;
+      pTitle.y = Math.round(8 * s);
       pBtn.addChild(pTitle);
 
       if (isSel) {
         const star = new Text({
           text: '★',
-          style: new TextStyle({ fill:0xf5c84c, fontSize:9.5, fontFamily:'monospace', fontWeight:'bold' }),
+          style: new TextStyle({ fill:0xf5c84c, fontSize:Math.round(10 * s), fontFamily:'monospace', fontWeight:'bold' }),
         });
         star.anchor.set(1, 0);
         star.x = perkW - 6;
-        star.y = 6;
+        star.y = Math.round(6 * s);
         pBtn.addChild(star);
       }
 
@@ -449,13 +472,13 @@ export class Game {
         text: landscape ? pk.desc : pk.lines,
         style: new TextStyle({
           fill: isSel ? 0xe5edf5 : 0xb2beca,
-          fontSize: landscape ? 8.5 : 8,
+          fontSize: Math.round((landscape ? 9 : 8.5) * s),
           fontFamily: 'monospace',
-          lineHeight: 11,
+          lineHeight: Math.round(12 * s),
         }),
       });
       pDesc.x = landscape ? 27 : 8;
-      pDesc.y = landscape ? 25 : 28;
+      pDesc.y = Math.round((landscape ? 25 : 27) * s);
       pBtn.addChild(pDesc);
 
       pBtn.x = px;
@@ -467,9 +490,8 @@ export class Game {
     });
 
     const perkBottom = perkY + perkH;
-    const deployW = Math.min(268, W - 32);
-    const deployH = landscape ? 40 : 48;
-    const deployY = landscape ? Math.min(H - deployH - 18, perkBottom + 10) : perkBottom + 14;
+    const deployW = Math.min(Math.round(272 * s), totalGridW);
+    const deployY = Math.round(landscape ? Math.min(H - deployH - 18, perkBottom + 10 * s) : perkBottom + 14 * s);
     const deploy = new Container();
     const deployShadow = new Graphics();
     deployShadow.roundRect(3, 5, deployW, deployH, 4).fill({ color:0x000000, alpha:0.5 });
@@ -479,19 +501,19 @@ export class Game {
     deploy.addChild(deployPanel);
     const deployText = new Text({
       text:`DEPLOY ${this.selectedHero.name.toUpperCase()}`,
-      style:new TextStyle({ fill:0x18130b, fontSize:landscape ? 11.5 : 12.5, fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.5 }),
+      style:new TextStyle({ fill:0x18130b, fontSize:Math.round((landscape ? 12 : 13) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.5 }),
     });
     deployText.anchor.set(0.5);
-    deployText.x = deployW / 2; deployText.y = deployH * 0.36;
+    deployText.x = Math.round(deployW / 2); deployText.y = Math.round(deployH * 0.36);
     deploy.addChild(deployText);
     const deploySub = new Text({
       text:`PERK: ${this.selectedPerk.name.toUpperCase()}`,
-      style:new TextStyle({ fill:0x33260e, fontSize:landscape ? 8 : 8.5, fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.3 }),
+      style:new TextStyle({ fill:0x33260e, fontSize:Math.round(9 * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.3 }),
     });
     deploySub.anchor.set(0.5);
-    deploySub.x = deployW / 2; deploySub.y = deployH * 0.72;
+    deploySub.x = Math.round(deployW / 2); deploySub.y = Math.round(deployH * 0.72);
     deploy.addChild(deploySub);
-    deploy.x = (W - deployW) / 2; deploy.y = deployY;
+    deploy.x = Math.round((W - deployW) / 2); deploy.y = deployY;
     deploy.eventMode = 'static';
     deploy.cursor = 'pointer';
     deploy.on('pointertap', () => this.startRun(this.selectedHero, this.selectedPerk));
@@ -500,11 +522,11 @@ export class Game {
     if (!landscape) {
       const hint = new Text({
         text:'SELECT WARRIOR & PERK  •  TAP DEPLOY TO BEGIN',
-        style:new TextStyle({ fill:0x9aa6b4, fontSize:9, fontFamily:'monospace', letterSpacing:0.5 }),
+        style:new TextStyle({ fill:0x9aa6b4, fontSize:Math.round(9 * s), fontFamily:'monospace', letterSpacing:0.5 }),
       });
       hint.anchor.set(0.5);
-      hint.x = W / 2;
-      hint.y = Math.min(H - bottomSafe, deployY + deployH + 22);
+      hint.x = Math.round(W / 2);
+      hint.y = Math.round(Math.min(H - bottomSafe, deployY + deployH + 22 * s));
       this.menuContainer.addChild(hint);
     }
   }
@@ -548,10 +570,7 @@ export class Game {
     for (const c of this.chests) { c.sprite.destroy(); }
     this.chests.length = 0;
     for (const pt of this.particles) {
-      if (pt.pooled === 'hit') this.hitPool.release(pt.poolObject);
-      else if (pt.pooled === 'slash') this.slashPool.release(pt.poolObject);
-      else if (pt.pooled === 'text') this.textPool.release(pt.poolObject);
-      else if (pt.g) pt.g.destroy();
+      this.releaseParticle(pt);
     }
     this.particles.length = 0;
 
@@ -570,7 +589,7 @@ export class Game {
     if (this.playerSprite) this.playerSprite.destroy();
     if (this.playerShadow) this.playerShadow.destroy();
     this.playerShadow = new Graphics();
-    this.playerShadow.ellipse(0, 13, 13, 4).fill({ color:0x000000, alpha:0.35 });
+    this.playerShadow.ellipse(0, 14, 14, 5).fill({ color:0x000000, alpha:0.38 });
     this.world.addChild(this.playerShadow);
     const directions = this.heroFrames[this.hero.id];
     this.playerSprite = new AnimatedSprite({
@@ -580,8 +599,8 @@ export class Game {
       autoUpdate: false,
       updateAnchor: false,
     });
-    this.playerSprite.anchor.set(0.5, 0.64);
-    this.playerSprite.scale.set(1.35);
+    this.playerSprite.anchor.set(0.5, 0.625);
+    this.playerSprite.scale.set(1.5);
     this.world.addChild(this.playerSprite);
     const maxHp = this.hero.hp + (this.perk?.hpBonus || 0);
     this.player = {
@@ -706,10 +725,16 @@ export class Game {
   }
 
   layoutHud() {
+    this.computeLayoutMetrics();
     const W = this.W, H = this.H;
     const portrait = H > W;
     const hudTop = portrait ? 34 : 8;
     this.hudTop = hudTop;
+    const hudW = Math.min(W - 16, Math.round(520 * (this.uiScale || 1)));
+    const hudX = Math.round((W - hudW) / 2);
+    this.hudX = hudX;
+    this.hudW = hudW;
+
     const joyR = 52;
     const jx = 72, jy = H - (portrait ? 84 : 68);
     this.joyOrigin = { x:jx, y:jy, r:joyR };
@@ -719,24 +744,26 @@ export class Game {
     this.joyKnob.circle(jx, jy, 21).fill({ color:0xffffff, alpha:0.14 }).stroke({ color:0xffffff, alpha:0.2, width:1 });
 
     this.hudPanel.clear();
-    this.hudPanel.roundRect(8, hudTop, W - 16, 78, 8)
-      .fill({ color:0x070b10, alpha:0.84 })
-      .stroke({ color:0x8f7a3e, width:1, alpha:0.5 });
+    this.hudPanel.roundRect(hudX, hudTop, hudW, 78, 8)
+      .fill({ color:0x070b10, alpha:0.86 })
+      .stroke({ color:0x8f7a3e, width:1, alpha:0.55 });
 
-    const barX = 18;
-    const barW = W - 36;
+    const barX = hudX + 10;
+    const barW = hudW - 20;
+    this.hudBarX = barX;
+    this.hudBarW = barW;
     this.hudXpBg.clear();
     this.hudXpBg.roundRect(barX, hudTop + 7, barW, 8, 3).fill(0x151b29).stroke({ color:0xd4a017, width:1, alpha:0.75 });
     this.hudHpBg.clear();
-    this.hudHpBg.roundRect(barX, hudTop + 20, Math.min(126, barW * 0.42), 6, 2).fill(0x2b1418);
+    this.hudHpBg.roundRect(barX, hudTop + 20, Math.round(Math.min(136, barW * 0.42)), 6, 2).fill(0x2b1418);
 
     this.hudText.x = barX; this.hudText.y = hudTop + 31;
     this.hudTime.anchor = { x:0.5, y: 0 };
-    this.hudTime.x = W / 2; this.hudTime.y = hudTop + 29;
+    this.hudTime.x = Math.round(W / 2); this.hudTime.y = hudTop + 29;
     this.hudKills.anchor = { x:1, y: 0 };
-    this.hudKills.x = W - 18; this.hudKills.y = hudTop + 32;
+    this.hudKills.x = barX + barW; this.hudKills.y = hudTop + 32;
     this.hudPerk.anchor = { x:1, y: 0 };
-    this.hudPerk.x = W - 18; this.hudPerk.y = hudTop + 17;
+    this.hudPerk.x = barX + barW; this.hudPerk.y = hudTop + 17;
     this._lastHpQuant = -1;
     this._lastXpQuant = -1;
     this._loadoutDirty = true;
@@ -750,7 +777,7 @@ export class Game {
     const slotSize = 22;
     const step = 25;
     const groupGap = 10;
-    const startX = 18;
+    const startX = (this.hudBarX ?? 18);
     const bg = this.hudSlotsBg;
     bg.clear();
 
@@ -782,7 +809,8 @@ export class Game {
         item.badge.visible = true;
       } else {
         bg.rect(sx, slotY, slotSize, slotSize)
-          .fill({ color:0x0b1017, alpha:0.55 });
+          .fill({ color:0x0b1017, alpha:0.65 })
+          .stroke({ color:0x24303c, width:1, alpha:0.65 });
         item.icon.visible = false;
         item.badge.visible = false;
       }
@@ -818,13 +846,14 @@ export class Game {
         item.badge.visible = true;
       } else {
         bg.rect(sx, slotY, slotSize, slotSize)
-          .fill({ color:0x0b1017, alpha:0.45 });
+          .fill({ color:0x0b1017, alpha:0.55 })
+          .stroke({ color:0x202b36, width:1, alpha:0.55 });
         item.icon.visible = false;
         item.badge.visible = false;
       }
     }
     if (this.hudMuteBtn) {
-      const mx = this.W - 18 - slotSize;
+      const mx = (this.hudBarX ?? 18) + (this.hudBarW ?? (this.W - 36)) - slotSize;
       this.hudMuteBtn.x = mx;
       this.hudMuteBtn.y = slotY;
       this.hudMuteBg.clear();
@@ -966,19 +995,24 @@ export class Game {
     this.camX += (p.x - this.camX) * 0.15;
     this.camY += (p.y - this.camY) * 0.15;
 
-    // world transform
-    this.world.x = this.W/2 - this.camX;
-    this.world.y = this.H/2 - this.camY;
-    this.terrain.x = this.camX - this.W / 2 - 16;
-    this.terrain.y = this.camY - this.H / 2 - 16;
-    this.terrain.tilePosition.set(-this.camX, -this.camY);
+    // world transform (integer-snapped with responsive worldScale & CSS-composited ground)
+    const ws = this.worldScale || 1;
+    this.world.scale.set(ws);
+    let wx = this.W / 2 - this.camX * ws;
+    let wy = this.H / 2 - this.camY * ws;
     if (this.shake > 0) {
-      this.world.x += (Math.random()-0.5)*this.shake;
-      this.world.y += (Math.random()-0.5)*this.shake;
+      wx += (Math.random() - 0.5) * this.shake;
+      wy += (Math.random() - 0.5) * this.shake;
       this.shake *= 0.82;
       if (this.shake < 0.15) this.shake = 0;
     }
-
+    const rx = Math.round(wx);
+    const ry = Math.round(wy);
+    this.world.x = rx;
+    this.world.y = ry;
+    if (this.appEl) {
+      this.appEl.style.backgroundPosition = `${rx}px ${ry}px`;
+    }
     // update joystick knob visual only on active touch or state transition
     if (this.joystick.active) {
       const kx = this.joystick.originX + this.joystick.x * 60;
@@ -1075,7 +1109,8 @@ export class Game {
     e.sprite.texture = frames[0];
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = d.size / 16;
+    const sc = d.size >= 18 ? 1.25 : 1.0;
+    e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
@@ -1107,7 +1142,8 @@ export class Game {
     e.sprite.texture = this.enemyTextures.elite[0];
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = d.size / 16;
+    const sc = 1.5;
+    e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
@@ -1157,18 +1193,21 @@ export class Game {
       const cands = this.spatial.query(p.x, p.y, 90 * area + 24);
       const pool = cands.length ? cands : this.enemies;
       const targets = pool.filter((e) => e.active).sort((a,b)=>dist2(a.x,a.y,p.x,p.y)-dist2(b.x,b.y,p.x,p.y)).slice(0, maxTargets);
-      const facing = targets.length ? this.directionFromAngle(angleTo(p.x, p.y, targets[0].x, targets[0].y)) : p.direction;
+      const slashAng = targets.length
+        ? angleTo(p.x, p.y, targets[0].x, targets[0].y)
+        : ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[p.direction] ?? 0);
+      const facing = this.directionFromAngle(slashAng);
       this.beginAttack(facing, 0.28);
       for (const e of targets) {
         if (dist2(e.x,e.y,p.x,p.y) < (90*area)**2) {
           this.damageEnemy(e, dmg, p.x, p.y);
         }
       }
-      // visual slash
       this.sfx.play('slash');
-      this.spawnSlash(p.x, p.y, wd ? wd.color : 0x5fd38d, area);
+      const col = wd ? wd.color : 0x5fd38d;
+      this.spawnSlash(p.x, p.y, col, area, slashAng);
+      if (wd) this.spawnShockwave(p.x, p.y, wd.color, 0.45, 1.85 * area, 0.24);
     } else if (type === 'thrust') {
-      // line in facing direction (joystick or nearest enemy)
       let ang = this.joystick.active ? Math.atan2(this.joystick.y, this.joystick.x) : 0;
       if (!this.joystick.active && this.enemies.length) {
         const ne = this.nearestEnemy(p.x, p.y);
@@ -1177,7 +1216,6 @@ export class Game {
       this.beginAttack(this.directionFromAngle(ang), 0.3);
       const len = 120 * area * (1 + stats.delta * 0.04);
       for (const e of this.enemies) {
-        // point to segment distance
         const dx = e.x - p.x, dy = e.y - p.y;
         const proj = dx*Math.cos(ang) + dy*Math.sin(ang);
         if (proj >= 0 && proj <= len) {
@@ -1195,33 +1233,34 @@ export class Game {
       this.sfx.play('spin');
       this.spawnSpin(p.x, p.y, area, wd ? wd.color : 0xd38f5f);
     } else if (type === 'projectile' || type === 'magic_bolt') {
-      // fire at nearest enemy (or multiple)
       this.sfx.play('shoot');
       const count = (wd ? 5 : (w.id === 'daggers' ? 2 : 1)) + bonusCount;
       const pierce = (wd ? 3 : 1) + bonusPierce;
+      const isMagic = type === 'magic_bolt';
       const targets = this.nearestEnemies(p.x, p.y, count);
-      this.beginAttack(targets.length ? this.directionFromAngle(angleTo(p.x, p.y, targets[0].x, targets[0].y)) : p.direction, 0.24);
+      const firstAng = targets.length ? angleTo(p.x, p.y, targets[0].x, targets[0].y) : 0;
+      this.beginAttack(targets.length ? this.directionFromAngle(firstAng) : p.direction, 0.24);
+      this.spawnSparkBurst(p.x + Math.cos(firstAng) * 12, p.y + Math.sin(firstAng) * 12, firstAng, wd ? wd.color : base.color, 2, 115, 0.65, 0.45);
       if (targets.length === 0) {
-        // fire in random directions
-        for (let i=0;i<count;i++) this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, base.color, wd, false, pierce);
+        for (let i=0;i<count;i++) this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, wd ? wd.color : base.color, wd, false, pierce, isMagic);
       } else {
         for (let i = 0; i < count; i++) {
           const t = targets[i % targets.length];
           const spread = i >= targets.length ? (i - targets.length + 1) * 0.14 : 0;
           const ang = angleTo(p.x, p.y, t.x, t.y) + spread;
-          this.spawnProjectile(p.x, p.y, ang, dmg, area, base.color, wd, w.id==='daggers', pierce);
+          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers', pierce, isMagic);
         }
       }
-      if (type === 'magic_bolt' && !wd) {
+      if (isMagic && !wd) {
         const extraBolts = 1 + Math.floor(stats.delta / 3);
         for (let i = 0; i < extraBolts; i++) {
-          this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, base.color, wd, false, pierce);
+          this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, base.color, wd, false, pierce, true);
         }
       }
     }
   }
 
-  spawnProjectile(x, y, ang, dmg, area, color, wd, homing=false, pierceOverride=null) {
+  spawnProjectile(x, y, ang, dmg, area, color, wd, homing=false, pierceOverride=null, isMagic=false) {
     const p = this.projPool.acquire();
     p.active = true;
     p.x = x; p.y = y;
@@ -1234,6 +1273,7 @@ export class Game {
     p.size = 6 * area;
     p.color = color;
     p.homing = homing || (wd && wd.name==='Twin Dragons');
+    p.isMagic = isMagic || Boolean(wd);
     p.fromEnemy = false;
     p.sprite.visible = true;
     p.sprite.tint = color;
@@ -1268,7 +1308,8 @@ export class Game {
         if (!e.active) continue;
         if (pr.hit.has(e)) continue;
         if (dist2(pr.x, pr.y, e.x, e.y) < (pr.size + e.size) ** 2) {
-          this.damageEnemy(e, pr.dmg, pr.x, pr.y);
+          this.damageEnemy(e, pr.dmg, pr.x - pr.vx * 0.05, pr.y - pr.vy * 0.05);
+          if (pr.isMagic) this.spawnShockwave(e.x, e.y, pr.color, 0.25, 0.9, 0.18);
           pr.hit.add(e);
           pr.pierce--;
           if (pr.pierce <= 0) { pr.life = 0; break; }
@@ -1415,17 +1456,17 @@ export class Game {
   damageEnemy(e, dmg, sx, sy) {
     const armor = 0;
     e.hp -= dmg;
-    e.hitFlash = 0.1;
+    e.hitFlash = 0.12;
     this.sfx.play('hit');
-    this.spawnHitSpark(e.x, e.y, e.color, e.isBoss ? 0.68 : 0.38);
-    if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
-      this._floatTextThisFrame++;
-      this.showFloatText(e.x, e.y, Math.round(dmg).toString(), 0xffffff);
-    }
-    // knockback
     const ang = angleTo(sx, sy, e.x, e.y);
     e.kx = Math.cos(ang); e.ky = Math.sin(ang);
     e.knock = 6;
+    this.spawnHitSpark(e.x, e.y, 0xfff3b0, e.isBoss ? 0.78 : 0.46, 0.14);
+    this.spawnSparkBurst(e.x, e.y, ang, e.color, 1, 135, e.isBoss ? 0.85 : 0.6, 0.5);
+    if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
+      this._floatTextThisFrame++;
+      this.showFloatText(e.x, e.y - 8, Math.round(dmg).toString(), 0xffffff);
+    }
     if (e.hp <= 0) {
       // spawn gem (or merge into existing gem when >40 gems active)
       if (this.gems.length >= 40) {
@@ -1440,10 +1481,10 @@ export class Game {
         this.gems.push(g);
       }
       this.kills++;
-      // pooled death burst
-      this.spawnHitSpark(e.x, e.y, e.color, e.isBoss ? 1.35 : 0.72, 0.22);
+      // pooled death shockwave + directional spark burst
+      this.spawnShockwave(e.x, e.y, e.color, 0.3, e.isBoss ? 1.85 : 1.05, 0.22);
+      this.spawnSparkBurst(e.x, e.y, ang, e.color, e.isBoss ? 5 : 2, 155, e.isBoss ? 0.95 : 0.68, 1.9);
       if (e.isBoss) {
-        // spawn chest
         this.spawnChest(e.x, e.y);
       }
       e.active = false;
@@ -1506,32 +1547,47 @@ export class Game {
     // gems handled in collisions; magnet range set there. Just cleanup active flags already.
   }
 
+  releaseParticle(pt) {
+    if (pt.pooled === 'hit') this.hitPool.release(pt.poolObject);
+    else if (pt.pooled === 'slash') this.slashPool.release(pt.poolObject);
+    else if (pt.pooled === 'thrust') this.thrustPool.release(pt.poolObject);
+    else if (pt.pooled === 'spin') this.spinPool.release(pt.poolObject);
+    else if (pt.pooled === 'ring') this.ringPool.release(pt.poolObject);
+    else if (pt.pooled === 'spark') this.sparkPool.release(pt.poolObject);
+    else if (pt.pooled === 'text') this.textPool.release(pt.poolObject);
+    else if (pt.g) pt.g.destroy();
+  }
+
   updateParticles(dt) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const pt = this.particles[i];
       pt.life -= dt;
       pt.x += pt.vx * dt;
       pt.y += pt.vy * dt;
-      pt.vy += 40 * dt;
+      if (pt.gravity) pt.vy += pt.gravity * dt;
       if (pt.g) {
-        pt.g.x = pt.x; pt.g.y = pt.y;
+        pt.g.x = Math.round(pt.x);
+        pt.g.y = Math.round(pt.y);
         if (pt.spin) pt.g.rotation += pt.spin * dt;
-        if (pt.isText) pt.g.alpha = Math.max(0, pt.life);
-        else {
-          const duration = pt.maxLife || 0.4;
+        const duration = pt.maxLife || 0.4;
+        const progress = clamp(1 - pt.life / duration, 0, 1);
+        if (pt.isText) {
           pt.g.alpha = Math.max(0, pt.life / duration);
-          if (!pt.isText && pt.g.scale && pt.baseScaleX !== undefined) {
-            const growth = 1 + (1 - pt.life / duration) * 0.35;
+        } else {
+          pt.g.alpha = Math.max(0, (1 - progress) * (pt.startAlpha ?? 1));
+          if (pt.endScaleX !== undefined) {
+            const sx = pt.baseScaleX + (pt.endScaleX - pt.baseScaleX) * progress;
+            const sy = pt.baseScaleY + (pt.endScaleY - pt.baseScaleY) * progress;
+            pt.g.scale.set(sx, sy);
+          } else if (pt.baseScaleX !== undefined) {
+            const growth = 1 + progress * (pt.growthRate ?? 0.35);
             pt.g.scale.set(pt.baseScaleX * growth, pt.baseScaleY * growth);
           }
         }
       }
       if (pt.life <= 0) {
-        if (pt.pooled === 'hit') this.hitPool.release(pt.poolObject);
-        else if (pt.pooled === 'slash') this.slashPool.release(pt.poolObject);
-        else if (pt.pooled === 'text') this.textPool.release(pt.poolObject);
-        else if (pt.g) pt.g.destroy();
-        this.particles.splice(i,1);
+        this.releaseParticle(pt);
+        this.particles.splice(i, 1);
       }
     }
   }
@@ -1727,66 +1783,180 @@ export class Game {
     t.tint = color;
     t.visible = true;
     t.alpha = 1;
-    t.x = x; t.y = y;
-    this.particles.push({ g:t, x, y, vx:0, vy:-56, life:0.55, maxLife:0.55, isText:true, pooled:'text', poolObject:entry });
+    t.x = Math.round(x); t.y = Math.round(y);
+    this.particles.push({ g:t, x, y, vx:0, vy:-56, gravity:40, life:0.55, maxLife:0.55, isText:true, pooled:'text', poolObject:entry });
   }
 
   spawnHitSpark(x, y, color = 0xffffff, scale = 0.42, life = 0.14, vx = 0, vy = 0) {
-    if (this.hitPool.active.length >= 18) return;
+    if (this.hitPool.active.length >= 20) return;
     const spark = this.hitPool.acquire();
     spark.active = true;
     spark.sprite.visible = true;
     spark.sprite.alpha = 0.95;
     spark.sprite.tint = color || 0xffffff;
     spark.sprite.scale.set(scale);
-    spark.sprite.x = x;
-    spark.sprite.y = y;
+    spark.sprite.x = Math.round(x);
+    spark.sprite.y = Math.round(y);
     this.particles.push({
       g:spark.sprite, x, y, vx, vy, life, maxLife:life,
       isSlash:true, pooled:'hit', poolObject:spark,
-      baseScaleX:scale, baseScaleY:scale,
+      baseScaleX:scale, baseScaleY:scale, growthRate:0.45,
     });
   }
 
-  spawnSlash(x, y, color, area) {
+  spawnShockwave(x, y, color = 0xffffff, startScale = 0.35, endScale = 1.45, life = 0.22) {
+    if (this.ringPool.active.length >= 14) return;
+    const entry = this.ringPool.acquire();
+    entry.active = true;
+    const s = entry.sprite;
+    s.visible = true;
+    s.alpha = 0.92;
+    s.tint = color;
+    s.scale.set(startScale);
+    s.x = Math.round(x);
+    s.y = Math.round(y);
+    this.particles.push({
+      g:s, x, y, vx:0, vy:0, life, maxLife:life, startAlpha:0.92,
+      pooled:'ring', poolObject:entry,
+      baseScaleX:startScale, baseScaleY:startScale,
+      endScaleX:endScale, endScaleY:endScale,
+    });
+  }
+
+  spawnSparkBurst(x, y, ang, color = 0xfff0a8, count = 2, speed = 140, scale = 0.68, spread = 0.6) {
+    for (let i = 0; i < count; i++) {
+      if (this.sparkPool.active.length >= 24) break;
+      const entry = this.sparkPool.acquire();
+      entry.active = true;
+      const s = entry.sprite;
+      const a = ang + (i - (count - 1) / 2) * spread + (Math.random() - 0.5) * 0.18;
+      const sp = speed * (0.85 + Math.random() * 0.3);
+      s.visible = true;
+      s.alpha = 1;
+      s.tint = i % 2 === 0 ? 0xffffff : color;
+      s.scale.set(scale * 1.25, scale * 0.75);
+      s.rotation = a;
+      s.x = Math.round(x);
+      s.y = Math.round(y);
+      this.particles.push({
+        g:s, x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp,
+        life:0.16, maxLife:0.16,
+        pooled:'spark', poolObject:entry,
+        baseScaleX:scale * 1.25, baseScaleY:scale * 0.75,
+        endScaleX:scale * 0.35, endScaleY:scale * 0.25,
+      });
+    }
+  }
+
+  spawnSlash(x, y, color, area, ang = 0) {
+    const cx = x + Math.cos(ang) * 18 * area;
+    const cy = y + Math.sin(ang) * 18 * area;
     const entry = this.slashPool.acquire();
     entry.active = true;
     const sprite = entry.sprite;
     sprite.visible = true;
     sprite.alpha = 1;
     sprite.tint = color;
-    const sc = 1.55 * area;
+    const sc = 1.45 * area;
     sprite.scale.set(sc);
-    sprite.rotation = this.player?.direction === 'left' ? Math.PI : this.player?.direction === 'up' ? -Math.PI / 2 : 0;
-    sprite.x = x; sprite.y = y;
-    this.particles.push({ g:sprite, x, y, vx:0, vy:0, life:0.26, maxLife:0.26, isSlash:true, spin:-0.8, pooled:'slash', poolObject:entry, baseScaleX:sc, baseScaleY:sc });
-  }
-  spawnThrust(x, y, ang, len, color) {
-    const entry = this.slashPool.acquire();
-    entry.active = true;
-    const sprite = entry.sprite;
-    sprite.visible = true;
-    sprite.alpha = 1;
-    sprite.tint = color;
-    const sx = len / 55, sy = 0.75;
-    sprite.scale.set(sx, sy);
     sprite.rotation = ang + Math.PI / 2;
-    sprite.x = x + Math.cos(ang) * len * 0.35;
-    sprite.y = y + Math.sin(ang) * len * 0.35;
-    this.particles.push({ g:sprite, x:sprite.x, y:sprite.y, vx:0, vy:0, life:0.22, maxLife:0.22, isSlash:true, pooled:'slash', poolObject:entry, baseScaleX:sx, baseScaleY:sy });
+    sprite.x = Math.round(cx); sprite.y = Math.round(cy);
+    this.particles.push({
+      g:sprite, x:cx, y:cy, vx:Math.cos(ang)*45, vy:Math.sin(ang)*45,
+      life:0.24, maxLife:0.24, isSlash:true, spin:-1.2,
+      pooled:'slash', poolObject:entry,
+      baseScaleX:sc * 0.88, baseScaleY:sc * 0.88,
+      endScaleX:sc * 1.22, endScaleY:sc * 1.22,
+    });
+
+    // Secondary bright echo arc + blade sparks
+    if (this.slashPool.active.length < 12) {
+      const echo = this.slashPool.acquire();
+      echo.active = true;
+      const es = echo.sprite;
+      es.visible = true;
+      es.alpha = 0.75;
+      es.tint = 0xffffff;
+      const esc = 1.15 * area;
+      es.scale.set(esc);
+      es.rotation = ang + Math.PI / 2 - 0.25;
+      es.x = Math.round(cx); es.y = Math.round(cy);
+      this.particles.push({
+        g:es, x:cx, y:cy, vx:Math.cos(ang)*70, vy:Math.sin(ang)*70,
+        life:0.16, maxLife:0.16, startAlpha:0.75, spin:1.6,
+        pooled:'slash', poolObject:echo,
+        baseScaleX:esc, baseScaleY:esc,
+        endScaleX:esc * 1.3, endScaleY:esc * 1.3,
+      });
+    }
+    this.spawnSparkBurst(cx, cy, ang, color, 3, 155, 0.72, 0.65);
   }
-  spawnSpin(x, y, area, color) {
-    const entry = this.slashPool.acquire();
+
+  spawnThrust(x, y, ang, len, color) {
+    const entry = this.thrustPool.acquire();
     entry.active = true;
     const sprite = entry.sprite;
     sprite.visible = true;
     sprite.alpha = 1;
     sprite.tint = color;
-    const sc = 2.2 * area;
+    const sx = (len / 56) * 1.05, sy = 1.05;
+    sprite.scale.set(sx, sy);
+    sprite.rotation = ang;
+    const startX = x + Math.cos(ang) * len * 0.32;
+    const startY = y + Math.sin(ang) * len * 0.32;
+    sprite.x = Math.round(startX);
+    sprite.y = Math.round(startY);
+    this.particles.push({
+      g:sprite, x:startX, y:startY,
+      vx:Math.cos(ang) * 150, vy:Math.sin(ang) * 150,
+      life:0.22, maxLife:0.22, isSlash:true,
+      pooled:'thrust', poolObject:entry,
+      baseScaleX:sx * 0.85, baseScaleY:sy * 1.1,
+      endScaleX:sx * 1.15, endScaleY:sy * 0.7,
+    });
+    const tipX = x + Math.cos(ang) * len * 0.78;
+    const tipY = y + Math.sin(ang) * len * 0.78;
+    this.spawnShockwave(tipX, tipY, color, 0.25, 1.1, 0.18);
+    this.spawnSparkBurst(tipX, tipY, ang, color, 3, 175, 0.75, 0.45);
+  }
+
+  spawnSpin(x, y, area, color) {
+    const entry = this.spinPool.acquire();
+    entry.active = true;
+    const sprite = entry.sprite;
+    sprite.visible = true;
+    sprite.alpha = 0.95;
+    sprite.tint = color;
+    const sc = 2.0 * area;
     sprite.scale.set(sc);
     sprite.rotation = 0;
-    sprite.x = x; sprite.y = y;
-    this.particles.push({ g:sprite, x, y, vx:0, vy:0, life:0.32, maxLife:0.32, isSlash:true, spin:5.5, pooled:'slash', poolObject:entry, baseScaleX:sc, baseScaleY:sc });
+    sprite.x = Math.round(x); sprite.y = Math.round(y);
+    this.particles.push({
+      g:sprite, x, y, vx:0, vy:0, life:0.32, maxLife:0.32,
+      isSlash:true, spin:8.5, pooled:'spin', poolObject:entry,
+      baseScaleX:sc * 0.8, baseScaleY:sc * 0.8,
+      endScaleX:sc * 1.25, endScaleY:sc * 1.25,
+    });
+    if (this.spinPool.active.length < 8) {
+      const inner = this.spinPool.acquire();
+      inner.active = true;
+      const is = inner.sprite;
+      is.visible = true;
+      is.alpha = 0.75;
+      is.tint = 0xfff0b8;
+      const isc = 1.35 * area;
+      is.scale.set(isc);
+      is.rotation = Math.PI / 4;
+      is.x = Math.round(x); is.y = Math.round(y);
+      this.particles.push({
+        g:is, x, y, vx:0, vy:0, life:0.24, maxLife:0.24,
+        startAlpha:0.75, spin:-6.5, pooled:'spin', poolObject:inner,
+        baseScaleX:isc, baseScaleY:isc,
+        endScaleX:isc * 1.3, endScaleY:isc * 1.3,
+      });
+    }
+    this.spawnShockwave(x, y, color, 0.4, 2.0 * area, 0.26);
+    this.spawnSparkBurst(x, y, this.animTime * 5, color, 4, 150, 0.7, Math.PI / 2);
   }
 
   flashScreen() {
@@ -1815,12 +1985,12 @@ export class Game {
     } else {
       sprite.currentFrame = 0;
     }
-    sprite.x = p.x;
-    sprite.y = p.y;
+    sprite.x = Math.round(p.x);
+    sprite.y = Math.round(p.y);
     sprite.tint = p.invuln > 0 ? 0xff8888 : 0xffffff;
     sprite.alpha = p.invuln > 0 && Math.floor(this.animTime * 14) % 2 === 0 ? 0.65 : 1;
-    this.playerShadow.x = p.x;
-    this.playerShadow.y = p.y;
+    this.playerShadow.x = Math.round(p.x);
+    this.playerShadow.y = Math.round(p.y);
     this.playerShadow.alpha = 0.85;
   }
 
@@ -1831,22 +2001,31 @@ export class Game {
     for (const e of this.enemies) {
       if (!e.active) continue;
       const s = e.sprite;
-      s.x = e.x;
+      s.x = Math.round(e.x);
       const bob = Math.sin(this.animTime * 8 + e.x * 0.05 + e.y * 0.03) * 1.5;
-      s.y = e.y + bob;
+      s.y = Math.round(e.y + bob);
       s.alpha = 1;
       const frame = Math.floor(this.animTime * 8 + e.phase * 4) % this.enemyTextures[e.type].length;
       if (e.frame !== frame) {
         e.frame = frame;
         s.texture = this.enemyTextures[e.type][frame];
       }
-      s.tint = e.hitFlash > 0 ? 0xff9999 : 0xffffff;
+      const sc = e.baseScale || 1;
+      if (e.hitFlash > 0) {
+        s.tint = 0xfff0b0;
+        s.scaleX = sc * 1.16;
+        s.scaleY = sc * 0.86;
+      } else {
+        s.tint = 0xffffff;
+        s.scaleX = sc;
+        s.scaleY = sc;
+      }
       if (e.isBoss && e.hp < e.maxHp) {
         if (!drewBossBar && !this._hadBossBar) g.clear();
         drewBossBar = true;
         const w = e.size * 2;
-        g.rect(e.x - e.size, e.y - e.size - 8, w, 3).fill(0x330000);
-        g.rect(e.x - e.size, e.y - e.size - 8, w * (e.hp/e.maxHp), 3).fill(0xff3333);
+        g.rect(Math.round(e.x - e.size), Math.round(e.y - e.size - 10), w, 3).fill(0x330000);
+        g.rect(Math.round(e.x - e.size), Math.round(e.y - e.size - 10), Math.round(w * (e.hp/e.maxHp)), 3).fill(0xff3333);
       }
     }
     this._hadBossBar = drewBossBar;
@@ -1884,24 +2063,24 @@ export class Game {
 
   updateHud() {
     const p = this.player;
-    const W = this.W;
-    const hudTop = this.hudTop ?? (this.H > W ? 34 : 8);
+    const hudTop = this.hudTop ?? (this.H > this.W ? 34 : 8);
+    const barX = this.hudBarX ?? 18;
+    const barW = this.hudBarW ?? (this.W - 36);
     if (this._loadoutDirty) this.renderHudSlots();
     const hpRatio = Math.max(0, p.hp / p.maxHp);
     const hpQuant = Math.round(hpRatio * 100);
     if (hpQuant !== this._lastHpQuant) {
       this._lastHpQuant = hpQuant;
-      const hpW = Math.min(126, (W - 36) * 0.42);
+      const hpW = Math.round(Math.min(136, barW * 0.42));
       this.hudHp.clear();
-      if (hpRatio > 0) this.hudHp.roundRect(18, hudTop + 20, hpW * hpRatio, 6, 2).fill(0xe5484d);
+      if (hpRatio > 0) this.hudHp.roundRect(barX, hudTop + 20, Math.round(hpW * hpRatio), 6, 2).fill(0xe5484d);
     }
     const xpRatio = Math.max(0, Math.min(1, this.xp / this.xpNext));
     const xpQuant = Math.round(xpRatio * 200);
     if (xpQuant !== this._lastXpQuant) {
       this._lastXpQuant = xpQuant;
-      const barW = W - 36;
       this.hudXp.clear();
-      if (xpRatio > 0) this.hudXp.roundRect(18, hudTop + 7, barW * xpRatio, 8, 3).fill(0x4c8dff);
+      if (xpRatio > 0) this.hudXp.roundRect(barX, hudTop + 7, Math.round(barW * xpRatio), 8, 3).fill(0x4c8dff);
     }
     const heroText = `${this.hero.name.toUpperCase()} · LV ${this.level}`;
     if (heroText !== this._lastHudText) {

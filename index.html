@@ -6,10 +6,10 @@
 <title>3K Survivors</title>
 <link rel="icon" href="data:," />
 <style>
-  html,body{margin:0;padding:0;background:#000;overflow:hidden;height:100%;width:100%;touch-action:none;}
+  html,body{margin:0;padding:0;background:#000;overflow:hidden;height:100%;width:100%;touch-action:none;-webkit-font-smoothing:none;font-smooth:never;}
   #app{position:fixed;inset:0;}
   #app::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,transparent 58%,rgba(4,7,12,0.68) 100%);}
-  canvas{display:block;}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;}
 </style>
 </head>
 <body>
