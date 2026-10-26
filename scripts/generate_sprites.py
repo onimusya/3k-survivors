@@ -285,8 +285,64 @@ def enemy_frame(kind, frame):
         polygon(d, [(11, 5 + bob), (14, 1 + bob), (21, 4 + bob)], (151, 60, 48, 255))
         line(d, [(23, 7 + bob), (29, 12 + bob)], (198, 181, 130, 255), width=2)
         polygon(d, [(28, 10 + bob), (25, 12 + bob), (28, 15 + bob)], (190, 190, 178, 255))
+    elif kind == "shield":
+        # Heavy ironclad tower-shield guard.
+        polygon(d, [(10, 25), (9 + phase, 29), (15 + phase, 29), (15, 24)], (42, 48, 58, 255))
+        polygon(d, [(17, 24), (19 - phase, 29), (24 - phase, 29), (21, 25)], (42, 48, 58, 255))
+        polygon(d, [(9, 12 + bob), (23, 12 + bob), (24, 25), (9, 25)], (78, 90, 108, 255))
+        ellipse(d, (11, 3 + bob, 22, 14 + bob), SKIN)
+        polygon(d, [(9, 7 + bob), (12, 1 + bob), (21, 1 + bob), (24, 7 + bob)], (92, 106, 126, 255))
+        rect(d, (4, 9 + bob, 15, 26 + bob), (56, 68, 86, 255))
+        rect(d, (6, 11 + bob, 13, 24 + bob), (122, 142, 168, 255))
+        rect(d, (8, 16 + bob, 11, 19 + bob), (228, 184, 72, 255))
+    elif kind == "assassin":
+        # Fast crimson-hooded dual-dagger nightblade.
+        polygon(d, [(10, 25), (8 + phase * 2, 29), (14 + phase * 2, 29), (15, 24)], (45, 24, 34, 255))
+        polygon(d, [(17, 24), (21 - phase * 2, 29), (26 - phase * 2, 29), (21, 25)], (45, 24, 34, 255))
+        polygon(d, [(9, 12 + bob), (16, 9 + bob), (23, 12 + bob), (21, 24), (11, 24)], (128, 34, 52, 255))
+        polygon(d, [(10, 4 + bob), (16, 1 + bob), (22, 4 + bob), (21, 13 + bob), (11, 13 + bob)], (88, 24, 38, 255))
+        rect(d, (13, 7 + bob, 19, 9 + bob), (255, 92, 92, 255), outline=None)
+        polygon(d, [(3, 19 + bob), (9, 15 + bob), (8, 21 + bob)], (220, 232, 245, 255))
+        polygon(d, [(29, 19 + bob), (23, 15 + bob), (24, 21 + bob)], (220, 232, 245, 255))
+    elif kind == "bomber":
+        # Firebrand zealot carrying a glowing black-powder bomb overhead.
+        polygon(d, [(11, 25), (10 + phase, 29), (15 + phase, 29), (15, 24)], (68, 42, 28, 255))
+        polygon(d, [(17, 24), (20 - phase, 29), (25 - phase, 29), (21, 25)], (68, 42, 28, 255))
+        polygon(d, [(9, 13 + bob), (23, 13 + bob), (24, 25), (8, 25)], (188, 84, 36, 255))
+        ellipse(d, (11, 6 + bob, 21, 16 + bob), SKIN)
+        ellipse(d, (11, 0 + bob, 21, 10 + bob), (24, 26, 32, 255))
+        rect(d, (15, 0 + bob, 18, 2 + bob), (255, 232, 92, 255), outline=None)
+    elif kind == "sorcerer":
+        # Purple-robed Taoist mystic with arcane orb staff.
+        polygon(d, [(9, 12 + bob), (16, 8 + bob), (23, 12 + bob), (25, 28), (7, 28)], (106, 56, 148, 255))
+        line(d, [(16, 10 + bob), (16, 27)], (232, 194, 92, 255), width=2)
+        ellipse(d, (11, 3 + bob, 21, 13 + bob), SKIN)
+        polygon(d, [(10, 5 + bob), (16, 0 + bob), (22, 5 + bob)], (74, 36, 112, 255))
+        line(d, [(26, 6 + bob), (26, 28)], (142, 96, 52, 255), width=2)
+        ellipse(d, (23, 2 + bob, 29, 8 + bob), (124, 238, 255, 255))
+    elif kind == "boss_huaxiong":
+        # Hua Xiong: Crimson-black horned Demon Vanguard with giant battleaxe.
+        polygon(d, [(5, 24), (2, 31), (13, 28)], (52, 18, 24, 255))
+        polygon(d, [(26, 24), (30, 31), (19, 28)], (52, 18, 24, 255))
+        polygon(d, [(6, 9 + bob), (16, 6 + bob), (26, 9 + bob), (27, 26), (5, 26)], (168, 36, 38, 255))
+        polygon(d, [(10, 12 + bob), (22, 12 + bob), (23, 24 + bob), (9, 24 + bob)], (42, 44, 52, 255))
+        ellipse(d, (10, 2 + bob, 22, 14 + bob), SKIN)
+        polygon(d, [(7, 6 + bob), (5, 0 + bob), (11, 4 + bob)], (245, 210, 96, 255))
+        polygon(d, [(25, 6 + bob), (27, 0 + bob), (21, 4 + bob)], (245, 210, 96, 255))
+        line(d, [(27, 3 + bob), (25, 28 + bob)], (160, 120, 68, 255), width=2)
+        polygon(d, [(22, 4 + bob), (31, 2 + bob), (31, 14 + bob), (22, 11 + bob)], (228, 82, 72, 255))
+    elif kind == "boss_caoren":
+        # Cao Ren: Sapphire-gold Imperial Grand Commander with heavy plate & glaive.
+        polygon(d, [(5, 24), (2, 31), (14, 28)], (28, 58, 118, 255))
+        polygon(d, [(26, 24), (30, 31), (18, 28)], (28, 58, 118, 255))
+        polygon(d, [(6, 9 + bob), (16, 6 + bob), (26, 9 + bob), (27, 26), (5, 26)], (48, 96, 178, 255))
+        polygon(d, [(10, 12 + bob), (22, 12 + bob), (23, 24 + bob), (9, 24 + bob)], (232, 192, 78, 255))
+        ellipse(d, (10, 2 + bob, 22, 14 + bob), SKIN)
+        polygon(d, [(8, 6 + bob), (16, 0 + bob), (24, 6 + bob)], (72, 132, 224, 255))
+        line(d, [(27, 2 + bob), (25, 28 + bob)], (235, 205, 110, 255), width=2)
+        polygon(d, [(24, 1 + bob), (31, 5 + bob), (25, 11 + bob)], (152, 224, 255, 255))
     else:
-        # Elite general: broad gold armor, horned crown, cloak, and command blade.
+        # Zhang Jiao / Elite General: broad gold armor, horned crown, cloak, and staff/blade.
         polygon(d, [(7, 24), (3, 31), (13, 28)], (93, 34, 53, 255))
         polygon(d, [(24, 24), (29, 31), (19, 28)], (93, 34, 53, 255))
         polygon(d, [(7, 10 + bob), (15, 7 + bob), (24, 10 + bob), (26, 25), (16, 29), (5, 24)], (139, 94, 40, 255))
@@ -299,6 +355,7 @@ def enemy_frame(kind, frame):
         rect(d, (19, 8 + bob, 20, 9 + bob), WHITE, outline=None)
         line(d, [(27, 5 + bob), (24, 26 + bob)], (221, 221, 197, 255), width=2)
         polygon(d, [(26, 2 + bob), (29, 9 + bob), (24, 10 + bob)], (229, 164, 51, 255))
+
     return image
 
 
@@ -474,13 +531,34 @@ def make_effects():
 
     bomb = Image.new("RGBA", (22, 22), (0, 0, 0, 0))
     d = ImageDraw.Draw(bomb)
-    ellipse(d, (2, 5, 19, 21), (56, 62, 74, 255), outline=(235, 196, 96, 255))
-    rect(d, (4, 12, 17, 15), (228, 72, 58, 255), outline=None)
-    ellipse(d, (6, 7, 11, 11), (156, 168, 184, 255), outline=None)
-    rect(d, (9, 2, 13, 6), (218, 176, 84, 255))
-    line(d, [(11, 2), (15, 1), (18, 3)], (245, 214, 136, 255), width=2)
-    polygon(d, [(18, 0), (19, 3), (21, 3), (19, 5), (18, 7), (17, 5), (15, 3), (17, 3)], (255, 242, 112, 255), outline=None)
+    ellipse(d, (2, 5, 19, 21), (14, 16, 20, 255), outline=(92, 98, 110, 255))
+    ellipse(d, (4, 7, 17, 19), (22, 25, 32, 255), outline=None)
+    ellipse(d, (6, 8, 10, 12), (148, 158, 175, 255), outline=None)
+    rect(d, (9, 2, 13, 6), (82, 88, 98, 255))
+    line(d, [(11, 2), (15, 1), (18, 3)], (232, 196, 116, 255), width=2)
+    polygon(d, [(18, 0), (19, 3), (21, 3), (19, 5), (18, 7), (17, 5), (15, 3), (17, 3)], (255, 238, 96, 255), outline=None)
     save(bomb, "effects/bomb.png")
+
+    explosion = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    d = ImageDraw.Draw(explosion)
+    for bx, by, br, col in (
+        (32, 32, 27, (198, 52, 28, 215)),
+        (20, 24, 16, (224, 78, 32, 230)),
+        (44, 24, 16, (224, 78, 32, 230)),
+        (22, 42, 16, (224, 78, 32, 230)),
+        (42, 42, 16, (224, 78, 32, 230)),
+        (32, 32, 21, (255, 142, 42, 245)),
+        (32, 32, 14, (255, 224, 96, 255)),
+        (32, 32, 8, (255, 255, 255, 255)),
+    ):
+        d.ellipse((bx - br, by - br, bx + br, by + br), fill=col)
+    for a in range(0, 360, 30):
+        x0 = 32 + int(sin(a * pi / 180) * 12)
+        y0 = 32 + int(sin((a + 90) * pi / 180) * 12)
+        x1 = 32 + int(sin(a * pi / 180) * 29)
+        y1 = 32 + int(sin((a + 90) * pi / 180) * 29)
+        d.line((x0, y0, x1, y1), fill=(255, 244, 168, 245), width=2)
+    save(explosion, "effects/explosion.png")
 
     vignette = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     pixels = []
@@ -564,12 +642,14 @@ HEROES = {
 def main():
     for hero_id, spec in HEROES.items():
         save(make_hero_sheet(spec), f"heroes/{hero_id}.png")
-    for enemy_id in ("soldier", "archer", "cavalry", "elite"):
+    enemy_Order = (
+        "soldier", "archer", "cavalry", "shield", "assassin",
+        "bomber", "sorcerer", "elite", "boss_huaxiong", "boss_caoren",
+    )
+    for enemy_id in enemy_Order:
         save(make_enemy_sheet(enemy_id), f"enemies/{enemy_id}.png")
-    # A combined atlas lets every pooled enemy share one texture source in a
-    # ParticleContainer while still retaining the four standalone enemy sheets.
-    atlas = Image.new("RGBA", (ENEMY_CELL[0] * ENEMY_COLS, ENEMY_CELL[1] * 4), (0, 0, 0, 0))
-    for row, enemy_id in enumerate(("soldier", "archer", "cavalry", "elite")):
+    atlas = Image.new("RGBA", (ENEMY_CELL[0] * ENEMY_COLS, ENEMY_CELL[1] * len(enemy_Order)), (0, 0, 0, 0))
+    for row, enemy_id in enumerate(enemy_Order):
         atlas.paste(make_enemy_sheet(enemy_id), (0, row * ENEMY_CELL[1]))
     save(atlas, "enemies/atlas.png")
     save(make_terrain(), "terrain/ground.png")

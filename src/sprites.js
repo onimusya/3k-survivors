@@ -31,6 +31,7 @@ const EFFECTS = {
   chest: new URL('../assets/sprites/effects/chest.png', import.meta.url).href,
   heart: new URL('../assets/sprites/effects/heart.png', import.meta.url).href,
   bomb: new URL('../assets/sprites/effects/bomb.png', import.meta.url).href,
+  explosion: new URL('../assets/sprites/effects/explosion.png', import.meta.url).href,
   projectile: new URL('../assets/sprites/effects/projectile.png', import.meta.url).href,
 };
 
@@ -42,7 +43,10 @@ const HERO_DIRECTIONS = 4;
 const ENEMY_FRAME_W = 32;
 const ENEMY_FRAME_H = 32;
 const ENEMY_FRAMES = 4;
-const ENEMY_TYPES = ['soldier', 'archer', 'cavalry', 'elite'];
+const ENEMY_TYPES = [
+  'soldier', 'archer', 'cavalry', 'shield', 'assassin',
+  'bomber', 'sorcerer', 'elite', 'boss_huaxiong', 'boss_caoren',
+];
 
 function nearest(texture) {
   texture.source.scaleMode = 'nearest';

@@ -65,10 +65,12 @@ export class Game {
     this.selectedMapIndex = 0;
     this.mapIndex = 0;
     this.stageIndex = 0;
+    this.unlockedStageOrder = 0;
+    this.selectedCheckpointOrder = 0;
+    this.clearedStages = new Set();
     this.stageProgress = 0;
     this.currentWave = 1;
     this.stageBoss = null;
-    this.player = null;
     this.weapons = []; // {id, level, ...}
     this.passives = {}; // id -> level
     this.xp = 0;
@@ -155,6 +157,7 @@ export class Game {
       this.menuContainer.visible = visible;
     }
     if (this.state === 'levelup') this.showLevelUpUI();
+    if (this.state === 'campaignmap') this.showCampaignMapModal();
     if (this.state === 'gameover') this.gameOver();
   }
 
@@ -191,7 +194,7 @@ export class Game {
       const p = new Particle(this.enemyTextures.soldier[0]);
       p.anchorX = 0.5; p.anchorY = 0.625;
       this.enemyContainer.addParticle(p);
-      return { active:false, type:'soldier', x:0, y:0, hp:0, maxHp:0, speed:0, dmg:0, size:14, baseScale:1, xp:1, color:0x7a7a7a, hitFlash:0, knock:0, kx:0, ky:0, ranged:false, isBoss:false, shootCd:0, sprite:p, frame:-1 };
+      return { active:false, type:'soldier', x:0, y:0, hp:0, maxHp:0, speed:0, dmg:0, size:14, baseScale:1, xp:1, color:0x7a7a7a, hitFlash:0, knock:0, kx:0, ky:0, knockResist:0, ranged:false, explosive:false, isBoss:false, isMapBoss:false, shootCd:0, sprite:p, frame:-1 };
     }, (e) => { e.active = false; if (e.sprite) { e.sprite.alpha = 0; } });
     this.projPool = new Pool(() => {
       const sprite = new Sprite(this.effectTextures.projectile);
@@ -233,6 +236,7 @@ export class Game {
     this.spinPool = makeFxPool(this.effectTextures.whirlwind || this.effectTextures.slash);
     this.ringPool = makeFxPool(this.effectTextures.shockwave || this.effectTextures.impact);
     this.sparkPool = makeFxPool(this.effectTextures.spark || this.effectTextures.impact);
+    this.explosionPool = makeFxPool(this.effectTextures.explosion || this.effectTextures.impact);
     this.floatTextStyle = new TextStyle({
       fill: 0xffffff,
       fontSize: 13,
@@ -611,13 +615,13 @@ export class Game {
   }
 
   applyMapTheme() {
-    const { map } = this.getStageSpec();
+    const { map, stage } = this.getStageSpec();
     if (this.appEl) {
-      this.appEl.style.backgroundColor = map.bgColor || '#1e241b';
-      this.appEl.style.filter = map.bgFilter || 'none';
+      this.appEl.style.backgroundColor = stage.bgColor || map.bgColor || '#263820';
+      this.appEl.style.backgroundBlendMode = 'overlay';
+      this.appEl.style.filter = 'none';
     }
   }
-
   startRun(hero, perk = this.selectedPerk, mapIndex = this.selectedMapIndex) {
     this.sfx.unlock();
     this.sfx.play('start');
@@ -625,7 +629,11 @@ export class Game {
     this.perk = perk || this.selectedPerk || STARTING_PERKS[0];
     this.mapIndex = mapIndex ?? this.selectedMapIndex ?? 0;
     this.stageIndex = 0;
+    this.unlockedStageOrder = this.mapIndex * 3;
+    this.selectedCheckpointOrder = this.unlockedStageOrder;
+    this.clearedStages = new Set();
     this.menuContainer.visible = false;
+    if (this.campaignMapContainer) this.campaignMapContainer.visible = false;
     if (this.gameOverContainer) this.gameOverContainer.visible = false;
     this.resetRun();
     this.state = 'playing';
@@ -697,11 +705,12 @@ export class Game {
 
   setupProps() {
     if (!this.propTextures) return;
-    const { map } = this.getStageSpec();
-    const propOrder = map.propOrder || [
+    const { map, stage } = this.getStageSpec();
+    const propOrder = stage.propOrder || map.propOrder || [
       'grass', 'tree', 'rock', 'grass', 'pine', 'mountain',
       'rock', 'grass', 'tree', 'banner', 'pine', 'grass',
     ];
+    const pattern = stage.layoutPattern || 'glade';
     const solidRadii = { tree: 17, pine: 15, rock: 17, mountain: 25 };
     if (this.props.length === 0) {
       const cols = 8, rows = 6;
@@ -735,17 +744,40 @@ export class Game {
     const half = 800;
     const cx = this.camX || 0, cy = this.camY || 0;
     for (const pr of this.props) {
-      const jx = (((pr.idx * 73 + 19) % 97) / 97 - 0.5) * pr.cellW * 0.72;
-      const jy = (((pr.idx * 41 + 53) % 89) / 89 - 0.5) * pr.cellH * 0.72;
-      let x = cx - half + (pr.c + 0.5) * pr.cellW + jx;
-      let y = cy - half + (pr.r + 0.5) * pr.cellH + jy;
-      if (Math.hypot(x - cx, y - cy) < 105) {
-        x += x >= cx ? 110 : -110;
+      let x, y;
+      if (pattern === 'ring') {
+        const ringIdx = pr.idx % 16;
+        const tier = Math.floor(pr.idx / 16);
+        const ang = (ringIdx / 16) * Math.PI * 2 + tier * 0.22;
+        const rad = 210 + tier * 215 + ((pr.idx * 29) % 45);
+        x = cx + Math.cos(ang) * rad;
+        y = cy + Math.sin(ang) * rad;
+      } else if (pattern === 'corridor') {
+        const lane = (pr.r % 2 === 0 ? -1 : 1) * (135 + Math.floor(pr.r / 2) * 185);
+        const along = (pr.c - 3.5) * 195 + ((pr.idx * 31) % 36 - 18);
+        x = cx + along;
+        y = cy + lane;
+      } else if (pattern === 'fortress') {
+        const gx = (pr.c - 3.5) * 185 + ((pr.r % 2) * 42 - 21);
+        const gy = (pr.r - 2.5) * 215 + ((pr.c % 2) * 36 - 18);
+        x = cx + gx;
+        y = cy + gy;
+      } else {
+        const jx = (((pr.idx * 73 + 19) % 97) / 97 - 0.5) * pr.cellW * 0.72;
+        const jy = (((pr.idx * 41 + 53) % 89) / 89 - 0.5) * pr.cellH * 0.72;
+        x = cx - half + (pr.c + 0.5) * pr.cellW + jx;
+        y = cy - half + (pr.r + 0.5) * pr.cellH + jy;
+      }
+      if (Math.hypot(x - cx, y - cy) < 115) {
+        x += x >= cx ? 125 : -125;
       }
       pr.x = Math.round(x);
       pr.y = Math.round(y);
       pr.sprite.x = pr.x;
       pr.sprite.y = pr.y;
+    }
+    if (this.player) {
+      this.resolvePropCollisions(this.player, 12);
     }
   }
 
@@ -1305,44 +1337,63 @@ export class Game {
 
     if (this.stageProgress >= totalDuration) {
       this.stageProgress = totalDuration;
-      if (stage.bossStage) {
-        this.stageBoss = this.spawnMapBoss(map, stage);
-        this.sfx.play('hurt');
-        this.shake = 12;
-        this.showFloatText(this.player.x, this.player.y - 30, `BOSS: ${map.boss.name.toUpperCase()}!`, 0xff5f5f);
-      } else {
-        this.advanceStage();
-      }
+      const bossSpec = stage.levelBoss || map.boss;
+      this.stageBoss = this.spawnMapBoss(map, stage, bossSpec);
+      this.sfx.play('hurt');
+      this.shake = 12;
+      this.showFloatText(this.player.x, this.player.y - 30, `BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
     }
   }
 
   advanceStage() {
-    const prevMap = CAMPAIGN_MAPS[this.mapIndex] || CAMPAIGN_MAPS[0];
-    const wasBossStage = this.stageIndex >= prevMap.levels.length - 1;
-    this.gold += wasBossStage ? 50 : 20;
-    const healAmt = Math.round(this.player.maxHp * (wasBossStage ? 0.5 : 0.3));
+    const curOrder = this.mapIndex * 3 + this.stageIndex;
+    this.clearedStages.add(curOrder);
+    const nextOrder = Math.min(CAMPAIGN_MAPS.length * 3 - 1, curOrder + 1);
+    this.unlockedStageOrder = Math.max(this.unlockedStageOrder || 0, nextOrder);
+    this.selectedCheckpointOrder = nextOrder;
+
+    const wasBossStage = this.stageIndex >= 2;
+    this.gold += wasBossStage ? 50 : 25;
+    const healAmt = Math.round(this.player.maxHp * (wasBossStage ? 0.5 : 0.35));
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + healAmt);
     this.sfx.play('evolve');
     this.spawnShockwave(this.player.x, this.player.y, 0xf5c84c, 0.4, 2.5, 0.3);
 
-    if (!wasBossStage) {
-      this.stageIndex++;
-      this.stageProgress = 0;
-      this.currentWave = 1;
-      this.stageBoss = null;
-      const { mapNum, levelNum, stage } = this.getStageSpec();
-      this.showFloatText(this.player.x, this.player.y - 28, `STAGE ${mapNum}-${levelNum}: ${stage.name.toUpperCase()}!`, 0x6bffb0);
-    } else {
-      this.mapIndex = (this.mapIndex + 1) % CAMPAIGN_MAPS.length;
-      this.stageIndex = 0;
-      this.stageProgress = 0;
-      this.currentWave = 1;
-      this.stageBoss = null;
-      this.applyMapTheme();
-      this.setupProps();
-      const { map, mapNum } = this.getStageSpec();
-      this.showFloatText(this.player.x, this.player.y - 30, `MAP ${mapNum}: ${map.short}!`, 0xffe066);
+    this.stageBoss = null;
+    this.state = 'campaignmap';
+    this.showCampaignMapModal(curOrder, nextOrder);
+  }
+
+  deployToCheckpoint(stageOrder = this.selectedCheckpointOrder) {
+    const clamped = clamp(stageOrder ?? 0, 0, CAMPAIGN_MAPS.length * 3 - 1);
+    if (clamped > (this.unlockedStageOrder || 0)) return;
+    this.sfx.play('start');
+    this.mapIndex = Math.floor(clamped / 3);
+    this.stageIndex = clamped % 3;
+    this.stageProgress = 0;
+    this.currentWave = 1;
+    this.stageBoss = null;
+
+    // Clear leftover non-boss enemies/projectiles for clean stage transition
+    for (const e of this.enemies) this.enemyPool.release(e);
+    this.enemies.length = 0;
+    for (const p of this.projectiles) this.projPool.release(p);
+    this.projectiles.length = 0;
+
+    if (this.luContainer) {
+      this.luContainer.destroy({ children: true });
+      this.luContainer = null;
     }
+    if (this.campaignMapContainer) {
+      this.campaignMapContainer.destroy({ children: true });
+      this.campaignMapContainer = null;
+    }
+    this.applyMapTheme();
+    this.setupProps();
+    this.state = 'playing';
+    this._lastWaveQuant = -1;
+    const { mapNum, levelNum, stage } = this.getStageSpec();
+    this.showFloatText(this.player.x, this.player.y - 28, `STAGE ${mapNum}-${levelNum}: ${stage.name.toUpperCase()}!`, 0x6bffb0);
   }
 
   updateProps() {
@@ -1397,13 +1448,20 @@ export class Game {
 
   explodeBomb(x, y) {
     this.sfx.play('bomb');
-    this.shake = 14;
-    this.spawnShockwave(x, y, 0xff6b3d, 0.45, 3.6, 0.34);
-    this.spawnShockwave(x, y, 0xffe066, 0.25, 2.3, 0.24);
-    this.spawnSparkBurst(x, y, 0, 0xffae42, 8, 220, 0.95, Math.PI / 4);
-    this.showFloatText(x, y - 16, 'KABOOM!', 0xffd166);
-    const blastRadius2 = 240 * 240;
-    const blastDmg = 85 * (this.player?.dmgMul || 1);
+    this.shake = 18;
+    this.flashScreen(0xffae42, 0.28);
+    this.spawnExplosion(x, y, 0.75, 3.3, 0xffffff, 0.42, 2.2);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      this.spawnExplosion(x + Math.cos(a) * 58, y + Math.sin(a) * 58, 0.45, 1.85, 0xffb84d, 0.32, i % 2 ? -2.4 : 2.4);
+    }
+    this.spawnShockwave(x, y, 0xff4d29, 0.5, 4.2, 0.38);
+    this.spawnShockwave(x, y, 0xffae42, 0.35, 3.0, 0.28);
+    this.spawnShockwave(x, y, 0xfff3b0, 0.2, 1.9, 0.2);
+    this.spawnSparkBurst(x, y, 0, 0xffd166, 16, 260, 1.15, Math.PI / 8);
+    this.showFloatText(x, y - 36, 'KABOOM!', 0xffe066);
+    const blastRadius2 = 250 * 250;
+    const blastDmg = 95 * (this.player?.dmgMul || 1);
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(e.x, e.y, x, y) <= blastRadius2) {
@@ -1412,11 +1470,11 @@ export class Game {
     }
   }
 
-  spawnEnemy() {
+  spawnEnemy(forceType = null) {
     const { stage } = this.getStageSpec();
-    const types = ['soldier','soldier','soldier','archer','cavalry'];
-    const t = pick(types);
-    const d = ENEMY_TYPES[t];
+    const types = stage.enemies || ['soldier', 'soldier', 'archer', 'cavalry'];
+    const t = forceType && ENEMY_TYPES[forceType] ? forceType : pick(types);
+    const d = ENEMY_TYPES[t] || ENEMY_TYPES.soldier;
     const ang = Math.random() * Math.PI * 2;
     const r = 420 + Math.random() * 120;
     const x = this.player.x + Math.cos(ang) * r;
@@ -1443,13 +1501,16 @@ export class Game {
     e.xp = d.xp;
     e.color = d.color;
     e.ranged = !!d.ranged;
+    e.explosive = !!d.explosive;
+    e.knockResist = d.knockResist || 0;
     e.isBoss = false;
     e.isMapBoss = false;
-    e.shootCd = 1.4 + e.phase * 2.4;
+    e.shootCd = 1.4 + e.phase * 2.2;
     e.hitFlash = 0;
     e.knock = 0;
     e.kx = 0; e.ky = 0;
     this.enemies.push(e);
+    return e;
   }
 
   spawnElite() {
@@ -1486,20 +1547,21 @@ export class Game {
     return e;
   }
 
-  spawnMapBoss(map, stage) {
-    const b = map.boss;
+  spawnMapBoss(map, stage, bossSpec = null) {
+    const b = bossSpec || stage.levelBoss || map.boss;
+    const spriteKey = b.spriteType && this.enemyTextures[b.spriteType] ? b.spriteType : 'elite';
     const ang = Math.random() * Math.PI * 2;
-    const r = 240;
+    const r = 230;
     const x = this.player.x + Math.cos(ang) * r;
     const y = this.player.y + Math.sin(ang) * r;
     const e = this.enemyPool.acquire();
     e.active = true;
-    e.type = 'elite';
+    e.type = spriteKey;
     e.x = x; e.y = y;
-    e.sprite.texture = this.enemyTextures.elite[0];
+    e.sprite.texture = this.enemyTextures[spriteKey][0];
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = b.scale || 1.8;
+    const sc = b.scale || 1.75;
     e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
@@ -1508,10 +1570,12 @@ export class Game {
     e.maxHp = e.hp;
     e.speed = b.speed;
     e.dmg = b.dmg;
-    e.size = 26;
+    e.size = 24;
     e.xp = 45;
     e.color = b.color || 0xf5c84c;
     e.ranged = true;
+    e.explosive = false;
+    e.knockResist = 0.75;
     e.shootCd = 1.2;
     e.isBoss = true;
     e.isMapBoss = true;
@@ -1727,22 +1791,30 @@ export class Game {
 
   enemyShoot(e) {
     const p = this.player;
-    const ang = angleTo(e.x, e.y, p.x, p.y);
-    const pr = this.projPool.acquire();
-    pr.active = true;
-    pr.x = e.x; pr.y = e.y;
-    pr.vx = Math.cos(ang) * 180;
-    pr.vy = Math.sin(ang) * 180;
-    pr.dmg = e.dmg;
-    pr.life = 2.5;
-    pr.pierce = 1;
-    pr.size = 5;
-    pr.color = 0xffaa5f;
-    pr.homing = false;
-    pr.fromEnemy = true;
-    pr.sprite.visible = true;
-    pr.sprite.tint = 0xffaa5f;
-    this.projectiles.push(pr);
+    const baseAng = angleTo(e.x, e.y, p.x, p.y);
+    const isSorcerer = e.type === 'sorcerer';
+    const shots = e.isMapBoss ? 3 : (isSorcerer ? 2 : 1);
+    const spread = e.isMapBoss ? 0.24 : 0.18;
+    const col = e.isMapBoss ? (e.color || 0xff5f5f) : (isSorcerer ? 0xc77dff : 0xffaa5f);
+    const spd = e.isMapBoss ? 205 : (isSorcerer ? 165 : 180);
+    for (let i = 0; i < shots; i++) {
+      const ang = baseAng + (i - (shots - 1) / 2) * spread;
+      const pr = this.projPool.acquire();
+      pr.active = true;
+      pr.x = e.x; pr.y = e.y;
+      pr.vx = Math.cos(ang) * spd;
+      pr.vy = Math.sin(ang) * spd;
+      pr.dmg = e.dmg;
+      pr.life = 2.5;
+      pr.pierce = 1;
+      pr.size = e.isMapBoss ? 6 : 5;
+      pr.color = col;
+      pr.homing = false;
+      pr.fromEnemy = true;
+      pr.sprite.visible = true;
+      pr.sprite.tint = col;
+      this.projectiles.push(pr);
+    }
   }
 
   // override projectile collision for enemy bullets
@@ -1851,7 +1923,7 @@ export class Game {
     this.sfx.play('hit');
     const ang = angleTo(sx, sy, e.x, e.y);
     e.kx = Math.cos(ang); e.ky = Math.sin(ang);
-    e.knock = 6;
+    e.knock = 6 * (1 - (e.knockResist || 0));
     this.spawnHitSpark(e.x, e.y, 0xfff3b0, e.isBoss ? 0.78 : 0.46, 0.14);
     this.spawnSparkBurst(e.x, e.y, ang, e.color, 1, 135, e.isBoss ? 0.85 : 0.6, 0.5);
     if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
@@ -1876,8 +1948,14 @@ export class Game {
         this.stageProgress += 0.35;
       }
       // pooled death shockwave + directional spark burst
-      this.spawnShockwave(e.x, e.y, e.color, 0.3, e.isBoss ? 1.85 : 1.05, 0.22);
-      this.spawnSparkBurst(e.x, e.y, ang, e.color, e.isBoss ? 5 : 2, 155, e.isBoss ? 0.95 : 0.68, 1.9);
+      // pooled death shockwave + directional spark burst (+ bomber fiery blast)
+      if (e.explosive) {
+        this.spawnExplosion(e.x, e.y, 0.42, 1.55, 0xff9248, 0.28, 2.0);
+        this.spawnShockwave(e.x, e.y, 0xff6b3d, 0.35, 1.9, 0.25);
+      } else {
+        this.spawnShockwave(e.x, e.y, e.color, 0.3, e.isBoss ? 1.85 : 1.05, 0.22);
+      }
+      this.spawnSparkBurst(e.x, e.y, ang, e.color, e.isBoss ? 5 : (e.explosive ? 6 : 2), 155, e.isBoss ? 0.95 : 0.68, 1.9);
       if (e.isBoss) {
         this.spawnChest(e.x, e.y);
       }
@@ -1961,6 +2039,7 @@ export class Game {
     else if (pt.pooled === 'spin') this.spinPool.release(pt.poolObject);
     else if (pt.pooled === 'ring') this.ringPool.release(pt.poolObject);
     else if (pt.pooled === 'spark') this.sparkPool.release(pt.poolObject);
+    else if (pt.pooled === 'explosion') this.explosionPool.release(pt.poolObject);
     else if (pt.pooled === 'text') this.textPool.release(pt.poolObject);
     else if (pt.g) pt.g.destroy();
   }
@@ -2075,6 +2154,192 @@ export class Game {
       btn.on('pointertap', () => this.pickChoice(ch));
       this.luContainer.addChild(btn);
     });
+  }
+
+  showCampaignMapModal() {
+    if (this.luContainer) {
+      this.luContainer.destroy({ children: true });
+      this.luContainer = null;
+    }
+    if (this.campaignMapContainer) this.campaignMapContainer.destroy({ children: true });
+    this.campaignMapContainer = new Container();
+    this.uiLayer.addChild(this.campaignMapContainer);
+
+    const W = this.W, H = this.H;
+    const landscape = W >= H;
+    const hudOffset = (this.hudTop ?? (H > W ? 34 : 8)) + 90;
+    const panelW = Math.min(landscape ? 520 : 362, W - 20);
+    const panelH = Math.min(landscape ? H - hudOffset - 10 : 450, H - hudOffset - 12);
+    const panelX = Math.round((W - panelW) / 2);
+    const panelY = Math.max(hudOffset, Math.round((H - panelH) / 2 + 24));
+
+    const backdrop = new Graphics();
+    backdrop.rect(0, 0, W, H).fill({ color: 0x05080d, alpha: 0.65 });
+    backdrop.roundRect(panelX + 3, panelY + 5, panelW, panelH, 8).fill({ color: 0x000000, alpha: 0.6 });
+    backdrop.roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x0e151f, alpha: 0.97 })
+      .stroke({ color: 0xf5c84c, width: 2, alpha: 0.95 });
+    this.campaignMapContainer.addChild(backdrop);
+
+    const title = new Text({
+      text: 'STAGE CLEARED! · CAMPAIGN MAP',
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: landscape ? 13 : 14, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.8 }),
+    });
+    title.anchor.set(0.5);
+    title.x = Math.round(W / 2);
+    title.y = panelY + 18;
+    this.campaignMapContainer.addChild(title);
+
+    const sub = new Text({
+      text: 'NEXT CHECKPOINT UNLOCKED · SELECT STAGE TO CONTINUE',
+      style: new TextStyle({ fill: 0x9ec5e8, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    sub.anchor.set(0.5);
+    sub.x = Math.round(W / 2);
+    sub.y = panelY + 34;
+    this.campaignMapContainer.addChild(sub);
+
+    const selOrder = clamp(this.selectedCheckpointOrder ?? this.unlockedStageOrder ?? 0, 0, 8);
+    const unlockedMax = this.unlockedStageOrder ?? 0;
+
+    const rowStartY = panelY + 48;
+    const rowH = Math.floor((panelH - 152) / 3);
+    const innerW = panelW - 24;
+    const nodeGap = 8;
+    const nodeW = Math.floor((innerW - nodeGap * 2) / 3);
+    const nodeH = Math.max(38, rowH - 20);
+
+    CAMPAIGN_MAPS.forEach((m, mIdx) => {
+      const ry = rowStartY + mIdx * rowH;
+      const mapLabel = new Text({
+        text: `MAP ${mIdx + 1}: ${m.name.toUpperCase()}`,
+        style: new TextStyle({ fill: 0xe6dec8, fontSize: 9.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+      });
+      mapLabel.x = panelX + 12;
+      mapLabel.y = ry;
+      this.campaignMapContainer.addChild(mapLabel);
+
+      const routeLine = new Graphics();
+      const lineY = ry + 14 + Math.round(nodeH / 2);
+      routeLine.moveTo(panelX + 12 + nodeW * 0.5, lineY)
+        .lineTo(panelX + 12 + nodeW * 2.5 + nodeGap * 2, lineY)
+        .stroke({ color: 0x45586c, width: 2, alpha: 0.85 });
+      this.campaignMapContainer.addChild(routeLine);
+
+      m.levels.forEach((lv, lIdx) => {
+        const order = mIdx * 3 + lIdx;
+        const isUnlocked = order <= unlockedMax;
+        const isCleared = this.clearedStages?.has(order);
+        const isSelected = order === selOrder;
+        const nx = panelX + 12 + lIdx * (nodeW + nodeGap);
+        const ny = ry + 14;
+
+        const node = new Container();
+        node.x = nx;
+        node.y = ny;
+        const g = new Graphics();
+        const borderCol = isSelected
+          ? 0xf5c84c
+          : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
+        const fillCol = isSelected
+          ? 0x243244
+          : (isUnlocked ? 0x162230 : 0x0c1118);
+        g.roundRect(0, 0, nodeW, nodeH, 5)
+          .fill({ color: fillCol, alpha: 0.96 })
+          .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
+        node.addChild(g);
+
+        const statusTag = isCleared ? '✓ CLEARED' : (isUnlocked ? '★ UNLOCKED' : 'LOCKED');
+        const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
+        const st = new Text({
+          text: `${mIdx + 1}-${lIdx + 1} ${statusTag}`,
+          style: new TextStyle({ fill: tagCol, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        st.x = 6;
+        st.y = 4;
+        node.addChild(st);
+
+        const nm = new Text({
+          text: lv.name.length > 15 ? `${lv.name.slice(0, 14)}.` : lv.name,
+          style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 8.5, fontFamily: 'monospace' }),
+        });
+        nm.x = 6;
+        nm.y = 17;
+        node.addChild(nm);
+
+        const bossName = (lv.levelBoss || m.boss).name;
+        const bs = new Text({
+          text: `Boss: ${bossName}`,
+          style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7.5, fontFamily: 'monospace' }),
+        });
+        bs.x = 6;
+        bs.y = Math.max(28, nodeH - 12);
+        node.addChild(bs);
+
+        if (isUnlocked) {
+          node.eventMode = 'static';
+          node.cursor = 'pointer';
+          node.on('pointertap', () => {
+            this.sfx.play('select');
+            this.selectedCheckpointOrder = order;
+            this.showCampaignMapModal();
+          });
+        }
+        this.campaignMapContainer.addChild(node);
+      });
+    });
+
+    const selMapIdx = Math.floor(selOrder / 3);
+    const selLvIdx = selOrder % 3;
+    const selMap = CAMPAIGN_MAPS[selMapIdx] || CAMPAIGN_MAPS[0];
+    const selLv = selMap.levels[selLvIdx] || selMap.levels[0];
+    const selBoss = selLv.levelBoss || selMap.boss;
+    const uniqueEnemies = [...new Set(selLv.enemies || ['soldier', 'archer'])].map((k) => ENEMY_TYPES[k]?.name.split(' ').pop() || k).join(', ');
+
+    const infoY = panelY + panelH - 96;
+    const infoBox = new Graphics();
+    infoBox.roundRect(panelX + 12, infoY, innerW, 44, 5)
+      .fill({ color: 0x131d29, alpha: 0.95 })
+      .stroke({ color: 0x4b627a, width: 1 });
+    this.campaignMapContainer.addChild(infoBox);
+
+    const infoTitle = new Text({
+      text: `CHECKPOINT ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${(selLv.layoutPattern || 'glade').toUpperCase()} MAP)`,
+      style: new TextStyle({ fill: 0xfff3c4, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    infoTitle.x = panelX + 20;
+    infoTitle.y = infoY + 6;
+    this.campaignMapContainer.addChild(infoTitle);
+
+    const infoSub = new Text({
+      text: `FOES: ${uniqueEnemies}  ·  BOSS: ${selBoss.name.toUpperCase()}`,
+      style: new TextStyle({ fill: 0x9ec5e8, fontSize: 8.5, fontFamily: 'monospace' }),
+    });
+    infoSub.x = panelX + 20;
+    infoSub.y = infoY + 23;
+    this.campaignMapContainer.addChild(infoSub);
+
+    const deployBtn = new Container();
+    const btnW = innerW, btnH = 36;
+    deployBtn.x = panelX + 12;
+    deployBtn.y = panelY + panelH - 44;
+    const btnBg = new Graphics();
+    btnBg.roundRect(0, 0, btnW, btnH, 6)
+      .fill({ color: 0xb93829 })
+      .stroke({ color: 0xf5c84c, width: 2 });
+    deployBtn.addChild(btnBg);
+    const btnTxt = new Text({
+      text: `DEPLOY TO STAGE ${selMapIdx + 1}-${selLvIdx + 1} · CONTINUE`,
+      style: new TextStyle({ fill: 0xfff4d2, fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.8 }),
+    });
+    btnTxt.anchor.set(0.5);
+    btnTxt.x = Math.round(btnW / 2);
+    btnTxt.y = Math.round(btnH / 2);
+    deployBtn.addChild(btnTxt);
+    deployBtn.eventMode = 'static';
+    deployBtn.cursor = 'pointer';
+    deployBtn.on('pointertap', () => this.deployToCheckpoint(selOrder));
+    this.campaignMapContainer.addChild(deployBtn);
   }
 
   describeWeaponUpgrade(w, base) {
@@ -2227,6 +2492,26 @@ export class Game {
       pooled:'ring', poolObject:entry,
       baseScaleX:startScale, baseScaleY:startScale,
       endScaleX:endScale, endScaleY:endScale,
+    });
+  }
+
+  spawnExplosion(x, y, startScale = 0.65, endScale = 2.6, tint = 0xffffff, life = 0.36, spin = 1.8) {
+    if (!this.explosionPool || this.explosionPool.active.length >= 16) return;
+    const entry = this.explosionPool.acquire();
+    entry.active = true;
+    const s = entry.sprite;
+    s.visible = true;
+    s.alpha = 0.96;
+    s.tint = tint;
+    s.scale.set(startScale);
+    s.rotation = Math.random() * Math.PI * 2;
+    s.x = Math.round(x);
+    s.y = Math.round(y);
+    this.particles.push({
+      g: s, x, y, vx: 0, vy: 0, life, maxLife: life, startAlpha: 0.96, spin,
+      pooled: 'explosion', poolObject: entry,
+      baseScaleX: startScale, baseScaleY: startScale,
+      endScaleX: endScale, endScaleY: endScale,
     });
   }
 

@@ -2,8 +2,8 @@
 
 ## 1. Current Milestone Summary
 - **Milestone:** Phase 2 — Combat Math, Pre-Game Perks & Vampire Survivors HUD/Modal Parity
-- **Pieces Passed:** **19 / 19**
-- **Measured Performance:** **58–61 FPS** sustained across 6-second stress windows with **374–381 active enemies** at `1.0×` native render resolution (`2.0×` HiDPI text resolution)
+- **Pieces Passed:** **20 / 20**
+- **Measured Performance:** **60–61 FPS** sustained across 6-second stress windows with **301–381 active enemies** at `1.0×` native render resolution (`2.0×` HiDPI text resolution)
 - **Responsive Viewports Verified:** `390×844` (Mobile Portrait), `844×390` (Mobile Landscape), and `1280×800` (Tablet/Desktop)
 - **Live HTML Dashboard:** [`../progress.html`](../progress.html)
 
@@ -30,8 +30,9 @@
 | 15 | 300+ enemy performance gate | `PASSED` | 6 | `60–61 FPS @ 320` | `src/game.js` (`setupPools`, `hitPool`, `slashPool`, `textPool`) |
 | 16 | Game Audio & SFX (`uisfx` + `earshot`) | `PASSED` | 1 | `14 Cues + Mute Toggle` | `src/audio.js` (`SoundManager`), `scripts/generate_sfx.py`, `assets/sfx/*` |
 | 17 | Multi-res sharp rendering & weapon VFX | `PASSED` | 1 | `1.0x Res + 6 FX Pools` | `src/main.js`, `src/game.js` (`computeLayoutMetrics`, `spawnSlash/Thrust/Spin/Shockwave/SparkBurst`) |
-| 18 | Map decorations & Heart/Bomb drops | `PASSED` | 1 | `48 Props + Heal/AoE Bomb` | `src/game.js` (`setupProps`, `updateProps`, `spawnItem`, `collectItem`, `explodeBomb`) |
-| 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 1 | `3 Maps × 3 Levels + Boss` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
+| 18 | Map decorations & Black Bomb explosion VFX | `PASSED` | 2 | `48 Props + 5-Fireball Bomb` | `src/game.js` (`setupProps`, `spawnExplosion`, `explodeBomb`) |
+| 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
+| 20 | Campaign Checkpoint Map Screen & 10 Enemy/Boss types | `PASSED` | 1 | `3×3 Checkpoint Modal + 10 Types` | `src/game.js` (`showCampaignMapModal`, `deployToCheckpoint`), `scripts/generate_sprites.py` |
 
 ---
 
@@ -82,3 +83,8 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
   - Added `CAMPAIGN_MAPS` in `src/data.js` defining 3 Three Kingdoms maps (`Yellow Turban Outskirts`, `Hulao Pass Fortress`, `Red Cliffs Armada`), each with 3 progressive levels (`1-1` to `3-3`), distinct terrain themes & prop weights, and a final Level 3 Map Boss (`Zhang Jiao`, `Hua Xiong`, `Cao Ren`).
   - Implemented `updateStageProgression`, `advanceStage`, and `spawnMapBoss` in `src/game.js` so completing 3 waves advances to the next level, Level 3 spawns the Map Boss, and defeating the Map Boss transitions to the next Map.
   - Added a 3-segment Wave & Boss HP Progress Bar (`hudWaveBg`, `hudWaveFill`, `hudWaveText`) inside the battle HUD.
+- **`[2026-10-26]` Jet-Black Bomb & Multi-Fireball Explosion VFX, 10 Enemy/Boss Types, 9 Unique Level Map Designs & Interactive Campaign Map Checkpoint Screen:**
+  - Updated `bomb.png` to jet-black with bright fuse spark and added `explosion.png` (`64×64` multi-layered fireball) + `explosionPool` in `src/game.js` so `explodeBomb()` spawns 5 fireball bursts, 3 concentric shockwaves, 16 radial sparks, screen flash, and camera shake.
+  - Expanded the enemy sprite atlas (`assets/sprites/enemies/atlas.png`) and `ENEMY_TYPES` to 10 distinct minion & boss rows (`soldier`, `archer`, `cavalry`, `shield`, `assassin`, `bomber`, `sorcerer`, `elite` Zhang Jiao, `boss_huaxiong` Hua Xiong, `boss_caoren` Cao Ren), with knockback-resistant shields, explosive bombers on death, and multi-bolt sorcerers/bosses.
+  - Gave every single one of the 9 levels (`1-1` through `3-3`) a unique map design (`bgColor` with `backgroundBlendMode: 'overlay'`, `layoutPattern` `'glade'`/`'fortress'`/`'corridor'`/`'ring'`, and `propOrder`), progressive minion roster, and a Wave 3 Stage/Map Boss.
+  - Added the interactive 3×3 **Campaign Map Checkpoint Screen (`showCampaignMapModal()`, `deployToCheckpoint()`)** whenever a level is cleared, unlocking the next checkpoint and letting the player select and deploy to any unlocked level.

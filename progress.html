@@ -24,8 +24,8 @@
 <p>Last updated: <span id="lu"></span></p>
 <script>document.getElementById('lu').textContent = new Date().toISOString();</script>
 <div class="cards">
-  <div class="card"><div>Pieces passed</div><div class="v">19 / 19</div></div>
-  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 378</div></div>
+  <div class="card"><div>Pieces passed</div><div class="v">20 / 20</div></div>
+  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 307</div></div>
   <div class="card"><div>Bar (target)</div><div class="v">60 FPS / 300 enemies</div></div>
 </div>
 <table>
@@ -40,8 +40,9 @@
   <tr><td>XP + leveling</td><td class="state-PASSED">PASSED</td><td>2</td><td>Icon cards + tags</td><td>None</td></tr>
   <tr><td>Weapon evolution</td><td class="state-PASSED">PASSED</td><td>2</td><td>Lv 8 + Passive</td><td>None</td></tr>
   <tr><td>Treasure chests</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
-  <tr><td>Map decorations &amp; Heart/Bomb drops</td><td class="state-PASSED">PASSED</td><td>1</td><td>48 Props + +30HP / 240px AoE</td><td>None</td></tr>
-  <tr><td>Campaign maps, levels, bosses &amp; wave HUD</td><td class="state-PASSED">PASSED</td><td>1</td><td>3 Maps × 3 Levels + Boss</td><td>None</td></tr>
+  <tr><td>Map decorations &amp; Black Bomb multi-fireball explosion</td><td class="state-PASSED">PASSED</td><td>2</td><td>48 Props + 5-Fireball Bomb</td><td>None</td></tr>
+  <tr><td>Campaign maps, levels, bosses &amp; wave HUD</td><td class="state-PASSED">PASSED</td><td>2</td><td>9 Unique Maps + 9 Bosses</td><td>None</td></tr>
+  <tr><td>Campaign Checkpoint Map Screen &amp; 10 Enemy/Boss types</td><td class="state-PASSED">PASSED</td><td>1</td><td>3×3 Checkpoint Modal + 10 Types</td><td>None</td></tr>
   <tr><td>Heroes (Three Kingdoms)</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
   <tr><td>Pre-game starting perks (3 choices)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Vanguard/Aegis/Windfoot</td><td>None</td></tr>
   <tr><td>HUD + mobile controls</td><td class="state-PASSED">PASSED</td><td>3</td><td>12-slot loadout</td><td>None</td></tr>
@@ -64,6 +65,7 @@
   <div>[2026-10-26] Added toroidal scrolling battlefield decorations (trees, pines, rocks, grass, mountains, war banners in propLayer) and random/periodic Heart (+30 HP) &amp; Thunder Bomb (240px AoE explosion + shockwave + camera shake) item drops</div>
   <div>[2026-10-26] Added solid obstacle collision blocking for trees, pines, rocks, and mountains (resolvePropCollisions) and converted mobile navigation controller to a full-screen floating joystick that anchors at any thumb touch point</div>
   <div>[2026-10-26] Added 3 Three Kingdoms Campaign Maps (Outskirts, Hulao Pass, Red Cliffs) × 3 Levels each with progressive HP/DMG/Speed/Spawn scaling, Level 3 Map Boss fights (Zhang Jiao, Hua Xiong, Cao Ren) advancing to the next map on defeat, and a 3-segment Wave &amp; Boss Progress Bar in the battle HUD</div>
+  <div>[2026-10-26] Updated Bomb pickup to jet-black with multi-fireball explosion VFX (explosionPool + 5 fireballs + 3 shockwaves + 16 sparks), added interactive 3×3 Campaign Map Checkpoint Unlock &amp; Selection Screen upon completing a level, expanded enemy atlas to 10 minion/boss types (soldier, archer, cavalry, shield, assassin, bomber, sorcerer, Zhang Jiao, Hua Xiong, Cao Ren), and gave all 9 levels unique map designs (glade, fortress, corridor, ring)</div>
 </div>
 </body>
 </html>
