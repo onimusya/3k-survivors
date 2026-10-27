@@ -1860,20 +1860,44 @@ export class Game {
 
   explodeBomb(x, y) {
     this.sfx.play('bomb');
-    this.shake = 18;
-    this.flashScreen(0xffae42, 0.28);
-    this.spawnExplosion(x, y, 0.75, 3.3, 0xffffff, 0.42, 2.2);
+    this.shake = 24;
+    this.flashScreen(0xffae42, 0.34);
+    const areaMul = this.player?.areaMul || 1;
+    // Massive central fireball + inner 4-fireball ring + outer 6-fireball ring covering the expanded blast zone!
+    this.spawnExplosion(x, y, 1.05 * areaMul, 4.8 * areaMul, 0xffffff, 0.48, 2.2);
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + 0.4;
-      this.spawnExplosion(x + Math.cos(a) * 58, y + Math.sin(a) * 58, 0.45, 1.85, 0xffb84d, 0.32, i % 2 ? -2.4 : 2.4);
+      this.spawnExplosion(
+        x + Math.cos(a) * 82 * areaMul,
+        y + Math.sin(a) * 82 * areaMul,
+        0.6 * areaMul,
+        2.45 * areaMul,
+        0xffb84d,
+        0.38,
+        i % 2 ? -2.4 : 2.4,
+      );
     }
-    this.spawnShockwave(x, y, 0xff4d29, 0.5, 4.2, 0.38);
-    this.spawnShockwave(x, y, 0xffae42, 0.35, 3.0, 0.28);
-    this.spawnShockwave(x, y, 0xfff3b0, 0.2, 1.9, 0.2);
-    this.spawnSparkBurst(x, y, 0, 0xffd166, 16, 260, 1.15, Math.PI / 8);
-    this.showFloatText(x, y - 36, 'KABOOM!', 0xffe066);
-    const blastRadius2 = 250 * 250;
-    const blastDmg = 95 * (this.player?.dmgMul || 1);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.15;
+      this.spawnExplosion(
+        x + Math.cos(a) * 175 * areaMul,
+        y + Math.sin(a) * 175 * areaMul,
+        0.52 * areaMul,
+        2.15 * areaMul,
+        0xff7b3d,
+        0.42,
+        i % 2 ? 2.1 : -2.1,
+      );
+    }
+    this.spawnShockwave(x, y, 0xff4d29, 0.65, 6.8 * areaMul, 0.46);
+    this.spawnShockwave(x, y, 0xffae42, 0.45, 4.8 * areaMul, 0.35);
+    this.spawnShockwave(x, y, 0xfff3b0, 0.25, 3.0 * areaMul, 0.24);
+    this.spawnSparkBurst(x, y, 0, 0xffd166, 24, 340, 1.35, Math.PI / 8);
+    this.showFloatText(x, y - 38, 'MEGA KABOOM!', 0xffe066);
+    const blastRadius = 420 * areaMul;
+    const blastRadius2 = blastRadius * blastRadius;
+    const waveBonus = 1 + Math.max(0, (this.currentWave || 1) - 1) * 0.28;
+    const blastDmg = 185 * (this.player?.dmgMul || 1) * waveBonus;
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(e.x, e.y, x, y) <= blastRadius2) {
@@ -1993,8 +2017,8 @@ export class Game {
       e.countsForWave = false;
       e.flyVx = vx;
       e.flyVy = vy;
-      e.bombTimer = 0.65 + i * 0.26;
-      e.bombsLeft = 2;
+      e.bombTimer = 0.45 + i * 0.22;
+      e.bombsLeft = 2 + (this.currentWave >= 4 ? 1 : 0);
       e.knockResist = 0.85;
       e.isBoss = false;
       e.isMapBoss = false;
@@ -2005,7 +2029,7 @@ export class Game {
       this.enemies.push(e);
       flock.push(e);
     }
-    this.showFloatText(p.x, p.y - 38, 'BOMBING BIRD FLOCK OVERHEAD!', 0xff8552);
+    this.showFloatText(p.x, p.y - 38, 'BIRD FLOCK BULLET RAIN!', 0xff8552);
     return flock;
   }
 
@@ -2416,15 +2440,15 @@ export class Game {
         e.knock -= dt * 8;
         if (e.knock < 0) e.knock = 0;
       }
-      // Aerial Bombing Fire-Hawks fly straight across the sky and drop air-bombs!
+      // Aerial Feather-Storm Hawks fly straight across the sky and unleash Bullet Rain volleys!
       if (e.isBird) {
         e.x += (e.flyVx || 200) * dt;
         e.y += (e.flyVy || 0) * dt;
-        e.bombTimer = (e.bombTimer ?? 0.6) - dt;
+        e.bombTimer = (e.bombTimer ?? 0.5) - dt;
         if (e.bombTimer <= 0 && (e.bombsLeft ?? 0) > 0) {
           e.bombsLeft--;
-          e.bombTimer = 0.68;
-          this.dropAirBomb(e.x, e.y, e.dmg, (e.flyVx || 0) * 0.18);
+          e.bombTimer = 0.58;
+          this.fireBirdBulletRain(e.x, e.y, e.dmg);
         }
         if (dist2(e.x, e.y, p.x, p.y) > 560 * 560) {
           e.active = false;
@@ -2554,7 +2578,7 @@ export class Game {
   }
 
   fireEnemyBolt(x, y, ang, spd, dmg, size, col, isBoulder = false, life = 2.5) {
-    if (this.projectiles.length >= 44) return;
+    if (this.projectiles.length >= 76) return;
     const pr = this.projPool.acquire();
     pr.active = true;
     pr.x = x; pr.y = y;
@@ -2589,17 +2613,18 @@ export class Game {
     this.fireEnemyBolt(x, y - 6, ang, spd, dmg, 9, 0xff7b3d, true, flightTime);
   }
 
-  dropAirBomb(x, y, dmg, driftVx = 0) {
-    const fallTime = 0.48;
-    const fallVy = 155;
-    const targetX = x + driftVx * fallTime;
-    const targetY = y + fallVy * fallTime;
-    // Ground warning ring directly below bombing bird
-    this.spawnShockwave(targetX, targetY, 0xff4d29, 0.55, 0.25, 0.42);
-    const pr = this.fireEnemyBolt(x, y, Math.PI / 2, fallVy, dmg, 8, 0xffae42, true, fallTime);
-    if (pr) {
-      pr.vx = driftVx;
-      pr.vy = fallVy;
+  fireBirdBulletRain(x, y, dmg) {
+    if (!this.player) return;
+    const p = this.player;
+    const baseAng = angleTo(x, y, p.x, p.y);
+    const bullets = 5;
+    const spread = 0.22;
+    this.spawnSparkBurst(x, y, baseAng, 0xffd166, 2, 130, 0.65, 0.55);
+    for (let i = 0; i < bullets; i++) {
+      const ang = baseAng + (i - (bullets - 1) / 2) * spread;
+      const col = i % 2 === 0 ? 0xff5f5f : 0xffd166;
+      const spd = 230 + (i % 2) * 20;
+      this.fireEnemyBolt(x, y, ang, spd, dmg, 5, col, false, 2.2);
     }
   }
 

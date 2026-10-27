@@ -105,7 +105,7 @@ export const ENEMY_TYPES = {
   sorcerer: { name:'Taoist Mystic', color:0x9b62d8, hp:14, speed:48, dmg:12, size:14, xp:4, weight:14, ranged:true },
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
   catapult: { name:'Siege Catapult', color:0xd97706, hp:52, speed:28, dmg:22, size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
-  firebird: { name:'Bombing Fire-Hawk', color:0xef4444, hp:14, speed:240, dmg:18, size:14, xp:5, weight:0, isBird:true },
+  firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:14, speed:240, dmg:13, size:14, xp:5, weight:0, isBird:true },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:14, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:17, size:22, xp:25, weight:0, boss:true },
   elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:20, size:23, xp:30, weight:0, boss:true },

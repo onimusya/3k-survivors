@@ -258,25 +258,25 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
             d.ellipse((wx + 3, 48, wx + 8, 53), fill=(168, 176, 188, 255))
 
     elif char_id == "firebird":
-        # Aerial Bombing Fire-Crow / War Hawk clutching a lit black-powder bomb in its talons
+        # Feather-Storm War Hawk firing glowing crimson & gold feather-bullet darts from the sky
         wing_dy = (-7, 2, 8, 0)[f_idx % 4]
         # Ground shadow far below to emphasize altitude
         d.ellipse((22, 54, 42, 59), fill=(8, 12, 16, 95))
         # Wings
-        d.polygon([(30, 24 + bob), (8, 14 + wing_dy), (12, 28 + wing_dy // 2), (28, 29 + bob)], fill=(168, 38, 38, 255), outline=(58, 16, 20, 255))
-        d.polygon([(34, 24 + bob), (56, 14 + wing_dy), (52, 28 + wing_dy // 2), (36, 29 + bob)], fill=(168, 38, 38, 255), outline=(58, 16, 20, 255))
-        d.line([(12, 18 + wing_dy), (26, 24 + bob)], fill=(255, 168, 62, 255), width=2)
-        d.line([(52, 18 + wing_dy), (38, 24 + bob)], fill=(255, 168, 62, 255), width=2)
+        d.polygon([(30, 24 + bob), (8, 14 + wing_dy), (12, 28 + wing_dy // 2), (28, 29 + bob)], fill=(168, 38, 38, 255), outline=(32, 12, 16, 255))
+        d.polygon([(34, 24 + bob), (56, 14 + wing_dy), (52, 28 + wing_dy // 2), (36, 29 + bob)], fill=(168, 38, 38, 255), outline=(32, 12, 16, 255))
+        d.line([(12, 18 + wing_dy), (26, 24 + bob)], fill=(255, 184, 68, 255), width=2)
+        d.line([(52, 18 + wing_dy), (38, 24 + bob)], fill=(255, 184, 68, 255), width=2)
         # Body & head
-        d.ellipse((25, 18 + bob, 39, 33 + bob), fill=(198, 48, 42, 255), outline=(58, 16, 20, 255))
-        d.polygon([(28, 15 + bob), (32, 9 + bob), (36, 15 + bob)], fill=(255, 196, 72, 255))
-        d.polygon([(30, 31 + bob), (32, 36 + bob), (34, 31 + bob)], fill=(255, 224, 88, 255))
-        d.rectangle((29, 21 + bob, 31, 23 + bob), fill=(255, 242, 120, 255))
-        d.rectangle((33, 21 + bob, 35, 23 + bob), fill=(255, 242, 120, 255))
-        # Clutched black bomb with lit spark underneath
-        d.ellipse((27, 34 + bob, 37, 44 + bob), fill=(20, 22, 28, 255), outline=(112, 120, 135, 255))
-        d.rectangle((34, 32 + bob, 38, 35 + bob), fill=(255, 232, 88, 255))
-
+        d.ellipse((25, 18 + bob, 39, 33 + bob), fill=(208, 48, 42, 255), outline=(32, 12, 16, 255))
+        d.polygon([(28, 15 + bob), (32, 8 + bob), (36, 15 + bob)], fill=(255, 206, 76, 255), outline=(32, 12, 16, 255))
+        d.polygon([(30, 31 + bob), (32, 36 + bob), (34, 31 + bob)], fill=(255, 232, 92, 255))
+        d.rectangle((29, 21 + bob, 31, 23 + bob), fill=(255, 248, 150, 255))
+        d.rectangle((33, 21 + bob, 35, 23 + bob), fill=(255, 248, 150, 255))
+        # Fan of 3 glowing feather-bullet darts beneath wings
+        for dx, dy in ((-9, 35), (0, 38), (9, 35)):
+            qx, qy = 32 + dx, dy + bob
+            d.polygon([(qx, qy + 7), (qx - 3, qy), (qx, qy - 2), (qx + 3, qy)], fill=(255, 218, 88, 255), outline=(188, 42, 38, 255))
 
 def build_character_frames(layers_spec, anim, frame_indices, lpc_rows=(2, 1, 3, 0), char_id="", is_attack=False):
     loaded_layers = []
