@@ -1617,16 +1617,21 @@ export class Game {
   startWave(waveNum = 1) {
     const { map, stage } = this.getStageSpec();
     this.currentWave = clamp(waveNum, 1, stage.waves);
-    const waveCurve = [16, 28, 44, 62, 84][this.currentWave - 1] || 20;
+    const isEarlyCampaign = this.mapIndex === 0;
+    const waveCurve = isEarlyCampaign
+      ? ([9, 13, 18, 24, 30][this.currentWave - 1] || 14)
+      : ([14, 24, 36, 50, 68][this.currentWave - 1] || 20);
     this.waveTotalEnemies = Math.round(
-      (waveCurve + this.stageIndex * 6 + this.mapIndex * 8) * Math.min(2.2, stage.spawnMul || 1),
+      (waveCurve + this.stageIndex * (isEarlyCampaign ? 3 : 5) + this.mapIndex * 7) * Math.min(2.2, stage.spawnMul || 1),
     );
     this.waveSpawnedCount = 0;
     this.waveKills = 0;
     this.pendingNextWave = null;
     this.finalWaveSpawned = this.currentWave >= stage.waves;
-    this.spawnTimer = 0.18;
-    this.birdFlockTimer = Math.max(4.5, 9.5 - this.currentWave * 1.1);
+    this.spawnTimer = isEarlyCampaign ? 0.35 : 0.2;
+    this.birdFlockTimer = isEarlyCampaign
+      ? Math.max(8.5, 14.0 - this.currentWave * 1.0)
+      : Math.max(5.0, 10.0 - this.currentWave * 1.1);
 
     if (this.finalWaveSpawned) {
       const bossSpec = stage.levelBoss || map.boss;
@@ -1643,19 +1648,26 @@ export class Game {
       this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${this.currentWave}/${stage.waves} · HORDE SURGE!`, 0xf5c84c);
     }
 
-    // Waves 2..5 bring Siege Catapults and Aerial Bombing Bird Flocks!
-    if (this.currentWave >= 2) {
-      const catapultCount = Math.min(3, Math.floor(this.currentWave / 2));
+    // Introduce Siege Catapults and Aerial Bird Flocks gently on early levels, ramping up in later campaigns
+    const minCatapultWave = isEarlyCampaign ? (this.stageIndex >= 2 ? 3 : 4) : 2;
+    if (this.currentWave >= minCatapultWave) {
+      const catapultCount = isEarlyCampaign ? 1 : Math.min(3, Math.floor(this.currentWave / 2));
       for (let c = 0; c < catapultCount; c++) {
         if (this.waveSpawnedCount < this.waveTotalEnemies) {
           this.spawnEnemy('catapult');
           this.waveSpawnedCount++;
         }
       }
-      this.spawnBirdFlock(3 + Math.floor(this.currentWave / 2));
+    }
+    const minBirdWave = isEarlyCampaign ? 3 : 2;
+    if (this.currentWave >= minBirdWave) {
+      this.spawnBirdFlock(isEarlyCampaign ? 3 : (3 + Math.floor(this.currentWave / 2)));
     }
 
-    const initBatch = Math.min(8 + this.currentWave * 3, this.waveTotalEnemies - this.waveSpawnedCount);
+    const initBatch = Math.min(
+      (isEarlyCampaign ? 4 : 7) + this.currentWave * (isEarlyCampaign ? 1 : 2),
+      this.waveTotalEnemies - this.waveSpawnedCount,
+    );
     for (let i = 0; i < initBatch; i++) {
       this.spawnEnemy();
       this.waveSpawnedCount++;
@@ -1689,14 +1701,17 @@ export class Game {
     const { map, stage } = this.getStageSpec();
     this.updateStageProgression(dt, map, stage);
 
-    // Spawn remaining enemies of the current wave's finite horde (faster & larger batches each wave!)
+    const isEarlyCampaign = this.mapIndex === 0;
+    // Spawn remaining enemies of the current wave's finite horde (gentler in early levels, faster in later waves)
     if (this.waveSpawnedCount < this.waveTotalEnemies && this.enemies.length < 44) {
       this.spawnTimer = (this.spawnTimer || 0) - dt;
       if (this.spawnTimer <= 0) {
-        const baseInterval = Math.max(0.05, 0.38 - (this.currentWave - 1) * 0.065);
-        this.spawnTimer = Math.max(0.04, baseInterval / (stage.spawnMul || 1));
+        const baseInterval = isEarlyCampaign
+          ? Math.max(0.22, 0.58 - (this.currentWave - 1) * 0.06)
+          : Math.max(0.06, 0.40 - (this.currentWave - 1) * 0.065);
+        this.spawnTimer = Math.max(0.05, baseInterval / (stage.spawnMul || 1));
         const batch = Math.min(
-          3 + this.currentWave * 2,
+          (isEarlyCampaign ? 2 : 3) + Math.floor(this.currentWave * (isEarlyCampaign ? 1 : 1.8)),
           this.waveTotalEnemies - this.waveSpawnedCount,
           48 - this.enemies.length,
         );
@@ -1706,11 +1721,14 @@ export class Game {
         }
       }
     }
-    // Periodic V-formation Aerial Bombing Bird Flocks fly over and drop bombs from the sky!
-    this.birdFlockTimer = (this.birdFlockTimer ?? 8.5) - dt;
-    if (this.birdFlockTimer <= 0 && this.getActiveEnemyCount() > 0) {
-      this.birdFlockTimer = Math.max(5.5, 12.5 - this.currentWave * 1.3);
-      this.spawnBirdFlock(3 + Math.floor(this.currentWave / 2));
+    // Periodic V-formation Aerial Bird Flocks
+    this.birdFlockTimer = (this.birdFlockTimer ?? 10.0) - dt;
+    const allowBirdFlock = !isEarlyCampaign || this.currentWave >= 3;
+    if (allowBirdFlock && this.birdFlockTimer <= 0 && this.getActiveEnemyCount() > 0) {
+      this.birdFlockTimer = isEarlyCampaign
+        ? Math.max(9.0, 15.0 - this.currentWave * 1.1)
+        : Math.max(5.5, 12.5 - this.currentWave * 1.3);
+      this.spawnBirdFlock(isEarlyCampaign ? 3 : (3 + Math.floor(this.currentWave / 2)));
     }
     // periodic battlefield item drops (heart / bomb)
     this.itemTimer = (this.itemTimer ?? 14) - dt;
@@ -1917,10 +1935,10 @@ export class Game {
     const y = this.player.y + Math.sin(ang) * r;
 
     const waveIdx = Math.max(0, (this.currentWave || 1) - 1);
-    const waveHpMul = 1 + waveIdx * 0.28;
-    const waveDmgMul = 1 + waveIdx * 0.16;
-    const waveSpdMul = 1 + waveIdx * 0.06;
-
+    const earlyFactor = this.mapIndex === 0 ? 0.5 : (this.mapIndex === 1 ? 0.75 : 1.0);
+    const waveHpMul = 1 + waveIdx * 0.22 * earlyFactor;
+    const waveDmgMul = 1 + waveIdx * 0.12 * earlyFactor;
+    const waveSpdMul = 1 + waveIdx * 0.05 * earlyFactor;
     const e = this.enemyPool.acquire();
     e.active = true;
     e.type = t;
@@ -1939,7 +1957,7 @@ export class Game {
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
-    e.hp = d.hp * (stage.hpMul || 1) * waveHpMul * (1 + this.time * 0.012);
+    e.hp = d.hp * (stage.hpMul || 1) * waveHpMul * (1 + this.time * 0.005);
     e.maxHp = e.hp;
     const sSlow = SEASONS[this.activeSeason]?.enemySlow || 0;
     e.speed = d.speed * (stage.speedMul || 1) * waveSpdMul * (1 - sSlow);
@@ -2617,7 +2635,7 @@ export class Game {
     if (!this.player) return;
     const p = this.player;
     const baseAng = angleTo(x, y, p.x, p.y);
-    const bullets = 5;
+    const bullets = this.mapIndex === 0 ? 3 : 5;
     const spread = 0.22;
     this.spawnSparkBurst(x, y, baseAng, 0xffd166, 2, 130, 0.65, 0.55);
     for (let i = 0; i < bullets; i++) {

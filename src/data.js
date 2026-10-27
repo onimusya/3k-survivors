@@ -335,6 +335,14 @@ const CAMPAIGN_FACTION_TINTS = [
   [0xe9d5ff, 0xd8b4fe, 0xfef08a], // C10 Wuzhang: Imperial Violet & Gold
 ];
 
+const EARLY_CAMP1_SQUADS = [
+  ['soldier', 'soldier', 'soldier', 'archer'],
+  ['soldier', 'soldier', 'archer', 'cavalry'],
+  ['soldier', 'archer', 'cavalry', 'shield'],
+  ['soldier', 'archer', 'shield', 'halberdier'],
+  ['soldier', 'cavalry', 'halberdier', 'bomber'],
+];
+
 const LEVEL_SQUAD_TEMPLATES = [
   ['soldier', 'soldier', 'archer', 'halberdier'],
   ['shield', 'halberdier', 'archer', 'catapult'],
@@ -342,7 +350,6 @@ const LEVEL_SQUAD_TEMPLATES = [
   ['catapult', 'bomber', 'shield', 'sorcerer', 'halberdier'],
   ['halberdier', 'shield', 'catapult', 'sorcerer', 'cavalry', 'assassin'],
 ];
-
 const WEAPON_STYLES = ['spear_volley', 'crossbow_bolt', 'throwing_axe', 'fire_pot', 'arcane_orb'];
 
 export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
@@ -361,7 +368,9 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
     levels: c.stageNames.map((stName, lIdx) => {
       const order = cIdx * 5 + lIdx;
       const bSpec = c.bosses[lIdx];
-      const squad = LEVEL_SQUAD_TEMPLATES[lIdx % LEVEL_SQUAD_TEMPLATES.length];
+      const squad = cIdx === 0
+        ? EARLY_CAMP1_SQUADS[lIdx % EARLY_CAMP1_SQUADS.length]
+        : LEVEL_SQUAD_TEMPLATES[lIdx % LEVEL_SQUAD_TEMPLATES.length];
       // Rotate tint priority per level so each level has visibly distinct armor colors
       const levelTints = [
         cTints[lIdx % cTints.length],
@@ -373,10 +382,10 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
         name: stName,
         waves: 5,
         waveDuration: 10,
-        hpMul: +(1.0 + order * 0.25).toFixed(2),
-        dmgMul: +(1.0 + order * 0.09).toFixed(2),
-        speedMul: +(1.0 + order * 0.012).toFixed(3),
-        spawnMul: +(1.0 + order * 0.05).toFixed(2),
+        hpMul: +(0.65 + order * 0.16).toFixed(2),
+        dmgMul: +(0.65 + order * 0.065).toFixed(2),
+        speedMul: +(0.86 + order * 0.01).toFixed(3),
+        spawnMul: +(0.78 + order * 0.04).toFixed(2),
         bossStage: lIdx === 4,
         bgColor: c.bgColors[lIdx],
         layoutPattern: c.patterns[lIdx],
