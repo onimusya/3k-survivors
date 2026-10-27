@@ -278,6 +278,44 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
             qx, qy = 32 + dx, dy + bob
             d.polygon([(qx, qy + 7), (qx - 3, qy), (qx, qy - 2), (qx + 3, qy)], fill=(255, 218, 88, 255), outline=(188, 42, 38, 255))
 
+    elif char_id == "kaiju":
+        # Colossal Godzilla Kaiju Titan: obsidian reptilian behemoth with glowing atomic-cyan dorsal plates & roaring jaws
+        OUTLINE = (14, 16, 22, 255)
+        step = (-2, 0, 2, 0)[f_idx % 4]
+        # Massive ground shadow
+        d.ellipse((6, 48, 58, 61), fill=(8, 12, 16, 155))
+        # Whipping armored Kaiju tail on left + glowing cyan tail-spikes
+        tail_y = 42 + step
+        d.polygon([(22, 36 + bob), (6, tail_y - 4), (4, tail_y + 5), (14, 48 + bob), (24, 46 + bob)], fill=(38, 46, 56, 255), outline=OUTLINE)
+        for tx, ty in ((9, tail_y - 6), (14, 37 + bob), (19, 32 + bob)):
+            d.polygon([(tx, ty), (tx - 3, ty - 6), (tx + 3, ty - 2)], fill=(0, 245, 212, 255), outline=(14, 52, 68, 255))
+        # Glowing Atomic-Cyan Jagged Dorsal Plates along back/shoulders
+        for sx, sy, sh in ((20, 18, 8), (44, 18, 8), (24, 11, 9), (40, 11, 9), (32, 6, 10)):
+            d.polygon([(sx - 4, sy + bob), (sx, sy - sh + bob), (sx + 4, sy + bob)], fill=(0, 245, 212, 255), outline=(18, 64, 82, 255))
+            d.polygon([(sx - 2, sy + bob), (sx, sy - sh + 3 + bob), (sx + 2, sy + bob)], fill=(204, 255, 248, 255))
+        # Stomping pillar legs + 3 white-cyan claws per foot
+        for lx, s_off in ((17, step), (37, -step)):
+            d.rounded_rectangle((lx, 36 + bob + s_off, lx + 11, 55 + s_off), radius=3, fill=(36, 44, 54, 255), outline=OUTLINE)
+            for cx in (lx + 1, lx + 4, lx + 8):
+                d.polygon([(cx, 53 + s_off), (cx - 1, 58 + s_off), (cx + 2, 57 + s_off)], fill=(210, 238, 245, 255), outline=OUTLINE)
+        # Massive obsidian-scaled torso & ridged atomic chest core
+        d.ellipse((15, 16 + bob, 49, 47 + bob), fill=(44, 54, 66, 255), outline=OUTLINE)
+        d.ellipse((21, 21 + bob, 43, 44 + bob), fill=(62, 76, 92, 255), outline=OUTLINE)
+        for ry in range(24, 42, 4):
+            d.line([(23, ry + bob), (41, ry + bob)], fill=(0, 215, 195, 210), width=2)
+        # Muscular clawed arms
+        arm_dy = (-2, 1, 2, -1)[f_idx % 4]
+        d.polygon([(17, 22 + bob), (8, 28 + arm_dy), (10, 35 + arm_dy), (19, 31 + bob)], fill=(48, 58, 70, 255), outline=OUTLINE)
+        d.polygon([(47, 22 + bob), (56, 28 - arm_dy), (54, 35 - arm_dy), (45, 31 + bob)], fill=(48, 58, 70, 255), outline=OUTLINE)
+        # Fierce Kaiju Godzilla head, glowing atomic eyes & roaring fang-lined jaws
+        d.rounded_rectangle((21, 8 + bob, 43, 25 + bob), radius=4, fill=(48, 58, 72, 255), outline=OUTLINE)
+        d.polygon([(24, 18 + bob), (32, 26 + bob), (40, 18 + bob)], fill=(24, 22, 32, 255), outline=OUTLINE)
+        d.ellipse((28, 19 + bob, 36, 24 + bob), fill=(0, 245, 212, 255))
+        for fx in (25, 28, 35, 38):
+            d.polygon([(fx, 18 + bob), (fx + 1, 22 + bob), (fx + 2, 18 + bob)], fill=(245, 250, 255, 255))
+        d.rectangle((24, 12 + bob, 28, 15 + bob), fill=(0, 255, 230, 255))
+        d.rectangle((36, 12 + bob, 40, 15 + bob), fill=(0, 255, 230, 255))
+
 def build_character_frames(layers_spec, anim, frame_indices, lpc_rows=(2, 1, 3, 0), char_id="", is_attack=False):
     loaded_layers = []
     for item in layers_spec:
@@ -549,6 +587,7 @@ ENEMY_RECIPES = {
     ],
     "catapult": [],
     "firebird": [],
+    "kaiju": [],
     "boss_chengyuanzhi": [
         ("shadow/adult/{anim}.png", None, None),
         ("cape/tattered/bg/{anim}.png", "cloth", "yellow"),

@@ -675,9 +675,9 @@ export class Game {
       const data = JSON.parse(raw);
       if (!data || typeof data !== 'object') return false;
       const maxCampaign = CAMPAIGN_MAPS.length - 1;
-      const maxOrder = CAMPAIGN_MAPS.length * 5 - 1;
+      const maxOrder = CAMPAIGN_MAPS.length * 10 - 1;
       this.unlockedCampaignIndex = clamp(Number(data.unlockedCampaignIndex) || 0, 0, maxCampaign);
-      this.unlockedStageOrder = clamp(Number(data.unlockedStageOrder) || (this.unlockedCampaignIndex * 5), 0, maxOrder);
+      this.unlockedStageOrder = clamp(Number(data.unlockedStageOrder) || (this.unlockedCampaignIndex * 10), 0, maxOrder);
       if (Array.isArray(data.clearedStages)) {
         this.clearedStages = new Set(data.clearedStages.map((n) => Number(n)).filter((n) => n >= 0 && n <= maxOrder));
       }
@@ -782,9 +782,9 @@ export class Game {
     this.perk = perk || this.selectedPerk || STARTING_PERKS[0];
     this.mapIndex = mapIndex ?? this.selectedMapIndex ?? 0;
     this.stageIndex = 0;
-    this.unlockedStageOrder = Math.max(this.unlockedStageOrder || 0, this.mapIndex * 5);
+    this.unlockedStageOrder = Math.max(this.unlockedStageOrder || 0, this.mapIndex * 10);
     this.unlockedCampaignIndex = Math.max(this.unlockedCampaignIndex || 0, this.mapIndex);
-    this.selectedCheckpointOrder = this.mapIndex * 5;
+    this.selectedCheckpointOrder = this.mapIndex * 10;
     this.viewingCampaignIndex = this.mapIndex;
     this.menuContainer.visible = false;
     if (this.campaignMapContainer) this.campaignMapContainer.visible = false;
@@ -1673,6 +1673,13 @@ export class Game {
     if (this.currentWave >= minBirdWave) {
       this.spawnBirdFlock(isEarlyCampaign ? 3 : (3 + Math.floor(this.currentWave / 2)));
     }
+    // Rare Colossal Kaiju Godzilla Titan emergence (20% chance on Waves 3..5, or Wave 4+ in Campaign 1)
+    const kaijuWaveMin = isEarlyCampaign ? 4 : 3;
+    if (this.currentWave >= kaijuWaveMin && !this.enemies.some((e) => e.active && e.isKaiju) && Math.random() < 0.2) {
+      this.spawnKaijuBoss();
+      this.waveTotalEnemies++;
+      this.waveSpawnedCount++;
+    }
 
     const initBatch = Math.min(
       (isEarlyCampaign ? 4 : 7) + this.currentWave * (isEarlyCampaign ? 1 : 2),
@@ -1769,8 +1776,44 @@ export class Game {
     }
   }
 
+  resetLoadoutForNewCampaign() {
+    if (!this.hero || !this.player) return;
+    const w = WEAPONS[this.hero.weapon];
+    this.weapons = [{ id: this.hero.weapon, level: 1, data: w, evo: false, cdTimer: 0 }];
+    this.passives = {};
+    this._passivePulseTimers = {};
+    this.level = 1;
+    this.xp = 0;
+    this.xpNext = LEVEL_XP(1);
+    for (const pt of this.pets) {
+      if (pt.sprite) pt.sprite.destroy();
+      if (pt.shadow) pt.shadow.destroy();
+    }
+    this.pets.length = 0;
+    if (this.ultraman) {
+      if (this.ultraman.sprite) this.ultraman.sprite.destroy();
+      if (this.ultraman.shadow) this.ultraman.shadow.destroy();
+      this.ultraman = null;
+    }
+    const heroPetMap = {
+      guanyu: 'redhare',
+      lubu: 'redhare',
+      zhangfei: 'white_tiger',
+      zhaoyun: 'white_tiger',
+      zhugeliang: 'qilin',
+      sunshangxiang: 'vermilion',
+    };
+    this.summonPet(heroPetMap[this.hero.id] || 'redhare');
+    this.recomputeStats();
+    this.player.maxHp = this.hero.hp + (this.perk?.hpBonus || 0);
+    this.player.hp = this.player.maxHp;
+    if (this.orbitLayer) this.orbitLayer.clear();
+    this._loadoutDirty = true;
+    this.renderHudSlots();
+  }
+
   advanceStage() {
-    const levelsPerMap = 5;
+    const levelsPerMap = 10;
     const totalStages = CAMPAIGN_MAPS.length * levelsPerMap;
     const curOrder = this.mapIndex * levelsPerMap + this.stageIndex;
     this.clearedStages.add(curOrder);
@@ -1784,12 +1827,13 @@ export class Game {
     this.selectedCheckpointOrder = nextOrder;
     this.viewingCampaignIndex = Math.floor(nextOrder / levelsPerMap);
     this.selectedMapIndex = this.viewingCampaignIndex;
+    this._justCompletedCampaign = completedCampaign;
 
     // Auto-save campaign checkpoint progress (especially when completing each campaign!)
     this.saveCampaignProgress(completedCampaign ? this.mapIndex : null);
 
-    this.gold += completedCampaign ? 60 : 25;
-    const healAmt = Math.round(this.player.maxHp * (completedCampaign ? 0.5 : 0.35));
+    this.gold += completedCampaign ? 80 : 25;
+    const healAmt = Math.round(this.player.maxHp * (completedCampaign ? 1.0 : 0.35));
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + healAmt);
     this.sfx.play('evolve');
     this.spawnLevelUpVfx(this.player.x, this.player.y);
@@ -1802,13 +1846,19 @@ export class Game {
   }
 
   deployToCheckpoint(stageOrder = this.selectedCheckpointOrder) {
-    const levelsPerMap = 5;
+    const levelsPerMap = 10;
     const totalStages = CAMPAIGN_MAPS.length * levelsPerMap;
     const clamped = clamp(stageOrder ?? 0, 0, totalStages - 1);
     if (clamped > (this.unlockedStageOrder || 0)) return;
     this.sfx.play('start');
-    this.mapIndex = Math.floor(clamped / levelsPerMap);
-    this.stageIndex = clamped % levelsPerMap;
+    const prevMapIndex = this.mapIndex;
+    const nextMapIndex = Math.floor(clamped / levelsPerMap);
+    const nextStageIndex = clamped % levelsPerMap;
+    const isNewCampaignStart = nextMapIndex !== prevMapIndex || (nextStageIndex === 0 && this._justCompletedCampaign);
+    this._justCompletedCampaign = false;
+
+    this.mapIndex = nextMapIndex;
+    this.stageIndex = nextStageIndex;
     this.viewingCampaignIndex = this.mapIndex;
     this.stageProgress = 0;
     this.currentWave = 1;
@@ -1818,6 +1868,10 @@ export class Game {
     this.enemies.length = 0;
     for (const p of this.projectiles) this.projPool.release(p);
     this.projectiles.length = 0;
+
+    if (isNewCampaignStart) {
+      this.resetLoadoutForNewCampaign();
+    }
 
     if (this.luContainer) {
       this.luContainer.destroy({ children: true });
@@ -1832,6 +1886,9 @@ export class Game {
     this.state = 'playing';
     this._lastWaveQuant = -1;
     const { mapNum, levelNum, stage } = this.getStageSpec();
+    if (isNewCampaignStart) {
+      this.showFloatText(this.player.x, this.player.y - 44, `NEW CAMPAIGN ${mapNum}: WEAPONS & SKILLS RESET!`, 0xf5c84c);
+    }
     this.showFloatText(this.player.x, this.player.y - 28, `STAGE ${mapNum}-${levelNum}: ${stage.name.toUpperCase()}!`, 0x6bffb0);
     this.startWave(1);
   }
@@ -1861,8 +1918,10 @@ export class Game {
     it.y = Math.round(it.y);
     it.magnet = false;
     it.phase = Math.random() * Math.PI * 2;
-    it.sprite.texture = kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart;
-    it.sprite.scale.set(1.25);
+    it.sprite.texture = kind === 'golden_egg'
+      ? (this.effectTextures.golden_egg || this.effectTextures.bomb)
+      : (kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart);
+    it.sprite.scale.set(kind === 'golden_egg' ? 1.55 : 1.25);
     it.sprite.visible = true;
     it.sprite.x = it.x;
     it.sprite.y = it.y;
@@ -1883,6 +1942,8 @@ export class Game {
       this.showFloatText(p.x, p.y - 14, `+${healAmt} HP`, 0x6bffb0);
     } else if (it.kind === 'bomb') {
       this.explodeBomb(it.x, it.y);
+    } else if (it.kind === 'golden_egg') {
+      this.summonUltraman(10.0);
     }
   }
 
@@ -2138,6 +2199,181 @@ export class Game {
     this.enemies.push(e);
     return e;
   }
+  spawnKaijuBoss() {
+    if (!this.player) return null;
+    const { stage } = this.getStageSpec();
+    const d = ENEMY_TYPES.kaiju;
+    const ang = Math.random() * Math.PI * 2;
+    const r = 230;
+    const x = this.player.x + Math.cos(ang) * r;
+    const y = this.player.y + Math.sin(ang) * r;
+    const e = this.enemyPool.acquire();
+    e.active = true;
+    e.type = 'kaiju';
+    e.x = x;
+    e.y = y;
+    const frames = this.enemyTextures.kaiju || this.enemyTextures.elite;
+    e.sprite.texture = frames[0];
+    e.baseTint = 0xffffff;
+    e.sprite.tint = 0xffffff;
+    e.sprite.alpha = 1;
+    // Colossal Kaiju Godzilla Scale (3.25x = 208x208 px on screen!)
+    const sc = 3.25;
+    e.baseScale = sc;
+    e.sprite.scaleX = sc;
+    e.sprite.scaleY = sc;
+    e.phase = (this.enemySerial++ * 0.61803398875) % 1;
+    e.hp = d.hp * (stage.hpMul || 1);
+    e.maxHp = e.hp;
+    e.speed = d.speed;
+    e.dmg = d.dmg * (stage.dmgMul || 1);
+    e.size = 52;
+    e.xp = 120;
+    e.color = 0x00f5d4;
+    e.ranged = true;
+    e.explosive = true;
+    e.isCatapult = false;
+    e.isBird = false;
+    e.isKaiju = true;
+    e.countsForWave = true;
+    e.knockResist = 0.96;
+    e.shootCd = 1.6;
+    e.stompTimer = 1.4;
+    e.eggTimer = 5.5;
+    e.isBoss = true;
+    e.isMapBoss = false;
+    e.enraged = false;
+    e.bossName = 'KAIJU GODZILLA';
+    e.hitFlash = 0;
+    e.knock = 0;
+    e.kx = 0;
+    e.ky = 0;
+    this.enemies.push(e);
+    this.sfx.play('bomb');
+    this.shake = Math.max(this.shake, 20);
+    this.flashScreen(0x00f5d4, 0.28);
+    this.spawnShockwave(x, y, 0x00f5d4, 0.6, 3.2, 0.38);
+    this.showFloatText(this.player.x, this.player.y - 42, '⚠ RARE KAIJU GODZILLA EMERGED!', 0x00f5d4);
+    // Immediately drop a Golden Egg near the player when Kaiju Godzilla appears!
+    const eggAng = ang + Math.PI + (Math.random() - 0.5) * 0.8;
+    const eggX = this.player.x + Math.cos(eggAng) * 105;
+    const eggY = this.player.y + Math.sin(eggAng) * 105;
+    this.spawnItem('golden_egg', eggX, eggY);
+    this.showFloatText(eggX, eggY - 18, '★ GOLDEN EGG! PICK UP FOR ULTRAMAN!', 0xfde047);
+    return e;
+  }
+
+  summonUltraman(duration = 10.0) {
+    if (!this.player) return null;
+    const p = this.player;
+    this.sfx.play('evolve');
+    this.sfx.play('bomb');
+    this.shake = Math.max(this.shake, 18);
+    this.flashScreen(0x38bdf8, 0.28);
+    this.spawnLevelUpVfx(p.x, p.y);
+    this.spawnExplosion(p.x, p.y, 0.75, 2.8, 0x38bdf8, 0.38);
+    this.spawnShockwave(p.x, p.y, 0xfde047, 0.5, 3.2, 0.34);
+    this.showFloatText(p.x, p.y - 40, '★ ULTRAMAN SUMMONED (10S)! SPECIUM RAY!', 0x38bdf8);
+
+    if (this.ultraman) {
+      this.ultraman.timer = duration;
+      this.ultraman.maxTimer = duration;
+      return this.ultraman;
+    }
+    const shadow = new Graphics();
+    shadow.ellipse(0, 32, 26, 9).fill({ color: 0x000000, alpha: 0.45 });
+    this.petLayer.addChild(shadow);
+    const sprite = new Sprite(this.effectTextures.ultraman || this.effectTextures.impact);
+    sprite.anchor.set(0.5, 0.62);
+    sprite.scale.set(2.85);
+    this.petLayer.addChild(sprite);
+    this.ultraman = {
+      x: p.x + 65,
+      y: p.y - 25,
+      timer: duration,
+      maxTimer: duration,
+      cdTimer: 0.15,
+      sprite,
+      shadow,
+    };
+    return this.ultraman;
+  }
+
+  updateAndRenderUltraman(dt, g) {
+    const u = this.ultraman;
+    if (!u || !this.player) return;
+    const p = this.player;
+    u.timer -= dt;
+    if (u.timer <= 0) {
+      this.spawnLevelUpVfx(u.x, u.y);
+      this.spawnShockwave(u.x, u.y, 0x38bdf8, 0.45, 2.4, 0.28);
+      this.showFloatText(u.x, u.y - 28, 'ULTRAMAN ASCENDED!', 0x7dd3fc);
+      if (u.sprite) u.sprite.destroy();
+      if (u.shadow) u.shadow.destroy();
+      this.ultraman = null;
+      return;
+    }
+    // Target Kaiju Godzilla first, otherwise nearest Boss or enemy!
+    const kaiju = this.enemies.find((e) => e.active && e.isKaiju && e.hp > 0);
+    const target = kaiju || this.stageBoss || this.nearestEnemy(u.x, u.y);
+    let destX = p.x + Math.cos(this.time * 1.8) * 72;
+    let destY = p.y + Math.sin(this.time * 1.8) * 56;
+    if (target && target.active) {
+      const angToTarget = angleTo(target.x, target.y, p.x, p.y);
+      destX = target.x + Math.cos(angToTarget) * 92;
+      destY = target.y + Math.sin(angToTarget) * 72;
+    }
+    u.x += (destX - u.x) * Math.min(1, dt * 7);
+    u.y += (destY - u.y) * Math.min(1, dt * 7);
+
+    const bob = Math.sin(this.animTime * 7) * 3.5;
+    u.shadow.x = Math.round(u.x);
+    u.shadow.y = Math.round(u.y);
+    u.sprite.x = Math.round(u.x);
+    u.sprite.y = Math.round(u.y + bob);
+    const facingLeft = target ? target.x < u.x : false;
+    u.sprite.scale.set(facingLeft ? -2.85 : 2.85, 2.85);
+
+    // Draw Ultraman's Golden-Cyan Aura Ring & 10s Countdown Bar on orbitLayer!
+    if (g) {
+      g.circle(Math.round(u.x), Math.round(u.y + 18), 34 + Math.sin(this.time * 10) * 3)
+        .stroke({ color: 0x38bdf8, alpha: 0.65, width: 2.5 });
+      const bw = 54, bh = 4.5;
+      const bx = Math.round(u.x - bw / 2);
+      const by = Math.round(u.y - 68);
+      const ratio = clamp(u.timer / (u.maxTimer || 10), 0, 1);
+      g.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x0c0e14);
+      g.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(0x38bdf8);
+    }
+
+    // Fire Specium Ray & Ultra Slash every 0.55s!
+    u.cdTimer -= dt;
+    if (u.cdTimer <= 0 && target && target.active) {
+      u.cdTimer = 0.55;
+      const ang = angleTo(u.x, u.y, target.x, target.y);
+      const dist = Math.hypot(target.x - u.x, target.y - u.y);
+      this.sfx.play('shoot');
+      this.spawnThrust(u.x, u.y - 8, ang, Math.max(120, dist + 24), 0x38bdf8);
+      this.spawnExplosion(target.x, target.y, 0.7, 2.35, 0x38bdf8, 0.32);
+      this.spawnShockwave(target.x, target.y, 0xfde047, 0.45, 2.2, 0.26);
+      this.spawnSparkBurst(target.x, target.y, ang, 0x7dd3fc, 6, 185, 0.9, 0.8);
+      // Anti-Kaiju Specium Ray Damage (deals heavy direct damage to Kaiju + AoE around target!)
+      const rayDmg = 135 * (p.dmgMul || 1);
+      for (const e of this.enemies) {
+        if (!e.active) continue;
+        if (dist2(e.x, e.y, target.x, target.y) <= 115 * 115) {
+          if (e.isKaiju) {
+            // Ultraman's Specium Ray pierces Kaiju scales directly!
+            e.hp -= Math.min(rayDmg, e.maxHp * 0.24);
+            e.hitFlash = 0.14;
+            if (e.hp <= 0) this.damageEnemy(e, 10, u.x, u.y);
+          } else {
+            this.damageEnemy(e, rayDmg, u.x, u.y);
+          }
+        }
+      }
+    }
+  }
 
   handleWeapons(dt) {
     for (const w of this.weapons) {
@@ -2157,9 +2393,9 @@ export class Game {
     g.clear();
     if (!this.player) return;
     const p = this.player;
-
-    // 1. Render & trigger Max-Level (Lv 5) Mastered Passive Skill Auras & Special Attacks!
+    // 1. Render & trigger Max-Level (Lv 5) Mastered Passive Skill Auras & Special Attacks + Ultraman (10s)!
     this.updateMaxedPassives(dt, g);
+    this.updateAndRenderUltraman(dt, g);
 
     // 2. Render & update Orbiting Defensive Weapons (Flying Blades & Eight-Trigram Shields)
     for (const w of this.weapons) {
@@ -2168,10 +2404,11 @@ export class Game {
       const stats = this.getWeaponStats(w);
       const isShield = w.id === 'bagua_shields';
       const isMax = stats.isMax;
-      const count = 3 + stats.bonusCount + (isMax ? 3 : 0);
-      const radius = (isShield ? 46 : 58) * stats.area;
+      // Every weapon level adds another orbiting blade/shield (3 at Lv1 -> 4 at Lv2 -> ... -> 12 at Lv8)!
+      const count = 2 + stats.lvl + (isMax ? 2 : 0);
+      const radius = (isShield ? 44 : 54) * stats.area;
       const dir = isShield ? -1 : 1;
-      const angularSpd = (isShield ? 3.5 : 4.8) * (isMax ? 1.4 : 1.0) * dir;
+      const angularSpd = (isShield ? 3.2 : 4.2) * (1 + stats.delta * 0.06) * (isMax ? 1.25 : 1.0) * dir;
       const baseAngle = this.time * angularSpd;
       const ringCol = stats.wd ? stats.wd.color : base.color;
 
@@ -2217,14 +2454,17 @@ export class Game {
         const spin = this.time * 12 * dir + i;
 
         if (isShield) {
-          // Golden Eight-Trigram (Bagua) Ward Shield (larger & dragon-rimmed at Max Level!)
-          const shR = isMax ? 12.5 : 10;
+          // Golden Eight-Trigram (Bagua) Ward Shield grows and gains rings as level increases!
+          const shR = 9 + stats.delta * 0.5 + (isMax ? 1.5 : 0);
           g.circle(bx, by, shR).fill({ color: isMax ? 0xb45309 : 0x78350f, alpha: 0.94 }).stroke({ color: ringCol, width: isMax ? 2.8 : 2.2 });
-          g.circle(bx, by, isMax ? 6 : 4.5).fill({ color: 0xfef08a, alpha: 0.98 });
+          if (stats.lvl >= 4) {
+            g.circle(bx, by, shR * 0.72).stroke({ color: 0xfde047, width: 1.2 });
+          }
+          g.circle(bx, by, isMax ? 6 : 4.2).fill({ color: 0xfef08a, alpha: 0.98 });
         } else {
-          // Spinning Flying Blade / Celestial 8-Pointed Sword Wheel at Max Level!
-          const wings = isMax ? 12 : 8;
-          const rOut = isMax ? 14.5 : 11;
+          // Spinning Flying Blade evolves star points by level: 4-pt (Lv1-2) -> 5-pt (Lv3-4) -> 6-pt (Lv5-7) -> 12-pt (Lv8)!
+          const wings = isMax ? 12 : (stats.lvl >= 5 ? 10 : (stats.lvl >= 3 ? 8 : 6));
+          const rOut = 9.5 + stats.delta * 0.65 + (isMax ? 2 : 0);
           const rIn = isMax ? 5 : 3.5;
           const pts = [];
           for (let k = 0; k < wings; k++) {
@@ -2525,12 +2765,11 @@ export class Game {
 
   fireWeapon(w, stats = this.getWeaponStats(w)) {
     const p = this.player;
-    const { base, wd, isMax, dmg, area, bonusCount, bonusPierce } = stats;
+    const { base, wd, isMax, lvl, dmg, area, bonusCount, bonusPierce } = stats;
     const type = base.type;
 
     if (type === 'melee_arc') {
-      // slash nearest enemies within range using spatial hash
-      const maxTargets = 8 + bonusCount * 2 + (isMax ? 6 : 0);
+      const maxTargets = 7 + lvl * 2 + (isMax ? 6 : 0);
       const cands = this.spatial.query(p.x, p.y, 90 * area + 28);
       const pool = cands.length ? cands : this.enemies;
       const targets = pool.filter((e) => e.active).sort((a,b)=>dist2(a.x,a.y,p.x,p.y)-dist2(b.x,b.y,p.x,p.y)).slice(0, maxTargets);
@@ -2548,6 +2787,17 @@ export class Game {
       this.sfx.play('slash');
       const col = wd ? wd.color : 0x5fd38d;
       this.spawnSlash(p.x, p.y, col, area, slashAng);
+      // Progressive visual & attack upgrades on every weapon level!
+      if (lvl >= 2 && !isMax) {
+        this.spawnSlash(p.x, p.y, 0xa7f3d0, area * 0.86, slashAng + (lvl >= 4 ? 0.24 : 0.12));
+      }
+      if (lvl >= 4 && !isMax) {
+        this.spawnShockwave(p.x, p.y, col, 0.35, 1.45 * area, 0.2);
+      }
+      if (lvl >= 6 && !isMax) {
+        this.spawnSlash(p.x, p.y, 0xfef08a, area * 0.95, slashAng - 0.24);
+        this.spawnProjectile(p.x, p.y, slashAng, dmg * 0.55, area, col, null, false, 3, true, false);
+      }
       if (isMax) {
         // Max-Level Dragon Slayer Special: Twin Cross-Crescent Slash + Dragon-Fire Shockwave + 3 Piercing Dragon Flame Waves!
         this.spawnSlash(p.x, p.y, 0xffe066, area * 1.18, slashAng + 0.32);
@@ -2563,24 +2813,33 @@ export class Game {
         if (ne) ang = angleTo(p.x, p.y, ne.x, ne.y);
       }
       this.beginAttack(this.directionFromAngle(ang), 0.3);
-      const len = 120 * area * (1 + stats.delta * 0.04);
+      const len = 120 * area * (1 + stats.delta * 0.05);
       const specialBonus = isMax ? 1.35 : 1.0;
       for (const e of this.enemies) {
         const dx = e.x - p.x, dy = e.y - p.y;
         const proj = dx*Math.cos(ang) + dy*Math.sin(ang);
         if (proj >= 0 && proj <= len) {
           const perp = Math.abs(-dx*Math.sin(ang) + dy*Math.cos(ang));
-          if (perp < (isMax ? 32 : 20) * area) this.damageEnemy(e, dmg * specialBonus, p.x, p.y);
+          if (perp < (20 + stats.delta * 2) * area) this.damageEnemy(e, dmg * specialBonus, p.x, p.y);
         }
       }
       this.sfx.play('thrust');
       this.spawnThrust(p.x, p.y, ang, len, wd ? wd.color : 0xd35f5f);
+      const tipX = p.x + Math.cos(ang) * len * 0.85;
+      const tipY = p.y + Math.sin(ang) * len * 0.85;
+      if (lvl >= 2 && !isMax) {
+        this.spawnShockwave(tipX, tipY, 0xff8552, 0.28, 1.15 * area, 0.18);
+      }
+      if (lvl >= 4 && !isMax) {
+        this.spawnThrust(p.x, p.y, ang + 0.12, len * 0.88, 0xffae42);
+      }
+      if (lvl >= 6 && !isMax) {
+        this.spawnThrust(p.x, p.y, ang - 0.12, len * 0.88, 0xffae42);
+      }
       if (isMax) {
         // Max-Level Iron Pike Special: Triple-Pronged Trident Thrust + Spear-Tip Explosion Detonation!
         this.spawnThrust(p.x, p.y, ang - 0.16, len * 0.92, 0xffd166);
         this.spawnThrust(p.x, p.y, ang + 0.16, len * 0.92, 0xffd166);
-        const tipX = p.x + Math.cos(ang) * len * 0.85;
-        const tipY = p.y + Math.sin(ang) * len * 0.85;
         this.spawnExplosion(tipX, tipY, 0.55, 1.85 * area, 0xff5f5f, 0.3);
         this.spawnShockwave(tipX, tipY, 0xffae42, 0.38, 1.65 * area, 0.22);
         const r2 = (75 * area) ** 2;
@@ -2598,6 +2857,18 @@ export class Game {
       }
       this.sfx.play('spin');
       this.spawnSpin(p.x, p.y, area, wd ? wd.color : 0xd38f5f);
+      if (lvl >= 2 && !isMax) {
+        this.spawnShockwave(p.x, p.y, 0xffaa5f, 0.35, 1.55 * area, 0.22);
+      }
+      if (lvl >= 4 && !isMax) {
+        this.spawnSpin(p.x, p.y, area * 0.72, 0xffe066);
+      }
+      if (lvl >= 6 && !isMax) {
+        for (let k = 0; k < 2; k++) {
+          const ka = this.time * 2 + k * Math.PI;
+          this.spawnExplosion(p.x + Math.cos(ka) * 60 * area, p.y + Math.sin(ka) * 60 * area, 0.35, 1.25, 0xff7b3d, 0.24);
+        }
+      }
       if (isMax) {
         // Max-Level Sky Halberd Special: Dual Counter-Rotating Whirlwind + 4 Cardinal Heaven-Splitter Explosions!
         this.spawnSpin(p.x, p.y, area * 1.25, 0xffe066);
@@ -2616,15 +2887,15 @@ export class Game {
       }
     } else if (type === 'projectile' || type === 'magic_bolt') {
       this.sfx.play('shoot');
-      const count = (isMax ? 6 : (w.id === 'daggers' ? 2 : 1)) + bonusCount;
+      // Every weapon level increases projectile count!
+      const count = (w.id === 'daggers' ? 1 : 0) + lvl + (isMax ? 2 : 0);
       const pierce = (isMax ? 4 : 1) + bonusPierce;
-      const isMagic = type === 'magic_bolt';
+      const isMagic = type === 'magic_bolt' || lvl >= 4;
       const targets = this.nearestEnemies(p.x, p.y, count);
       const firstAng = targets.length ? angleTo(p.x, p.y, targets[0].x, targets[0].y) : 0;
       this.beginAttack(targets.length ? this.directionFromAngle(firstAng) : p.direction, 0.24);
       this.spawnSparkBurst(p.x + Math.cos(firstAng) * 12, p.y + Math.sin(firstAng) * 12, firstAng, wd ? wd.color : base.color, isMax ? 5 : 2, 135, 0.75, 0.55);
-      if (isMax && isMagic) {
-        // Max-Level Gale Fan Special: Whirlwind Tempest Ring around warrior!
+      if (isMax && type === 'magic_bolt') {
         this.spawnSpin(p.x, p.y, area * 1.15, 0xffffff);
       }
       if (targets.length === 0) {
@@ -2632,15 +2903,9 @@ export class Game {
       } else {
         for (let i = 0; i < count; i++) {
           const t = targets[i % targets.length];
-          const spread = i >= targets.length ? (i - targets.length + 1) * 0.14 : 0;
+          const spread = i >= targets.length ? (i - targets.length + 1) * 0.12 : 0;
           const ang = angleTo(p.x, p.y, t.x, t.y) + spread;
-          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers', pierce, isMagic, isMax);
-        }
-      }
-      if (isMagic && !isMax) {
-        const extraBolts = 1 + Math.floor(stats.delta / 3);
-        for (let i = 0; i < extraBolts; i++) {
-          this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, base.color, wd, false, pierce, true, false);
+          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers' || lvl >= 6, pierce, isMagic, isMax);
         }
       }
     }
@@ -2764,15 +3029,41 @@ export class Game {
           e.x += (dx / d) * e.speed * dt;
           e.y += (dy / d) * e.speed * dt;
         }
+        // Colossal Kaiju Godzilla Titan: Continuous Seismic Stomp Area Damage (AoE) & Periodic Golden Egg Drops!
+        if (e.isKaiju) {
+          e.stompTimer = (e.stompTimer ?? 1.8) - dt;
+          if (e.stompTimer <= 0) {
+            e.stompTimer = 1.9;
+            this.shake = Math.max(this.shake, 9);
+            this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.65, 2.9, 0.34);
+            this.spawnExplosion(e.x, e.y, 0.65, 2.2, 0x00f5d4, 0.3);
+            if (d <= 120) {
+              this.damagePlayer(Math.max(2, Math.round(e.dmg * 0.85)));
+            }
+          }
+          e.eggTimer = (e.eggTimer ?? 6.5) - dt;
+          if (e.eggTimer <= 0) {
+            e.eggTimer = 7.5;
+            if (!this.items.some((it) => it.active && it.kind === 'golden_egg') && !this.ultraman) {
+              const eggAng = Math.random() * Math.PI * 2;
+              const ex = p.x + Math.cos(eggAng) * 105;
+              const ey = p.y + Math.sin(eggAng) * 105;
+              this.spawnItem('golden_egg', ex, ey);
+              this.showFloatText(ex, ey - 16, '★ GOLDEN EGG! SUMMON ULTRAMAN!', 0xfde047);
+            }
+          }
+        }
         // ranged shoot
         if (e.ranged) {
           e.shootCd -= dt;
           if (e.shootCd <= 0) {
-            e.shootCd = e.isMapBoss
-              ? (e.enraged ? 1.25 : 1.65)
-              : (e.isCatapult ? 2.8 + e.phase * 0.8 : 1.85 + e.phase * 0.7);
-            const maxRange = e.isCatapult ? 420 : 350;
-            if (d < maxRange && this.projectiles.length < 36) this.enemyShoot(e);
+            e.shootCd = e.isKaiju
+              ? 2.1
+              : (e.isMapBoss
+                ? (e.enraged ? 1.25 : 1.65)
+                : (e.isCatapult ? 2.8 + e.phase * 0.8 : 1.85 + e.phase * 0.7));
+            const maxRange = e.isKaiju ? 440 : (e.isCatapult ? 420 : 350);
+            if (d < maxRange && this.projectiles.length < 48) this.enemyShoot(e);
           }
         }
       }
@@ -2797,6 +3088,26 @@ export class Game {
     const baseAng = angleTo(e.x, e.y, p.x, p.y);
     if (e.isCatapult) {
       this.fireCatapultBoulder(e.x, e.y, baseAng, e.dmg);
+      return;
+    }
+    if (e.isKaiju) {
+      // Colossal Kaiju Godzilla Atomic Breath Beam + 3-Zone Area Damage (AoE) Ground Explosions!
+      this.sfx.play('bomb');
+      this.shake = Math.max(this.shake, 11);
+      this.spawnThrust(e.x, e.y, baseAng, 195, 0x00f5d4);
+      const aoeDmg = Math.max(2, Math.round(e.dmg * 0.8));
+      for (const distStep of [85, 155, 225]) {
+        const gx = e.x + Math.cos(baseAng) * distStep;
+        const gy = e.y + Math.sin(baseAng) * distStep;
+        this.spawnExplosion(gx, gy, 0.55, 1.95, 0x00f5d4, 0.34);
+        this.spawnShockwave(gx, gy, 0x7dd3fc, 0.4, 1.9, 0.26);
+        if (dist2(gx, gy, p.x, p.y) <= 68 * 68) {
+          this.damagePlayer(aoeDmg);
+        }
+      }
+      for (let i = -2; i <= 2; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.16, 205, aoeDmg, 7, 0x00f5d4);
+      }
       return;
     }
     if (!e.isMapBoss) {
@@ -3044,8 +3355,11 @@ export class Game {
   }
 
   damageEnemy(e, dmg, sx, sy) {
-    // Stage & Campaign Bosses have 15% Warlord Armor Mitigation + 30% Max-HP single-hit cap
-    if (e.isMapBoss) {
+    // Colossal Kaiju Godzilla Titan has 40% Scales Mitigation + 12% Max-HP single-hit cap (hard to kill!)
+    if (e.isKaiju) {
+      dmg = Math.min(dmg * 0.60, e.maxHp * 0.12);
+    } else if (e.isMapBoss) {
+      // Stage & Campaign Bosses have 15% Warlord Armor Mitigation + 30% Max-HP single-hit cap
       dmg = Math.min(dmg * 0.85, e.maxHp * 0.30);
     }
     e.hp -= dmg;
@@ -3109,6 +3423,13 @@ export class Game {
       this.spawnSparkBurst(e.x, e.y, ang, e.color, e.isBoss ? 5 : (e.explosive ? 6 : 2), 155, e.isBoss ? 0.95 : 0.68, 1.9);
       if (e.isBoss) {
         this.spawnChest(e.x, e.y);
+        if (e.isKaiju) {
+          this.spawnChest(e.x + 28, e.y);
+          this.spawnItem('heart', e.x - 24, e.y + 18);
+          this.spawnItem('bomb', e.x + 24, e.y + 18);
+          this.gold += 100;
+          this.showFloatText(e.x, e.y - 34, 'KAIJU TITAN SLAIN! +100G', 0x00f5d4);
+        }
       }
       if (this.items.length < 12) {
         const dropRoll = Math.random();
@@ -3358,7 +3679,7 @@ export class Game {
       .stroke({ color: 0xf5c84c, width: 2, alpha: 0.95 });
     this.campaignMapContainer.addChild(backdrop);
 
-    const levelsPerMap = 5;
+    const levelsPerMap = 10;
     const totalStages = CAMPAIGN_MAPS.length * levelsPerMap;
     const selOrder = clamp(this.selectedCheckpointOrder ?? this.unlockedStageOrder ?? 0, 0, totalStages - 1);
     const unlockedMax = this.unlockedStageOrder ?? 0;
@@ -3378,9 +3699,12 @@ export class Game {
       ? `✓ CAMPAIGN ${this.lastAutoSavedCampaign + 1} AUTO-SAVED`
       : '✓ CHECKPOINT AUTO-SAVED';
     const sub = new Text({
-      text: `${savedTag} · 10 CAMPAIGNS × 5 LEVELS × 5 WAVES`,
-      style: new TextStyle({ fill: 0x6bffb0, fontSize: landscape ? 8 : 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+      text: `${savedTag} · 10 CAMPAIGNS × 10 LEVELS · NEW CAMPAIGN RESETS LOADOUT`,
+      style: new TextStyle({ fill: 0x6bffb0, fontSize: landscape ? 7.5 : 8, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
+    if (sub.width > panelW - 24) {
+      sub.scale.set((panelW - 24) / sub.width);
+    }
     sub.anchor.set(0.5);
     sub.x = Math.round(W / 2);
     sub.y = panelY + (landscape ? 26 : 30);
@@ -3421,7 +3745,6 @@ export class Game {
         this.sfx.play('select');
         this.viewingCampaignIndex = cIdx;
         if (cUnlocked) {
-          // Select highest unlocked stage in this campaign
           let targetOrder = cStartOrder;
           for (let l = 0; l < levelsPerMap; l++) {
             if (cStartOrder + l <= unlockedMax) targetOrder = cStartOrder + l;
@@ -3446,236 +3769,116 @@ export class Game {
       this.campaignMapContainer.addChild(rp);
     }
     const mapLabel = new Text({
-      text: `CAMPAIGN ${viewMapIdx + 1}/10: ${viewMap.name.toUpperCase()} (5 LEVELS × 5 WAVES)`,
+      text: `CAMPAIGN ${viewMapIdx + 1}/10: ${viewMap.name.toUpperCase()} (10 LEVELS × 5 WAVES)`,
       style: new TextStyle({ fill: 0xe6dec8, fontSize: landscape ? 8.5 : 9, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     mapLabel.x = panelX + 28;
     mapLabel.y = hdrY;
     this.campaignMapContainer.addChild(mapLabel);
 
-    // 3. 5 Illustrated Level Checkpoint Cards (X-1 through X-5) for the viewed Campaign
+    // 3. 10 Illustrated Level Checkpoint Cards (X-1 through X-10) in a 2-column (Portrait) or 5x2 (Landscape) grid
     const listStartY = hdrY + (landscape ? 14 : 16);
     const bottomBlockH = landscape ? 98 : 110;
     const availListH = panelH - (listStartY - panelY) - bottomBlockH - 6;
 
-    if (!landscape) {
-      // Portrait: 5 full-width horizontal illustrated Level Cards stacked vertically
-      const rowGap = 5;
-      const cardH = Math.max(46, Math.floor((availListH - rowGap * 4) / 5));
-      const cardW = innerW;
+    const cols = landscape ? 5 : 2;
+    const rows = landscape ? 2 : 5;
+    const colGap = 6;
+    const rowGap = 5;
+    const cardW = Math.floor((innerW - colGap * (cols - 1)) / cols);
+    const cardH = Math.max(36, Math.floor((availListH - rowGap * (rows - 1)) / rows));
 
-      viewMap.levels.forEach((lv, lIdx) => {
-        const order = viewMapIdx * levelsPerMap + lIdx;
-        const isUnlocked = order <= unlockedMax;
-        const isCleared = this.clearedStages?.has(order);
-        const isSelected = order === selOrder;
-        const cy = listStartY + lIdx * (cardH + rowGap);
+    viewMap.levels.forEach((lv, lIdx) => {
+      const order = viewMapIdx * levelsPerMap + lIdx;
+      const isUnlocked = order <= unlockedMax;
+      const isCleared = this.clearedStages?.has(order);
+      const isSelected = order === selOrder;
+      const cCol = lIdx % cols;
+      const cRow = Math.floor(lIdx / cols);
+      const cx = panelX + 12 + cCol * (cardW + colGap);
+      const cy = listStartY + cRow * (cardH + rowGap);
 
-        const node = new Container();
-        node.x = panelX + 12;
-        node.y = cy;
-        const g = new Graphics();
-        const borderCol = isSelected ? 0xf5c84c : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
-        const fillCol = isSelected ? 0x202f42 : (isUnlocked ? 0x15202e : 0x0c1118);
-        g.roundRect(0, 0, cardW, cardH, 5)
-          .fill({ color: fillCol, alpha: 0.96 })
-          .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
-        node.addChild(g);
+      const node = new Container();
+      node.x = cx;
+      node.y = cy;
+      const g = new Graphics();
+      const borderCol = isSelected ? 0xf5c84c : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
+      const fillCol = isSelected ? 0x202f42 : (isUnlocked ? 0x15202e : 0x0c1118);
+      g.roundRect(0, 0, cardW, cardH, 5)
+        .fill({ color: fillCol, alpha: 0.96 })
+        .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
+      node.addChild(g);
 
-        // Left: Stage Diorama Thumbnail + Minion & Boss Sprites
-        const thumbW = 68, thumbH = cardH - 8;
-        const thumbIdx = order % (this.stageTextures?.length || 9);
-        if (this.stageTextures?.[thumbIdx]) {
-          const thumb = new Sprite(this.stageTextures[thumbIdx]);
-          thumb.x = 4;
-          thumb.y = 4;
-          thumb.width = thumbW;
-          thumb.height = thumbH;
-          thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
-          node.addChild(thumb);
-        }
-        const thumbFrame = new Graphics();
-        thumbFrame.rect(4, 4, thumbW, thumbH)
-          .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1 });
-        node.addChild(thumbFrame);
+      const thumbW = landscape ? 38 : 44;
+      const thumbH = cardH - 8;
+      const thumbIdx = order % (this.stageTextures?.length || 9);
+      if (this.stageTextures?.[thumbIdx]) {
+        const thumb = new Sprite(this.stageTextures[thumbIdx]);
+        thumb.x = 4;
+        thumb.y = 4;
+        thumb.width = thumbW;
+        thumb.height = thumbH;
+        thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
+        node.addChild(thumb);
+      }
+      const thumbFrame = new Graphics();
+      thumbFrame.rect(4, 4, thumbW, thumbH)
+        .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1 });
+      node.addChild(thumbFrame);
 
-        const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
-        if (this.enemyTextures?.[firstFoe]?.[0]) {
-          const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
-          foeSp.anchor.set(0.5, 0.6);
-          foeSp.scale.set(0.46);
-          foeSp.x = 20;
-          foeSp.y = 4 + Math.round(thumbH / 2) + 2;
-          foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-          node.addChild(foeSp);
-        }
-        const bossSpec = lv.levelBoss || viewMap.boss;
-        const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
-        if (this.enemyTextures?.[bossKey]?.[0]) {
-          const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
-          bossSp.anchor.set(0.5, 0.6);
-          bossSp.scale.set(0.54);
-          bossSp.x = 4 + thumbW - 16;
-          bossSp.y = 4 + Math.round(thumbH / 2) + 2;
-          bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-          node.addChild(bossSp);
-        }
+      const bossSpec = lv.levelBoss || viewMap.boss;
+      const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
+      if (this.enemyTextures?.[bossKey]?.[0]) {
+        const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
+        bossSp.anchor.set(0.5, 0.6);
+        bossSp.scale.set(0.46);
+        bossSp.x = 4 + Math.round(thumbW / 2);
+        bossSp.y = 4 + Math.round(thumbH / 2) + 2;
+        bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+        node.addChild(bossSp);
+      }
 
-        // Middle: Stage Title & Boss + 5 Waves info
-        const nm = new Text({
-          text: `STAGE ${viewMapIdx + 1}-${lIdx + 1}: ${lv.name.toUpperCase()}`,
-          style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
-        });
-        nm.x = 80;
-        nm.y = 6;
-        node.addChild(nm);
-
-        const bs = new Text({
-          text: `${lv.waves} WAVES · BOSS: ${bossSpec.name.toUpperCase()}`,
-          style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 8, fontFamily: 'monospace' }),
-        });
-        bs.x = 80;
-        bs.y = 20;
-        node.addChild(bs);
-
-        const envTxt = new Text({
-          text: `${(lv.season || 'spring').toUpperCase()} · ${(lv.weather || 'clear').toUpperCase()} · ${lv.layoutPattern.toUpperCase()}`,
-          style: new TextStyle({ fill: isUnlocked ? 0x9ec5e8 : 0x475569, fontSize: 7.5, fontFamily: 'monospace' }),
-        });
-        envTxt.x = 80;
-        envTxt.y = 33;
-        node.addChild(envTxt);
-
-        // Right: Status Badge
-        const statusTag = isCleared ? '✓ CLEARED' : (isUnlocked ? '★ UNLOCKED' : 'LOCKED');
-        const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
-        const st = new Text({
-          text: statusTag,
-          style: new TextStyle({ fill: tagCol, fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
-        });
-        st.anchor.set(1, 0);
-        st.x = cardW - 6;
-        st.y = 6;
-        node.addChild(st);
-
-        if (isUnlocked) {
-          node.eventMode = 'static';
-          node.cursor = 'pointer';
-          node.on('pointertap', () => {
-            this.sfx.play('select');
-            this.selectedCheckpointOrder = order;
-            this.showCampaignMapModal();
-          });
-        }
-        this.campaignMapContainer.addChild(node);
+      const textX = 4 + thumbW + 5;
+      const maxTxtW = cardW - textX - 4;
+      const statusSym = isCleared ? '✓' : (isUnlocked ? '★' : '🔒');
+      const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
+      const st = new Text({
+        text: `${viewMapIdx + 1}-${lIdx + 1} ${statusSym}`,
+        style: new TextStyle({ fill: tagCol, fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
       });
-    } else {
-      // Landscape: 5 horizontal columns for Levels X-1 .. X-5
-      const colGap = 6;
-      const cardW = Math.floor((innerW - colGap * 4) / 5);
-      const cardH = Math.max(76, availListH);
-      const routeLine = new Graphics();
-      const lineY = listStartY + Math.round(cardH / 2);
-      routeLine.moveTo(panelX + 12 + cardW * 0.5, lineY)
-        .lineTo(panelX + 12 + innerW - cardW * 0.5, lineY)
-        .stroke({ color: 0x45586c, width: 2, alpha: 0.85 });
-      this.campaignMapContainer.addChild(routeLine);
+      st.x = textX;
+      st.y = 4;
+      node.addChild(st);
 
-      viewMap.levels.forEach((lv, lIdx) => {
-        const order = viewMapIdx * levelsPerMap + lIdx;
-        const isUnlocked = order <= unlockedMax;
-        const isCleared = this.clearedStages?.has(order);
-        const isSelected = order === selOrder;
-        const cx = panelX + 12 + lIdx * (cardW + colGap);
-
-        const node = new Container();
-        node.x = cx;
-        node.y = listStartY;
-        const g = new Graphics();
-        const borderCol = isSelected ? 0xf5c84c : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
-        const fillCol = isSelected ? 0x202f42 : (isUnlocked ? 0x15202e : 0x0c1118);
-        g.roundRect(0, 0, cardW, cardH, 5)
-          .fill({ color: fillCol, alpha: 0.96 })
-          .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
-        node.addChild(g);
-
-        const statusTag = isCleared ? '✓ CLEARED' : (isUnlocked ? '★ UNLOCKED' : 'LOCKED');
-        const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
-        const st = new Text({
-          text: `${viewMapIdx + 1}-${lIdx + 1} ${statusTag}`,
-          style: new TextStyle({ fill: tagCol, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
-        });
-        st.x = 5;
-        st.y = 4;
-        node.addChild(st);
-
-        const thumbW = cardW - 10, thumbH = Math.max(38, cardH - 52);
-        const thumbY = 17;
-        const thumbIdx = order % (this.stageTextures?.length || 9);
-        if (this.stageTextures?.[thumbIdx]) {
-          const thumb = new Sprite(this.stageTextures[thumbIdx]);
-          thumb.x = 5;
-          thumb.y = thumbY;
-          thumb.width = thumbW;
-          thumb.height = thumbH;
-          thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
-          node.addChild(thumb);
-        }
-        const thumbFrame = new Graphics();
-        thumbFrame.rect(5, thumbY, thumbW, thumbH)
-          .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1 });
-        node.addChild(thumbFrame);
-
-        const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
-        if (this.enemyTextures?.[firstFoe]?.[0]) {
-          const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
-          foeSp.anchor.set(0.5, 0.6);
-          foeSp.scale.set(0.5);
-          foeSp.x = 22;
-          foeSp.y = thumbY + Math.round(thumbH / 2) + 2;
-          foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-          node.addChild(foeSp);
-        }
-        const bossSpec = lv.levelBoss || viewMap.boss;
-        const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
-        if (this.enemyTextures?.[bossKey]?.[0]) {
-          const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
-          bossSp.anchor.set(0.5, 0.6);
-          bossSp.scale.set(0.56);
-          bossSp.x = cardW - 22;
-          bossSp.y = thumbY + Math.round(thumbH / 2) + 2;
-          bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-          node.addChild(bossSp);
-        }
-
-        const nm = new Text({
-          text: lv.name,
-          style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
-        });
-        nm.x = 5;
-        nm.y = thumbY + thumbH + 4;
-        node.addChild(nm);
-
-        const bs = new Text({
-          text: `5W · Boss: ${bossSpec.name}`,
-          style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7, fontFamily: 'monospace' }),
-        });
-        bs.x = 5;
-        bs.y = cardH - 13;
-        node.addChild(bs);
-
-        if (isUnlocked) {
-          node.eventMode = 'static';
-          node.cursor = 'pointer';
-          node.on('pointertap', () => {
-            this.sfx.play('select');
-            this.selectedCheckpointOrder = order;
-            this.showCampaignMapModal();
-          });
-        }
-        this.campaignMapContainer.addChild(node);
+      const nm = new Text({
+        text: lv.name,
+        style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
       });
-    }
+      if (nm.width > maxTxtW) nm.scale.set(maxTxtW / nm.width);
+      nm.x = textX;
+      nm.y = Math.round(cardH / 2) - 2;
+      node.addChild(nm);
+
+      const bs = new Text({
+        text: bossSpec.name,
+        style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7, fontFamily: 'monospace' }),
+      });
+      if (bs.width > maxTxtW) bs.scale.set(maxTxtW / bs.width);
+      bs.x = textX;
+      bs.y = cardH - 12;
+      node.addChild(bs);
+
+      if (isUnlocked) {
+        node.eventMode = 'static';
+        node.cursor = 'pointer';
+        node.on('pointertap', () => {
+          this.sfx.play('select');
+          this.selectedCheckpointOrder = order;
+          this.showCampaignMapModal();
+        });
+      }
+      this.campaignMapContainer.addChild(node);
+    });
 
     const selMapIdx = Math.floor(selOrder / levelsPerMap);
     const selLvIdx = selOrder % levelsPerMap;
@@ -3854,6 +4057,10 @@ export class Game {
               w.evoId = base.evo;
               const evoSpec = EVOLUTIONS[base.evo];
               this.triggerMaxLevelAwakening(evoSpec ? evoSpec.name : base.name, base.color);
+            } else if (this.player) {
+              this.spawnShockwave(this.player.x, this.player.y, base.color, 0.35, 1.85, 0.24);
+              this.spawnSparkBurst(this.player.x, this.player.y, 0, base.color, 6, 165, 0.85, Math.PI);
+              this.showFloatText(this.player.x, this.player.y - 26, `${base.name.toUpperCase()} LV${w.level} UPGRADED!`, base.color);
             }
             this._loadoutDirty = true;
           },
@@ -4250,16 +4457,16 @@ export class Game {
         s.scaleX = sc * dirSign;
         s.scaleY = sc;
       }
-      // Overhead Health Bar for all on-screen horde enemies & bosses
-      if (e.hp > 0 && !e.isBird && Math.abs(e.x - cx) < 340 && Math.abs(e.y - cy) < 480) {
+      // Overhead Health Bar for all on-screen horde enemies, warlord bosses, and Colossal Kaiju Godzilla Titans!
+      if (e.hp > 0 && !e.isBird && Math.abs(e.x - cx) < 360 && Math.abs(e.y - cy) < 500) {
         const ratio = clamp(e.hp / (e.maxHp || 1), 0, 1);
-        const bw = e.isBoss ? 36 : 20;
-        const bh = e.isBoss ? 4 : 2.5;
+        const bw = e.isKaiju ? 68 : (e.isBoss ? 36 : 20);
+        const bh = e.isKaiju ? 5 : (e.isBoss ? 4 : 2.5);
         const bx = Math.round(e.x - bw / 2);
-        const by = Math.round(e.y - e.size - (e.isBoss ? 14 : 9));
-        const barCol = e.isBoss
-          ? 0xff3b3b
-          : (ratio > 0.55 ? 0x4ade80 : (ratio > 0.25 ? 0xfbbf24 : 0xef4444));
+        const by = Math.round(e.y - e.size - (e.isKaiju ? 22 : (e.isBoss ? 14 : 9)));
+        const barCol = e.isKaiju
+          ? 0x00f5d4
+          : (e.isBoss ? 0xff3b3b : (ratio > 0.55 ? 0x4ade80 : (ratio > 0.25 ? 0xfbbf24 : 0xef4444)));
         g.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x0c0e14);
         g.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(barCol);
       }

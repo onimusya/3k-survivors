@@ -110,6 +110,7 @@ export const ENEMY_TYPES = {
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
   catapult:   { name:'Siege Catapult',     color:0xd97706, hp:36, speed:26, dmg:9,  size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
   firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:12, speed:240, dmg:5,  size:14, xp:5, weight:0, isBird:true },
+  kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:460, speed:36, dmg:9, size:30, xp:120, weight:0, boss:true, isKaiju:true, knockResist:0.96 },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },
   elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:9, size:23, xp:30, weight:0, boss:true },
@@ -356,6 +357,8 @@ const LEVEL_SQUAD_TEMPLATES = [
 ];
 const WEAPON_STYLES = ['spear_volley', 'crossbow_bolt', 'throwing_axe', 'fire_pot', 'arcane_orb'];
 
+const SECOND_HALF_PREFIXES = ['Inner', 'Fortified', 'Upper', 'Citadel', 'Sanctum'];
+
 export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
   const finalBoss = c.bosses[4];
   const cTints = CAMPAIGN_FACTION_TINTS[cIdx % CAMPAIGN_FACTION_TINTS.length];
@@ -368,43 +371,49 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
     bgFilter: 'none',
     propOrder: c.props,
     factionTints: cTints,
-    boss: { ...finalBoss, hp: 900 + cIdx * 320, dmg: 10 + cIdx * 2, speed: 78 + cIdx * 2, scale: 1.9 },
-    levels: c.stageNames.map((stName, lIdx) => {
-      const order = cIdx * 5 + lIdx;
-      const bSpec = c.bosses[lIdx];
-      const squad = cIdx === 0
-        ? EARLY_CAMP1_SQUADS[lIdx % EARLY_CAMP1_SQUADS.length]
-        : LEVEL_SQUAD_TEMPLATES[lIdx % LEVEL_SQUAD_TEMPLATES.length];
-      // Rotate tint priority per level so each level has visibly distinct armor colors
+    boss: { ...finalBoss, hp: 520 + cIdx * 110, dmg: 9 + cIdx * 1.5, speed: 74 + cIdx * 1.5, scale: 1.9 },
+    levels: Array.from({ length: 10 }, (_, lIdx) => {
+      const baseIdx = lIdx % 5;
+      const isSecondHalf = lIdx >= 5;
+      const stName = isSecondHalf
+        ? `${SECOND_HALF_PREFIXES[baseIdx]} ${c.stageNames[baseIdx]}`
+        : c.stageNames[baseIdx];
+      const bSpec = c.bosses[baseIdx];
+      const squad = (cIdx === 0 && lIdx < 5)
+        ? EARLY_CAMP1_SQUADS[baseIdx]
+        : LEVEL_SQUAD_TEMPLATES[(lIdx + cIdx) % LEVEL_SQUAD_TEMPLATES.length];
       const levelTints = [
         cTints[lIdx % cTints.length],
         cTints[(lIdx + 1) % cTints.length],
         cTints[(lIdx + 2) % cTints.length],
       ];
+      // Scale within each 10-level campaign (since weapons & skills reset on each new campaign!)
+      const campTier = cIdx * 0.16;
       return {
         level: lIdx + 1,
         name: stName,
         waves: 5,
         waveDuration: 10,
-        hpMul: +(0.65 + order * 0.16).toFixed(2),
-        dmgMul: +(0.65 + order * 0.065).toFixed(2),
-        speedMul: +(0.86 + order * 0.01).toFixed(3),
-        spawnMul: +(0.78 + order * 0.04).toFixed(2),
-        bossStage: lIdx === 4,
-        bgColor: c.bgColors[lIdx],
-        layoutPattern: c.patterns[lIdx],
-        season: c.seasons[lIdx],
-        weather: c.weathers[lIdx],
+        hpMul: +(0.65 + campTier + lIdx * 0.15).toFixed(2),
+        dmgMul: +(0.65 + cIdx * 0.08 + lIdx * 0.06).toFixed(2),
+        speedMul: +(0.86 + cIdx * 0.015 + lIdx * 0.012).toFixed(3),
+        spawnMul: +(0.78 + cIdx * 0.05 + lIdx * 0.045).toFixed(2),
+        bossStage: lIdx === 9,
+        bgColor: c.bgColors[baseIdx],
+        layoutPattern: c.patterns[(lIdx + cIdx) % c.patterns.length],
+        season: c.seasons[(lIdx + cIdx) % c.seasons.length],
+        weather: c.weathers[(lIdx + cIdx) % c.weathers.length],
         propOrder: c.props,
         enemies: squad,
         factionTints: levelTints,
         weaponStyle: WEAPON_STYLES[(cIdx + lIdx) % WEAPON_STYLES.length],
         levelBoss: {
           ...bSpec,
-          hp: Math.round((210 + order * 26) * (lIdx === 4 ? 1.25 : 1.0)),
-          dmg: Math.round(6 + order * 0.45),
-          speed: Math.min(88, 66 + Math.floor(order * 0.45)),
-          scale: lIdx === 4 ? 1.85 : 1.65,
+          name: isSecondHalf && lIdx === 9 ? `Grand ${bSpec.name}` : bSpec.name,
+          hp: Math.round((190 + cIdx * 38 + lIdx * 28) * (lIdx === 9 ? 1.25 : 1.0)),
+          dmg: Math.round(6 + cIdx * 0.9 + lIdx * 0.55),
+          speed: Math.min(88, 66 + Math.floor(cIdx * 1.2 + lIdx * 0.9)),
+          scale: lIdx === 9 ? 1.88 : 1.65,
         },
       };
     }),
