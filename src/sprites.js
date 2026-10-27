@@ -20,6 +20,7 @@ const PETS_ATLAS = new URL('../assets/sprites/pets/pets.png', import.meta.url).h
 const PET_IDS = ['redhare', 'vermilion', 'white_tiger', 'qilin'];
 const ICON_IDS = [
   'blade', 'spear', 'bow', 'fan', 'halberd', 'daggers',
+  'flying_blades', 'bagua_shields',
   'might', 'armor', 'swiftness', 'cooldown', 'area', 'growth', 'heal',
   'sound_on', 'sound_off',
   'redhare', 'vermilion', 'white_tiger', 'qilin',

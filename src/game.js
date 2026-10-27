@@ -32,6 +32,8 @@ export class Game {
     this.world.addChild(this.playerLayer);
     this.petLayer = new Container();
     this.world.addChild(this.petLayer);
+    this.orbitLayer = new Graphics();
+    this.world.addChild(this.orbitLayer);
     this.projLayer = new Container();
     this.gemLayer = new Container();
     this.itemLayer = new Container();
@@ -1568,6 +1570,7 @@ export class Game {
     this.handleWeapons(dt);
     if (p.attackTimer > 0) p.attackTimer = Math.max(0, p.attackTimer - dt);
     this.updatePets(dt);
+    this.updateAndRenderOrbitWeapons(dt);
 
     // projectiles
     this.updateProjectiles(dt);
@@ -2131,11 +2134,86 @@ export class Game {
 
   handleWeapons(dt) {
     for (const w of this.weapons) {
+      if (WEAPONS[w.id]?.type === 'orbit') continue;
       w.cdTimer = (w.cdTimer || 0) - dt;
       if (w.cdTimer <= 0) {
         const stats = this.getWeaponStats(w);
         w.cdTimer = stats.cd;
         this.fireWeapon(w, stats);
+      }
+    }
+  }
+
+  updateAndRenderOrbitWeapons(dt) {
+    const g = this.orbitLayer;
+    if (!g) return;
+    g.clear();
+    if (!this.player) return;
+    const p = this.player;
+    for (const w of this.weapons) {
+      const base = WEAPONS[w.id];
+      if (!base || base.type !== 'orbit') continue;
+      const stats = this.getWeaponStats(w);
+      const isShield = w.id === 'bagua_shields';
+      const count = 3 + stats.bonusCount + (stats.wd ? 2 : 0);
+      const radius = (isShield ? 46 : 58) * stats.area;
+      const dir = isShield ? -1 : 1;
+      const angularSpd = (isShield ? 3.5 : 4.8) * (stats.wd ? 1.35 : 1.0) * dir;
+      const baseAngle = this.time * angularSpd;
+      const ringCol = stats.wd ? stats.wd.color : base.color;
+
+      // Subtle orbital energy track around the warrior
+      g.circle(Math.round(p.x), Math.round(p.y), radius)
+        .stroke({ color: ringCol, alpha: 0.22, width: 1.5 });
+
+      for (let i = 0; i < count; i++) {
+        const ang = baseAngle + (i * Math.PI * 2) / count;
+        const bx = p.x + Math.cos(ang) * radius;
+        const by = p.y + Math.sin(ang) * radius;
+        const spin = this.time * 12 * dir + i;
+
+        if (isShield) {
+          // Golden Eight-Trigram (Bagua) Ward Shield
+          g.circle(bx, by, 10).fill({ color: 0x78350f, alpha: 0.92 }).stroke({ color: ringCol, width: 2.2 });
+          g.circle(bx, by, 4.5).fill({ color: 0xfef08a, alpha: 0.95 });
+        } else {
+          // Spinning 4-wing Flying Blade / Glaive Star
+          const rOut = stats.wd ? 13 : 11;
+          const rIn = 3.5;
+          const pts = [];
+          for (let k = 0; k < 8; k++) {
+            const a = spin + (k * Math.PI) / 4;
+            const r = k % 2 === 0 ? rOut : rIn;
+            pts.push(bx + Math.cos(a) * r, by + Math.sin(a) * r);
+          }
+          g.poly(pts).fill({ color: ringCol, alpha: 0.95 }).stroke({ color: 0xe0f2fe, width: 1.2 });
+          g.circle(bx, by, 3).fill(0xffffff);
+        }
+
+        // 1. Deflect / block incoming enemy bolts!
+        for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
+          const pr = this.projectiles[pi];
+          if (!pr.active || !pr.fromEnemy || pr.isBoulder) continue;
+          if (dist2(pr.x, pr.y, bx, by) <= 22 * 22) {
+            pr.life = 0;
+            this.spawnHitSpark(pr.x, pr.y, ringCol, 0.45, 0.12);
+          }
+        }
+
+        // 2. Continuously slice/bash enemies touching the orbiting blade/shield!
+        const hitR = isShield ? 18 : 16;
+        const cands = this.spatial.query(bx, by, hitR + 24);
+        const list = cands.length ? cands : this.enemies;
+        for (const e of list) {
+          if (!e.active || (e._orbitHitCd || 0) > 0) continue;
+          if (dist2(e.x, e.y, bx, by) <= (hitR + e.size) ** 2) {
+            e._orbitHitCd = Math.max(0.2, stats.cd * 0.65);
+            this.damageEnemy(e, stats.dmg, p.x, p.y);
+            if (isShield) {
+              e.knock = Math.max(e.knock || 0, 12 * (1 - (e.knockResist || 0)));
+            }
+          }
+        }
       }
     }
   }
@@ -2485,13 +2563,14 @@ export class Game {
           if (e.shootCd <= 0) {
             e.shootCd = e.isMapBoss
               ? (e.enraged ? 1.25 : 1.65)
-              : (e.isCatapult ? 2.1 + e.phase * 0.6 : 1.85 + e.phase * 0.7);
+              : (e.isCatapult ? 2.8 + e.phase * 0.8 : 1.85 + e.phase * 0.7);
             const maxRange = e.isCatapult ? 420 : 350;
             if (d < maxRange && this.projectiles.length < 36) this.enemyShoot(e);
           }
         }
       }
       if (e.hitFlash > 0) e.hitFlash -= dt;
+      if (e._orbitHitCd > 0) e._orbitHitCd -= dt;
       // remove if dead
       if (e.hp <= 0) {
         this.killEnemy(e);
@@ -2628,7 +2707,7 @@ export class Game {
     this.spawnSparkBurst(x, y - 8, ang, 0xffae42, 3, 130, 0.7, 0.5);
     // Ground warning ring at impact zone
     this.spawnShockwave(targetX, targetY, 0xff5f5f, 0.5, 0.3, Math.min(0.45, flightTime));
-    this.fireEnemyBolt(x, y - 6, ang, spd, dmg, 9, 0xff7b3d, true, flightTime);
+    this.fireEnemyBolt(x, y - 6, ang, spd, Math.max(3, Math.round(dmg * 0.7)), 9, 0xff7b3d, true, flightTime);
   }
 
   fireBirdBulletRain(x, y, dmg) {
@@ -3012,7 +3091,7 @@ export class Game {
         btn.addChild(icon);
       }
 
-      const t = new Text({ text:ch.name, style: new TextStyle({ fill:0xffffff, fontSize:12, fontFamily:'monospace', fontWeight:'bold' }) });
+      const t = new Text({ text:ch.name, style: new TextStyle({ fill:0xffffff, fontSize:11.5, fontFamily:'monospace', fontWeight:'bold' }) });
       t.x = 60; t.y = 10; btn.addChild(t);
 
       if (ch.tag) {
@@ -3020,6 +3099,10 @@ export class Game {
         tag.anchor.set(1, 0);
         tag.x = bw - 10; tag.y = 11;
         btn.addChild(tag);
+        const maxTitleW = bw - 60 - tag.width - 18;
+        if (t.width > maxTitleW) {
+          t.scale.set(maxTitleW / t.width);
+        }
       }
 
       const d = new Text({
@@ -3519,9 +3602,10 @@ export class Game {
   describeWeaponUpgrade(w, base) {
     const nextLvl = w.level + 1;
     const isProj = base.type === 'projectile' || base.type === 'magic_bolt';
+    const isOrbit = base.type === 'orbit';
     const bonus = nextLvl % 2 === 1
-      ? (isProj ? '+1 Projectile, +15% DMG' : '+2 Targets/Reach, +15% DMG')
-      : '+15% DMG, +8% Area, -5% CD';
+      ? (isOrbit ? '+1 Rotating Blade/Shield, +15% DMG' : (isProj ? '+1 Projectile, +15% DMG' : '+2 Targets/Reach, +15% DMG'))
+      : '+15% DMG, +8% Orbit/Area, -5% CD';
     if (nextLvl === 8) {
       const passName = PASSIVES[base.pass]?.name || base.pass;
       return `${bonus} • Max Lv (Evo w/ ${passName})`;
@@ -3553,10 +3637,11 @@ export class Game {
         if (!this.weapons.find(w=>w.id===id)) {
           const base = WEAPONS[id];
           const passName = PASSIVES[base.pass]?.name || base.pass;
+          const isDef = base.type === 'orbit';
           pool.push({
-            kind:'wnew', id, icon:id,
+            kind:'wnew', id, icon:id, isDefense: isDef,
             name: `New: ${base.name}`,
-            tag: 'NEW WEAPON',
+            tag: isDef ? 'DEFENSE WEAPON' : 'NEW WEAPON',
             desc: `${base.desc} • Pairs w/ ${passName}`,
             color: base.color,
             apply: () => { this.weapons.push({ id, level:1, data:base, evo:false, cdTimer:0 }); this._loadoutDirty = true; },
@@ -3603,15 +3688,19 @@ export class Game {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    // pick unique
+    // Ensure at least 1 Defensive Orbit Weapon ('flying_blades' or 'bagua_shields') is offered if available!
     const seen = new Set();
+    const defCandidate = pool.find((c) => c.id === 'flying_blades' || c.id === 'bagua_shields');
+    if (defCandidate) {
+      seen.add(defCandidate.id + defCandidate.kind);
+      choices.push(defCandidate);
+    }
     for (const c of pool) {
       if (seen.has(c.id + c.kind)) continue;
       seen.add(c.id + c.kind);
       choices.push(c);
       if (choices.length >= n) break;
     }
-    // fallback
     while (choices.length < n) {
       choices.push({
         id:'heal', icon:'heal', name:'War Ration', tag:'RECOVERY', desc:'Restore +30 HP immediately', color:0xff6b6b,

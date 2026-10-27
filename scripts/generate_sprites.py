@@ -717,6 +717,7 @@ def make_effects():
 
     icon_ids = (
         "blade", "spear", "bow", "fan", "halberd", "daggers",
+        "flying_blades", "bagua_shields",
         "might", "armor", "swiftness", "cooldown", "area", "growth", "heal",
         "sound_on", "sound_off",
         "redhare", "vermilion", "white_tiger", "qilin",
@@ -745,6 +746,14 @@ def make_effects():
         elif kind == "daggers":
             line(cd, [(2, 12), (9, 3)], (232, 204, 74, 255), width=2)
             line(cd, [(6, 13), (13, 4)], (255, 232, 128, 255), width=2)
+        elif kind == "flying_blades":
+            cd.ellipse((2, 2, 13, 13), outline=(56, 189, 248, 200), width=1)
+            polygon(cd, [(8, 1), (10, 6), (15, 8), (10, 10), (8, 15), (6, 10), (1, 8), (6, 6)], (125, 211, 252, 255))
+            cd.ellipse((6, 6, 10, 10), fill=(255, 255, 255, 255))
+        elif kind == "bagua_shields":
+            polygon(cd, [(5, 2), (11, 2), (14, 5), (14, 11), (11, 14), (5, 14), (2, 11), (2, 5)], (251, 191, 36, 255))
+            polygon(cd, [(6, 4), (10, 4), (12, 6), (12, 10), (10, 12), (6, 12), (4, 10), (4, 6)], (146, 64, 14, 255), outline=None)
+            cd.ellipse((6, 6, 10, 10), fill=(254, 240, 138, 255))
         elif kind == "might":
             polygon(cd, [(8, 2), (13, 7), (10, 7), (10, 13), (6, 13), (6, 7), (3, 7)], (255, 107, 107, 255))
         elif kind == "armor":

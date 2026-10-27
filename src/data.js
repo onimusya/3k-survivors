@@ -52,6 +52,8 @@ export const WEAPONS = {
   fan: { name:'Feather Fan', color:0xb38fd3, dmg:12, cd:0.7, area:1.0, type:'magic_bolt', evo:'galefan', pass:'cooldown', desc:'Arcane wind bolts' },
   halberd: { name:'Sky Piercer', color:0xd38f5f, dmg:26, cd:1.3, area:1.2, type:'spin', evo:'skyhalberd', pass:'area', desc:'360° sweeping cleave' },
   daggers: { name:'Twin Blades', color:0xd4c017, dmg:11, cd:0.4, area:1.0, type:'projectile', evo:'twindragons', pass:'growth', desc:'Dual homing daggers' },
+  flying_blades: { name:'Rotating Flying Blades', color:0x38bdf8, dmg:15, cd:0.45, area:1.0, type:'orbit', evo:'celestial_buzzsaw', pass:'swiftness', desc:'Spinning blades orbit you, slicing foes & blocking bolts' },
+  bagua_shields: { name:'Eight-Trigram Shields', color:0xfbbf24, dmg:17, cd:0.5, area:1.05, type:'orbit', evo:'imperial_aegis_ring', pass:'armor', desc:'Orbiting Bagua shields bash foes & deflect projectiles' },
 };
 
 export const EVOLUTIONS = {
@@ -61,6 +63,8 @@ export const EVOLUTIONS = {
   galefan: { name:'Gale Fan', color:0xffffff, dmgMul:1.8, cdMul:0.6, areaMul:1.6, desc:'Tempest of wind' },
   skyhalberd: { name:'Sky Halberd', color:0xffaa5f, dmgMul:2.4, cdMul:0.9, areaMul:1.8, desc:'Whirling death' },
   twindragons: { name:'Twin Dragons', color:0xffff5f, dmgMul:2.0, cdMul:0.45, areaMul:1.1, desc:'Dual homing blades' },
+  celestial_buzzsaw: { name:'Celestial Sword Wheel', color:0x7dd3fc, dmgMul:2.1, cdMul:0.65, areaMul:1.35, desc:'Blazing sword-wheel ring shreds foes & bullets' },
+  imperial_aegis_ring: { name:'Imperial Aegis Ring', color:0xfde047, dmgMul:2.2, cdMul:0.7, areaMul:1.4, desc:'Golden dragon-shields repel foes & projectiles' },
 };
 
 export const PASSIVES = {
@@ -104,7 +108,7 @@ export const ENEMY_TYPES = {
   bomber: { name:'Firebrand Zealot', color:0xe8682c, hp:12, speed:86, dmg:15, size:14, xp:3, weight:14, explosive:true },
   sorcerer: { name:'Taoist Mystic', color:0x9b62d8, hp:14, speed:48, dmg:12, size:14, xp:4, weight:14, ranged:true },
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
-  catapult: { name:'Siege Catapult', color:0xd97706, hp:52, speed:28, dmg:22, size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
+  catapult:   { name:'Siege Catapult',     color:0xd97706, hp:36, speed:26, dmg:9,  size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
   firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:14, speed:240, dmg:13, size:14, xp:5, weight:0, isBird:true },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:14, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:17, size:22, xp:25, weight:0, boss:true },
