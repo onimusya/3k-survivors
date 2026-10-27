@@ -403,98 +403,135 @@ def make_props_atlas():
         "tree", "pine", "rock", "grass", "mountain", "banner",
         "house", "watchtower", "castle", "tent",
     )
+    seasons = ("spring", "summer", "autumn", "winter")
     w, h = 48, 48
-    sheet = Image.new("RGBA", (w * len(prop_kinds), h), (0, 0, 0, 0))
-    for idx, kind in enumerate(prop_kinds):
-        cell = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        d = ImageDraw.Draw(cell)
-        if kind == "tree":
-            ellipse(d, (11, 37, 37, 44), (10, 14, 12, 110), outline=None)
-            rect(d, (20, 26, 27, 41), (104, 66, 38, 255))
-            line(d, [(23, 28), (23, 40)], (134, 88, 52, 255), width=1)
-            ellipse(d, (7, 10, 29, 30), (42, 98, 52, 255))
-            ellipse(d, (18, 9, 40, 29), (48, 112, 58, 255))
-            ellipse(d, (12, 4, 36, 25), (62, 136, 68, 255))
-            ellipse(d, (16, 6, 31, 18), (92, 168, 86, 255), outline=None)
-        elif kind == "pine":
-            ellipse(d, (13, 38, 35, 44), (10, 14, 12, 110), outline=None)
-            rect(d, (21, 30, 26, 42), (96, 60, 35, 255))
-            polygon(d, [(24, 16), (9, 34), (39, 34)], (36, 86, 54, 255))
-            polygon(d, [(24, 10), (12, 26), (36, 26)], (48, 108, 66, 255))
-            polygon(d, [(24, 4), (15, 18), (33, 18)], (68, 136, 82, 255))
-        elif kind == "rock":
-            ellipse(d, (7, 33, 41, 42), (10, 14, 12, 105), outline=None)
-            polygon(d, [(8, 36), (12, 20), (25, 15), (38, 22), (41, 36)], (96, 102, 108, 255))
-            polygon(d, [(13, 21), (25, 16), (33, 22), (22, 27)], (138, 146, 154, 255), outline=None)
-            polygon(d, [(6, 38), (9, 28), (18, 26), (22, 38)], (78, 84, 90, 255))
-            line(d, [(16, 36), (22, 31), (29, 36)], (56, 62, 66, 255), width=1)
-        elif kind == "grass":
-            for gx, gy, gh in ((14, 34, 10), (19, 36, 13), (24, 35, 11), (29, 37, 12), (34, 34, 9)):
-                line(d, [(gx, gy), (gx - 3, gy - gh)], (68, 134, 68, 255), width=2)
-                line(d, [(gx, gy), (gx + 3, gy - gh + 2)], (98, 168, 82, 255), width=2)
-            for fx, fy, col in ((16, 24, (242, 204, 84, 255)), (28, 25, (235, 112, 98, 255))):
-                d.rectangle((fx - 1, fy - 1, fx + 1, fy + 1), fill=col)
-        elif kind == "mountain":
-            ellipse(d, (3, 36, 45, 44), (10, 14, 12, 115), outline=None)
-            polygon(d, [(3, 40), (16, 12), (31, 40)], (76, 82, 92, 255))
-            polygon(d, [(16, 40), (30, 7), (45, 40)], (94, 102, 114, 255))
-            polygon(d, [(30, 8), (24, 20), (30, 17), (36, 21)], (226, 234, 242, 255), outline=None)
-            polygon(d, [(16, 13), (12, 22), (16, 19), (20, 22)], (206, 216, 226, 255), outline=None)
-        elif kind == "banner":
-            ellipse(d, (15, 38, 33, 44), (10, 14, 12, 105), outline=None)
-            line(d, [(20, 7), (20, 41)], (188, 152, 78, 255), width=2)
-            polygon(d, [(21, 9), (37, 11), (33, 19), (38, 27), (21, 29)], (196, 48, 44, 255))
-            line(d, [(23, 13), (33, 14)], (245, 204, 88, 255), width=2)
-            line(d, [(23, 24), (33, 24)], (245, 204, 88, 255), width=2)
-        elif kind == "house":
-            # Three Kingdoms village house: stone base, plaster & timber walls, warm window, curved terracotta roof
-            ellipse(d, (5, 38, 43, 45), (10, 14, 12, 125), outline=None)
-            rect(d, (9, 36, 39, 42), (96, 102, 110, 255))
-            rect(d, (11, 22, 37, 37), (214, 198, 168, 255))
-            for px in (11, 20, 28, 36):
-                line(d, [(px, 22), (px, 37)], (102, 64, 38, 255), width=2)
-            rect(d, (21, 28, 27, 37), (86, 50, 30, 255))
-            rect(d, (14, 25, 19, 31), (255, 210, 92, 255))
-            rect(d, (29, 25, 34, 31), (255, 210, 92, 255))
-            polygon(d, [(5, 23), (12, 11), (36, 11), (43, 23)], (172, 52, 42, 255))
-            line(d, [(4, 23), (44, 23)], (238, 192, 78, 255), width=2)
-            line(d, [(12, 11), (36, 11)], (238, 192, 78, 255), width=2)
-        elif kind == "watchtower":
-            # Military wooden & stone archer watchtower with lookout platform and pennant
-            ellipse(d, (9, 38, 39, 45), (10, 14, 12, 125), outline=None)
-            rect(d, (12, 34, 36, 42), (102, 108, 118, 255))
-            line(d, [(15, 20), (13, 35)], (118, 76, 44, 255), width=3)
-            line(d, [(33, 20), (35, 35)], (118, 76, 44, 255), width=3)
-            line(d, [(15, 24), (33, 33)], (98, 62, 36, 255), width=2)
-            line(d, [(33, 24), (15, 33)], (98, 62, 36, 255), width=2)
-            rect(d, (10, 15, 38, 21), (138, 92, 52, 255))
-            for cx in range(11, 38, 5):
-                rect(d, (cx, 12, cx + 3, 16), (156, 106, 62, 255))
-            polygon(d, [(8, 12), (24, 4), (40, 12)], (178, 48, 42, 255))
-            polygon(d, [(24, 1), (34, 4), (24, 7)], (245, 198, 72, 255))
-        elif kind == "castle":
-            # Grand Three Kingdoms fortress keep / castle gatehouse with stone ramparts & tiered imperial roof
-            ellipse(d, (3, 38, 45, 46), (10, 14, 12, 135), outline=None)
-            rect(d, (5, 21, 43, 42), (112, 120, 132, 255))
-            rect(d, (8, 24, 40, 40), (92, 98, 110, 255))
-            for bx in range(5, 42, 6):
-                rect(d, (bx, 17, bx + 4, 22), (132, 140, 152, 255))
-            polygon(d, [(19, 42), (19, 30), (24, 27), (29, 30), (29, 42)], (38, 28, 26, 255))
-            line(d, [(24, 28), (24, 41)], (188, 152, 72, 255), width=1)
-            rect(d, (13, 11, 35, 18), (168, 46, 42, 255))
-            polygon(d, [(9, 12), (16, 4), (32, 4), (39, 12)], (198, 56, 48, 255))
-            line(d, [(9, 12), (39, 12)], (248, 204, 82, 255), width=2)
-            line(d, [(16, 4), (32, 4)], (248, 204, 82, 255), width=2)
-        elif kind == "tent":
-            # Warlord military command pavilion tent
-            ellipse(d, (7, 37, 41, 45), (10, 14, 12, 120), outline=None)
-            polygon(d, [(7, 39), (13, 18), (35, 18), (41, 39)], (192, 52, 46, 255))
-            polygon(d, [(17, 39), (20, 20), (28, 20), (31, 39)], (236, 196, 88, 255))
-            polygon(d, [(20, 39), (24, 27), (28, 39)], (28, 22, 26, 255))
-            polygon(d, [(10, 19), (24, 7), (38, 19)], (218, 66, 54, 255))
-            line(d, [(10, 19), (38, 19)], (248, 210, 92, 255), width=2)
-            ellipse(d, (22, 4, 26, 8), (255, 224, 98, 255))
-        sheet.paste(cell, (idx * w, 0))
+    sheet = Image.new("RGBA", (w * len(prop_kinds), h * len(seasons)), (0, 0, 0, 0))
+    for s_row, season in enumerate(seasons):
+        for idx, kind in enumerate(prop_kinds):
+            cell = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            d = ImageDraw.Draw(cell)
+            if kind == "tree":
+                ellipse(d, (11, 37, 37, 44), (10, 14, 12, 110), outline=None)
+                rect(d, (20, 26, 27, 41), (104, 66, 38, 255))
+                line(d, [(23, 28), (23, 40)], (134, 88, 52, 255), width=1)
+                if season == "spring":
+                    ellipse(d, (7, 10, 29, 30), (206, 92, 138, 255))
+                    ellipse(d, (18, 9, 40, 29), (228, 116, 162, 255))
+                    ellipse(d, (12, 4, 36, 25), (245, 152, 192, 255))
+                    ellipse(d, (16, 6, 31, 18), (255, 210, 228, 255), outline=None)
+                elif season == "autumn":
+                    ellipse(d, (7, 10, 29, 30), (178, 58, 28, 255))
+                    ellipse(d, (18, 9, 40, 29), (218, 96, 34, 255))
+                    ellipse(d, (12, 4, 36, 25), (242, 142, 44, 255))
+                    ellipse(d, (16, 6, 31, 18), (255, 204, 76, 255), outline=None)
+                elif season == "winter":
+                    ellipse(d, (7, 10, 29, 30), (138, 168, 198, 255))
+                    ellipse(d, (18, 9, 40, 29), (168, 198, 226, 255))
+                    ellipse(d, (12, 4, 36, 25), (212, 232, 248, 255))
+                    ellipse(d, (15, 5, 33, 18), (248, 252, 255, 255), outline=None)
+                else:
+                    ellipse(d, (7, 10, 29, 30), (42, 98, 52, 255))
+                    ellipse(d, (18, 9, 40, 29), (48, 112, 58, 255))
+                    ellipse(d, (12, 4, 36, 25), (62, 136, 68, 255))
+                    ellipse(d, (16, 6, 31, 18), (92, 168, 86, 255), outline=None)
+            elif kind == "pine":
+                ellipse(d, (13, 38, 35, 44), (10, 14, 12, 110), outline=None)
+                rect(d, (21, 30, 26, 42), (96, 60, 35, 255))
+                if season == "autumn":
+                    polygon(d, [(24, 16), (9, 34), (39, 34)], (148, 82, 34, 255))
+                    polygon(d, [(24, 10), (12, 26), (36, 26)], (188, 116, 42, 255))
+                    polygon(d, [(24, 4), (15, 18), (33, 18)], (228, 162, 58, 255))
+                elif season == "winter":
+                    polygon(d, [(24, 16), (9, 34), (39, 34)], (42, 78, 72, 255))
+                    polygon(d, [(24, 16), (13, 28), (35, 28)], (228, 242, 255, 255))
+                    polygon(d, [(24, 10), (12, 26), (36, 26)], (52, 96, 88, 255))
+                    polygon(d, [(24, 10), (15, 21), (33, 21)], (238, 248, 255, 255))
+                    polygon(d, [(24, 4), (15, 18), (33, 18)], (248, 252, 255, 255))
+                else:
+                    polygon(d, [(24, 16), (9, 34), (39, 34)], (36, 86, 54, 255))
+                    polygon(d, [(24, 10), (12, 26), (36, 26)], (48, 108, 66, 255))
+                    polygon(d, [(24, 4), (15, 18), (33, 18)], (68, 136, 82, 255))
+            elif kind == "rock":
+                ellipse(d, (7, 33, 41, 42), (10, 14, 12, 105), outline=None)
+                polygon(d, [(8, 36), (12, 20), (25, 15), (38, 22), (41, 36)], (96, 102, 108, 255))
+                top_col = (238, 246, 255, 255) if season == "winter" else (138, 146, 154, 255)
+                polygon(d, [(13, 21), (25, 16), (33, 22), (22, 27)], top_col, outline=None)
+                polygon(d, [(6, 38), (9, 28), (18, 26), (22, 38)], (78, 84, 90, 255))
+                line(d, [(16, 36), (22, 31), (29, 36)], (56, 62, 66, 255), width=1)
+            elif kind == "grass":
+                g1 = (196, 118, 44, 255) if season == "autumn" else ((168, 206, 235, 255) if season == "winter" else (68, 134, 68, 255))
+                g2 = (238, 168, 62, 255) if season == "autumn" else ((228, 244, 255, 255) if season == "winter" else (98, 168, 82, 255))
+                for gx, gy, gh in ((14, 34, 10), (19, 36, 13), (24, 35, 11), (29, 37, 12), (34, 34, 9)):
+                    line(d, [(gx, gy), (gx - 3, gy - gh)], g1, width=2)
+                    line(d, [(gx, gy), (gx + 3, gy - gh + 2)], g2, width=2)
+                fcol1 = (255, 168, 204, 255) if season == "spring" else (242, 204, 84, 255)
+                for fx, fy, col in ((16, 24, fcol1), (28, 25, (235, 112, 98, 255))):
+                    d.rectangle((fx - 1, fy - 1, fx + 1, fy + 1), fill=col)
+            elif kind == "mountain":
+                ellipse(d, (3, 36, 45, 44), (10, 14, 12, 115), outline=None)
+                polygon(d, [(3, 40), (16, 12), (31, 40)], (76, 82, 92, 255))
+                polygon(d, [(16, 40), (30, 7), (45, 40)], (94, 102, 114, 255))
+                snow_y = 28 if season == "winter" else 20
+                polygon(d, [(30, 8), (22, snow_y), (30, snow_y - 3), (38, snow_y)], (236, 244, 252, 255), outline=None)
+                polygon(d, [(16, 13), (10, snow_y + 2), (16, snow_y - 1), (22, snow_y + 2)], (216, 228, 242, 255), outline=None)
+            elif kind == "banner":
+                ellipse(d, (15, 38, 33, 44), (10, 14, 12, 105), outline=None)
+                line(d, [(20, 7), (20, 41)], (188, 152, 78, 255), width=2)
+                polygon(d, [(21, 9), (37, 11), (33, 19), (38, 27), (21, 29)], (196, 48, 44, 255))
+                line(d, [(23, 13), (33, 14)], (245, 204, 88, 255), width=2)
+                line(d, [(23, 24), (33, 24)], (245, 204, 88, 255), width=2)
+            elif kind == "house":
+                ellipse(d, (5, 38, 43, 45), (10, 14, 12, 125), outline=None)
+                rect(d, (9, 36, 39, 42), (96, 102, 110, 255))
+                rect(d, (11, 22, 37, 37), (214, 198, 168, 255))
+                for px in (11, 20, 28, 36):
+                    line(d, [(px, 22), (px, 37)], (102, 64, 38, 255), width=2)
+                rect(d, (21, 28, 27, 37), (86, 50, 30, 255))
+                rect(d, (14, 25, 19, 31), (255, 210, 92, 255))
+                rect(d, (29, 25, 34, 31), (255, 210, 92, 255))
+                roof_col = (228, 242, 255, 255) if season == "winter" else ((208, 96, 38, 255) if season == "autumn" else (172, 52, 42, 255))
+                trim_col = (186, 216, 245, 255) if season == "winter" else (238, 192, 78, 255)
+                polygon(d, [(5, 23), (12, 11), (36, 11), (43, 23)], roof_col)
+                line(d, [(4, 23), (44, 23)], trim_col, width=2)
+                line(d, [(12, 11), (36, 11)], trim_col, width=2)
+            elif kind == "watchtower":
+                ellipse(d, (9, 38, 39, 45), (10, 14, 12, 125), outline=None)
+                rect(d, (12, 34, 36, 42), (102, 108, 118, 255))
+                line(d, [(15, 20), (13, 35)], (118, 76, 44, 255), width=3)
+                line(d, [(33, 20), (35, 35)], (118, 76, 44, 255), width=3)
+                line(d, [(15, 24), (33, 33)], (98, 62, 36, 255), width=2)
+                line(d, [(33, 24), (15, 33)], (98, 62, 36, 255), width=2)
+                rect(d, (10, 15, 38, 21), (138, 92, 52, 255))
+                for cx in range(11, 38, 5):
+                    rect(d, (cx, 12, cx + 3, 16), (156, 106, 62, 255))
+                roof_col = (232, 244, 255, 255) if season == "winter" else (178, 48, 42, 255)
+                polygon(d, [(8, 12), (24, 4), (40, 12)], roof_col)
+                polygon(d, [(24, 1), (34, 4), (24, 7)], (245, 198, 72, 255))
+            elif kind == "castle":
+                ellipse(d, (3, 38, 45, 46), (10, 14, 12, 135), outline=None)
+                rect(d, (5, 21, 43, 42), (112, 120, 132, 255))
+                rect(d, (8, 24, 40, 40), (92, 98, 110, 255))
+                bat_col = (228, 240, 252, 255) if season == "winter" else (132, 140, 152, 255)
+                for bx in range(5, 42, 6):
+                    rect(d, (bx, 17, bx + 4, 22), bat_col)
+                polygon(d, [(19, 42), (19, 30), (24, 27), (29, 30), (29, 42)], (38, 28, 26, 255))
+                line(d, [(24, 28), (24, 41)], (188, 152, 72, 255), width=1)
+                roof_col = (235, 245, 255, 255) if season == "winter" else (198, 56, 48, 255)
+                trim_col = (188, 218, 248, 255) if season == "winter" else (248, 204, 82, 255)
+                rect(d, (13, 11, 35, 18), (168, 46, 42, 255))
+                polygon(d, [(9, 12), (16, 4), (32, 4), (39, 12)], roof_col)
+                line(d, [(9, 12), (39, 12)], trim_col, width=2)
+                line(d, [(16, 4), (32, 4)], trim_col, width=2)
+            elif kind == "tent":
+                ellipse(d, (7, 37, 41, 45), (10, 14, 12, 120), outline=None)
+                polygon(d, [(7, 39), (13, 18), (35, 18), (41, 39)], (192, 52, 46, 255))
+                polygon(d, [(17, 39), (20, 20), (28, 20), (31, 39)], (236, 196, 88, 255))
+                polygon(d, [(20, 39), (24, 27), (28, 39)], (28, 22, 26, 255))
+                top_col = (232, 244, 255, 255) if season == "winter" else (218, 66, 54, 255)
+                polygon(d, [(10, 19), (24, 7), (38, 19)], top_col)
+                line(d, [(10, 19), (38, 19)], (248, 210, 92, 255), width=2)
+                ellipse(d, (22, 4, 26, 8), (255, 224, 98, 255))
+            sheet.paste(cell, (idx * w, s_row * h))
     return sheet
 
 def make_effects():

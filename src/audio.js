@@ -19,6 +19,12 @@ const SFX_URLS = {
   bomb: new URL('../assets/sfx/bomb.wav', import.meta.url).href,
 };
 
+export const BGM_URLS = {
+  outskirts: new URL('../assets/bgm/outskirts.mp3', import.meta.url).href,
+  hulao: new URL('../assets/bgm/hulao.mp3', import.meta.url).href,
+  redcliffs: new URL('../assets/bgm/redcliffs.mp3', import.meta.url).href,
+};
+
 // Map semantic cues to uisfx (https://uisfx.com) arcade synthesizer cues
 const UISFX_CUE_MAP = {
   select: 'select',
@@ -77,6 +83,13 @@ export class SoundManager {
     this.buffers = new Map();
     this.rawBytes = new Map();
     this.lastPlayedAt = new Map();
+    this.bgmBuffers = new Map();
+    this.bgmBytes = new Map();
+    this.bgmSource = null;
+    this.bgmGain = null;
+    this.currentBgm = null;
+    this.bgmPlayingId = null;
+    this.bgmVolume = 0.28;
     this.playedCounts = {};
     this.lastCue = null;
 
@@ -88,8 +101,8 @@ export class SoundManager {
   }
 
   async preload() {
-    await Promise.all(
-      Object.entries(SFX_URLS).map(async ([key, url]) => {
+    await Promise.all([
+      ...Object.entries(SFX_URLS).map(async ([key, url]) => {
         try {
           const res = await fetch(url);
           if (res.ok) {
@@ -97,10 +110,21 @@ export class SoundManager {
             this.rawBytes.set(key, buf);
           }
         } catch {
-          // Ignore network/fetch errors in offline or restricted environments
+          // Ignore network/fetch errors
         }
       }),
-    );
+      ...Object.entries(BGM_URLS).map(async ([key, url]) => {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            this.bgmBytes.set(key, buf);
+          }
+        } catch {
+          // Ignore network/fetch errors
+        }
+      }),
+    ]);
   }
 
   async generateWithElevenLabs(cue, customPrompt = null) {
@@ -146,12 +170,72 @@ export class SoundManager {
           .catch(() => {});
       }
     }
+    if (this.ctx && this.bgmBuffers.size === 0 && this.bgmBytes.size > 0) {
+      for (const [key, bytes] of this.bgmBytes.entries()) {
+        this.ctx.decodeAudioData(bytes.slice(0))
+          .then((audioBuf) => {
+            this.bgmBuffers.set(key, audioBuf);
+            if (this.enabled && this.currentBgm === key && !this.bgmSource) {
+              this.playBgm(key);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }
+
+  playBgm(mapId = 'outskirts') {
+    const trackId = BGM_URLS[mapId] ? mapId : 'outskirts';
+    this.currentBgm = trackId;
+    if (!this.enabled) {
+      this.stopBgm(true);
+      return false;
+    }
+    this.unlock();
+    if (!this.ctx || !this.bgmBuffers.has(trackId)) return false;
+    if (this.bgmSource && this.bgmPlayingId === trackId) return true;
+    this.stopBgm(true);
+    try {
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.bgmBuffers.get(trackId);
+      source.loop = true;
+      const gain = this.ctx.createGain();
+      gain.gain.value = this.bgmVolume * this.volume;
+      source.connect(gain);
+      gain.connect(this.ctx.destination);
+      source.start(0);
+      this.bgmSource = source;
+      this.bgmGain = gain;
+      this.bgmPlayingId = trackId;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  stopBgm(keepTarget = false) {
+    if (!keepTarget) this.currentBgm = null;
+    this.bgmPlayingId = null;
+    if (this.bgmSource) {
+      try {
+        this.bgmSource.stop(0);
+        this.bgmSource.disconnect();
+      } catch {
+        // Ignore already-stopped source
+      }
+      this.bgmSource = null;
+      this.bgmGain = null;
+    }
   }
 
   setEnabled(enabled) {
     const next = Boolean(enabled);
     if (!next && this.uisfx) {
       this.uisfx.stopAll();
+    }
+    if (!next) {
+      this.stopBgm(true);
     }
     this.enabled = next;
     if (this.uisfx) {
@@ -165,6 +249,7 @@ export class SoundManager {
     if (next) {
       this.unlock();
       this.play('toggleOn');
+      if (this.currentBgm) this.playBgm(this.currentBgm);
     }
     return this.enabled;
   }

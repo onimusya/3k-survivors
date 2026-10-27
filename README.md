@@ -12,9 +12,9 @@ A mobile-first, Three Kingdoms-themed action survival game inspired by *Vampire 
 - **Summon Pet System (4 Mythic Companions, Lv 1–5):** Fight alongside **Red Hare** (*Flame Warhorse* trampling charge), **Vermilion Bird** (*Fire Phoenix* explosive fireballs), **White Tiger** (*Frost Fang* pouncing claw slashes), and **Jade Qilin** (*Celestial Stag* lightning strikes & periodic healing)—starting with your warrior's bonded companion and summoning/upgrading up to all 4 pets simultaneously via Level-Up cards.
 - **Weapon Progression (Lv 1–8) & Evolutions:** Every weapon level scales damage (`+15%/lv`), area (`+8%/lv`), cooldown (`-5%/lv`), projectile/target count (`+1` at Lv 3, 5, 7), and pierce (`+1` at Lv 4, 7). Reaching **Lv 8** with the weapon's paired passive (`Lv 1+`) unlocks its ultimate evolution via Boss Chests.
 - **Vampire Survivors-Style HUD & Modals:** Safe-area-aware top HUD with a centered **12-slot weapon & passive loadout bar**, pixel-art icon Level-Up cards with stat deltas, and a tactical Game-Over summary card.
-- **Three Kingdoms Buildings, Weather System & Jet-Black Thunder Bomb Drops:** 10 toroidal map props & solid buildings (**Village Houses**, **Archer Watchtowers**, **Fortress Castle Keeps**, **War Pavilion Tents**, plus `tree`, `pine`, `rock`, `grass`, `mountain`, `banner`), a 6-mode **Stage Weather System** (**Sunlit Breeze**, **Monsoon Rain**, **Thunderstorm with Lightning**, **Canyon Sandstorm**, **Firestorm Embers**, **Winter Frost Snow**), and random/periodic **Heart** (`+30 HP`) & **Jet-Black Thunder Bomb** (`250px` AoE blast) item drops.
+- **Four Seasons Map System, Three Kingdoms Buildings & Dynamic Weather:** A `10×4` seasonal prop & building atlas (**Spring Blossom** cherry-blossom canopies & `+1.5 HP/s` regen, **Summer Solstice** sunlit foliage & `+12% DMG / -8% CD`, **Autumn Harvest** fiery maple canopies & `+20% XP`, and **Winter Frost** snow-capped houses/castles/trees & `-12% Enemy Speed`), 4 solid building types (**Village Houses**, **Archer Watchtowers**, **Fortress Castle Keeps**, **War Pavilion Tents**), and a 6-mode **Stage Weather System** (`Breeze`, `Rain`, `Thunderstorm`, `Sandstorm`, `Embers`, `Snow`).
 - **Multi-Frame Pixel-Art VFX (`scenario-pixel-vfx`):** 7 multi-frame, hard-banded pixel-art VFX sprite sheets (`explosion` 12f, `slash` 8f, `thrust` 8f, `whirlwind` 8f, `hit` 6f, `heal` 10f, `levelup` 12f in `assets/sprites/vfx/`) rendered deterministically via `scripts/generate_vfx.mjs` and animated through pooled `Sprite` instances at 60 FPS.
-- **Game Audio & SFX (`uisfx` + `earshot`):** Combines CC0 arcade UI/reward sound cues from [uisfx.com](https://uisfx.com) with physical blade/spear swish and Bessel-membrane impact `.wav` recipes from [earshot](https://leonxlnx.github.io/earshot-site/), complete with micro-pitch jitter, per-cue throttling, and a persistent `localStorage` Mute Toggle (`M` key or on-screen `SFX` button).
+- **ElevenLabs Per-Map BGM (`music_v2_5`) & Combat SFX:** 3 bespoke Three Kingdoms instrumental campaign map BGM tracks (`assets/bgm/{outskirts,hulao,redcliffs}.mp3` generated via `client.music.compose`) plus 12 combat & reward sound effects (`assets/sfx/*` generated via `client.textToSoundEffects.convert`), with automatic map track switching and a persistent `localStorage` Mute Toggle (`M` key or on-screen `SFX` button).
 - **Locked 60 FPS Horde Engine:** Batched `ParticleContainer` enemy rendering, object pooling (`enemyPool`, `projPool`, `gemPool`, `hitPool`, `slashPool`, `textPool`), `SpatialHash` collision queries, and viewport-sized terrain tiling.
 
 ---
@@ -47,6 +47,8 @@ python3 scripts/generate_sprites.py
 python3 scripts/generate_lpc_sprites.py
 node scripts/generate_vfx.mjs
 python3 scripts/generate_sfx.py
+npm run sfx:elevenlabs
+npm run bgm:elevenlabs
 ```
 
 ---

@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, PETS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, SEASONS, PETS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -49,6 +49,8 @@ export class Game {
     this.gold = 0;
 
     this.props = [];
+    this.selectedSeasonMode = 'auto'; // auto | spring | summer | autumn | winter
+    this.activeSeason = 'spring';
     this.weatherDrops = [];
     this.activeWeather = 'clear';
     this.lightningTimer = 8;
@@ -388,6 +390,36 @@ export class Game {
     mapBtn.cursor = 'pointer';
     mapBtn.on('pointertap', () => this.cycleMap());
     this.menuContainer.addChild(mapBtn);
+    const seasonModes = ['auto', 'spring', 'summer', 'autumn', 'winter'];
+    const curMode = this.selectedSeasonMode || 'auto';
+    const seasonColors = { auto: 0x9ec5e8, spring: 0xffb3c6, summer: 0xffe066, autumn: 0xff9b54, winter: 0xbae6fd };
+    const seasonBtn = new Container();
+    const seasonBtnW = Math.round(112 * s), seasonBtnH = Math.round(22 * s);
+    const seasonBg = new Graphics();
+    seasonBg.roundRect(0, 0, seasonBtnW, seasonBtnH, 4)
+      .fill({ color: 0x16202b, alpha: 0.95 })
+      .stroke({ color: seasonColors[curMode] || 0x9ec5e8, width: 1.2, alpha: 0.85 });
+    seasonBtn.addChild(seasonBg);
+    const seasonTxt = new Text({
+      text: `SEASON: ${curMode.toUpperCase()}`,
+      style: new TextStyle({ fill: seasonColors[curMode] || 0xfff3c4, fontSize: Math.round(8.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    seasonTxt.anchor.set(0.5);
+    seasonTxt.x = Math.round(seasonBtnW / 2);
+    seasonTxt.y = Math.round(seasonBtnH / 2);
+    seasonBtn.addChild(seasonTxt);
+    seasonBtn.x = Math.round((W - seasonBtnW) / 2);
+    seasonBtn.y = Math.round(bannerH + extraY + (landscape ? 2 : 5) * s);
+    seasonBtn.eventMode = 'static';
+    seasonBtn.cursor = 'pointer';
+    seasonBtn.on('pointertap', () => {
+      this.sfx.unlock();
+      const idx = seasonModes.indexOf(this.selectedSeasonMode || 'auto');
+      this.selectedSeasonMode = seasonModes[(idx + 1) % seasonModes.length];
+      this.sfx.play('select');
+      this.buildMenu();
+    });
+    this.menuContainer.addChild(seasonBtn);
 
     const section = new Text({
       text:'1. CHOOSE YOUR WARRIOR',
@@ -640,10 +672,44 @@ export class Game {
 
   applyMapTheme() {
     const { map, stage } = this.getStageSpec();
+    const seasonId = this.selectedSeasonMode && this.selectedSeasonMode !== 'auto'
+      ? this.selectedSeasonMode
+      : (stage.season || 'spring');
+    this.activeSeason = SEASONS[seasonId] ? seasonId : 'spring';
+    const sSpec = SEASONS[this.activeSeason] || SEASONS.spring;
     if (this.appEl) {
-      this.appEl.style.backgroundColor = stage.bgColor || map.bgColor || '#263820';
+      this.appEl.style.backgroundColor = this.selectedSeasonMode !== 'auto'
+        ? sSpec.bgColor
+        : (stage.bgColor || sSpec.bgColor || map.bgColor || '#263820');
       this.appEl.style.backgroundBlendMode = 'overlay';
       this.appEl.style.filter = 'none';
+    }
+    if (this.sfx) {
+      this.sfx.playBgm(map.id);
+    }
+  }
+
+  setSeason(seasonId = 'spring') {
+    if (!SEASONS[seasonId]) return;
+    this.selectedSeasonMode = seasonId;
+    this.activeSeason = seasonId;
+    if (this.appEl) {
+      this.appEl.style.backgroundColor = SEASONS[seasonId].bgColor;
+      this.appEl.style.backgroundBlendMode = 'overlay';
+      this.appEl.style.filter = 'none';
+    }
+    this.applySeasonPropTints();
+    this.setWeather(this.activeWeather || 'clear');
+    this.recomputeStats();
+  }
+
+  applySeasonPropTints() {
+    const sMap = this.propTextures?.[this.activeSeason] || this.propTextures;
+    for (const pr of this.props) {
+      if (sMap?.[pr.kind]) {
+        pr.sprite.texture = sMap[pr.kind];
+      }
+      pr.sprite.tint = 0xffffff;
     }
   }
   startRun(hero, perk = this.selectedPerk, mapIndex = this.selectedMapIndex) {
@@ -823,6 +889,8 @@ export class Game {
     if (this.player) {
       this.resolvePropCollisions(this.player, 12);
     }
+    this.applyMapTheme();
+    this.applySeasonPropTints();
     this.setWeather(stage.weather || 'clear');
   }
 
@@ -849,7 +917,8 @@ export class Game {
     this.setupWeather();
     this.activeWeather = WEATHER_TYPES[weatherId] ? weatherId : 'clear';
     this.lightningTimer = 6.5 + Math.random() * 3.5;
-    const count = this.activeWeather === 'clear' ? 24 : (this.activeWeather === 'embers' ? 48 : 56);
+    const sSpec = SEASONS[this.activeSeason] || SEASONS.spring;
+    const count = this.activeWeather === 'clear' ? 36 : (this.activeWeather === 'embers' ? 48 : 56);
     for (let i = 0; i < this.weatherDrops.length; i++) {
       const d = this.weatherDrops[i];
       const active = i < count;
@@ -857,7 +926,19 @@ export class Game {
       if (!active) continue;
       d.x = ((i * 73) % 100) * 0.01 * this.W;
       d.y = ((i * 41) % 100) * 0.01 * this.H;
-      if (this.activeWeather === 'rain' || this.activeWeather === 'storm') {
+      const isSeasonalMote = this.activeWeather === 'clear' || i % 3 === 0;
+      if (isSeasonalMote && this.activeWeather === 'clear') {
+        d.sprite.tint = i % 2 === 0 ? sSpec.particleCol1 : sSpec.particleCol2;
+        if (this.activeSeason === 'autumn') {
+          d.sprite.scale.set(0.42, 0.28);
+        } else if (this.activeSeason === 'spring') {
+          d.sprite.scale.set(0.36, 0.26);
+        } else {
+          d.sprite.scale.set(0.34, 0.34);
+        }
+        d.sprite.rotation = (i % 6) * 0.5;
+        d.sprite.alpha = 0.78;
+      } else if (this.activeWeather === 'rain' || this.activeWeather === 'storm') {
         d.sprite.tint = this.activeWeather === 'storm' ? 0xa5c8ff : 0x8ecaff;
         d.sprite.scale.set(this.activeWeather === 'storm' ? 1.15 : 0.95, 0.22);
         d.sprite.rotation = 1.24;
@@ -878,10 +959,10 @@ export class Game {
         d.sprite.rotation = 0.14;
         d.sprite.alpha = 0.62;
       } else {
-        d.sprite.tint = i % 2 === 0 ? 0xffe89e : 0x95d5b2;
-        d.sprite.scale.set(0.28, 0.28);
+        d.sprite.tint = i % 2 === 0 ? sSpec.particleCol1 : sSpec.particleCol2;
+        d.sprite.scale.set(0.34, 0.28);
         d.sprite.rotation = 0.3;
-        d.sprite.alpha = 0.52;
+        d.sprite.alpha = 0.72;
       }
     }
   }
@@ -919,8 +1000,23 @@ export class Game {
         d.x += 580 * sm * dt;
         d.y += (85 + Math.sin(this.time * 4 + d.phase) * 25) * dt;
       } else {
-        d.x += (24 + Math.cos(this.time * 1.6 + d.phase) * 18) * dt;
-        d.y += 34 * sm * dt;
+        if (this.activeSeason === 'summer') {
+          d.x += Math.sin(this.time * 2.5 + d.phase) * 32 * dt;
+          d.y -= 42 * sm * dt;
+          d.sprite.alpha = 0.45 + Math.sin(this.time * 6 + d.phase) * 0.35;
+        } else if (this.activeSeason === 'autumn') {
+          d.x += (68 + Math.sin(this.time * 2.4 + d.phase) * 35) * dt;
+          d.y += 92 * sm * dt;
+          d.sprite.rotation += 2.2 * dt;
+        } else if (this.activeSeason === 'winter') {
+          d.x += Math.sin(this.time * 2.0 + d.phase) * 38 * dt;
+          d.y += 98 * sm * dt;
+          d.sprite.rotation += 1.1 * dt;
+        } else {
+          d.x += (44 + Math.cos(this.time * 2.1 + d.phase) * 28) * dt;
+          d.y += 64 * sm * dt;
+          d.sprite.rotation += 1.6 * dt;
+        }
       }
       if (d.x < -16) d.x += W + 32;
       else if (d.x > W + 16) d.x -= W + 32;
@@ -954,12 +1050,13 @@ export class Game {
     if (!this.player) return;
     const ps = this.passives;
     const pk = this.perk || {};
-    this.player.dmgMul = (1 + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0));
+    const sSpec = SEASONS[this.activeSeason] || SEASONS.spring;
+    this.player.dmgMul = (1 + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
     this.player.armor = (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
     this.player.speedMul = (1 + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0));
     this.player.areaMul = (1 + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0));
+    this.player.xpMul = (1 + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
   }
 
   getWeaponStats(w) {
@@ -1398,6 +1495,10 @@ export class Game {
     this.handleSpawns(dt);
 
     // weapons auto attack
+    const curSeasonSpec = SEASONS[this.activeSeason];
+    if (curSeasonSpec?.hpRegen && p.hp < p.maxHp) {
+      p.hp = Math.min(p.maxHp, p.hp + curSeasonSpec.hpRegen * dt);
+    }
     this.handleWeapons(dt);
     if (p.attackTimer > 0) p.attackTimer = Math.max(0, p.attackTimer - dt);
     this.updatePets(dt);
@@ -1652,7 +1753,8 @@ export class Game {
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
     e.hp = d.hp * (stage.hpMul || 1) * (1 + this.time * 0.015);
     e.maxHp = e.hp;
-    e.speed = d.speed * (stage.speedMul || 1);
+    const sSlow = SEASONS[this.activeSeason]?.enemySlow || 0;
+    e.speed = d.speed * (stage.speedMul || 1) * (1 - sSlow);
     e.dmg = d.dmg * (stage.dmgMul || 1);
     e.size = d.size;
     e.xp = d.xp;
@@ -2824,8 +2926,9 @@ export class Game {
 
     const textLeft = panelX + 17 + pvW + pvH + 12;
     const selWeather = WEATHER_TYPES[selLv.weather || 'clear'] || WEATHER_TYPES.clear;
+    const selSeason = SEASONS[selLv.season || 'spring'] || SEASONS.spring;
     const infoTitle = new Text({
-      text: `STAGE ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${(selLv.layoutPattern || 'glade').toUpperCase()} · ${selWeather.short})`,
+      text: `STAGE ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${selSeason.short} · ${selWeather.short})`,
       style: new TextStyle({ fill: 0xfff3c4, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     infoTitle.x = textLeft;
@@ -3382,10 +3485,11 @@ export class Game {
     }
     const pct = Math.round(waveRatio * 100);
     const curWeather = WEATHER_TYPES[this.activeWeather] || WEATHER_TYPES.clear;
+    const curSeason = SEASONS[this.activeSeason] || SEASONS.spring;
     const bossName = (this.stageBoss?.bossName || map.boss.name).toUpperCase();
     const waveLabel = bossActive
       ? `BOSS: ${bossName} · HP ${Math.ceil(this.stageBoss.hp)}/${Math.ceil(this.stageBoss.maxHp)}`
-      : `MAP ${mapNum}-${levelNum} ${map.short} · ${curWeather.short} · WAVE ${this.currentWave}/${stage.waves} (${pct}%)`;
+      : `MAP ${mapNum}-${levelNum} · ${curSeason.short}/${curWeather.short} · WAVE ${this.currentWave}/${stage.waves} (${pct}%)`;
     if (waveLabel !== this._lastHudWaveText) {
       this._lastHudWaveText = waveLabel;
       this.hudWaveText.text = waveLabel;

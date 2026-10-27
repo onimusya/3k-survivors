@@ -137,9 +137,17 @@ export async function loadSpriteAssets() {
 
   const terrain = nearest(await Assets.load(TERRAIN));
   const propsBase = nearest(await Assets.load(PROPS_ATLAS));
+  const seasonNames = ['spring', 'summer', 'autumn', 'winter'];
   const props = {};
+  for (let s = 0; s < seasonNames.length; s++) {
+    const sMap = {};
+    for (let i = 0; i < PROP_IDS.length; i++) {
+      sMap[PROP_IDS[i]] = frame(propsBase.source, i * 48, s * 48, 48, 48, `prop-${seasonNames[s]}-${PROP_IDS[i]}`);
+    }
+    props[seasonNames[s]] = sMap;
+  }
   for (let i = 0; i < PROP_IDS.length; i++) {
-    props[PROP_IDS[i]] = frame(propsBase.source, i * 48, 0, 48, 48, `prop-${PROP_IDS[i]}`);
+    props[PROP_IDS[i]] = props.summer[PROP_IDS[i]];
   }
   const vignette = nearest(await Assets.load(VIGNETTE));
   const iconsBase = nearest(await Assets.load(ICONS_ATLAS));

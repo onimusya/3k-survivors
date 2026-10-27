@@ -40,7 +40,7 @@
   <tr><td>XP + leveling</td><td class="state-PASSED">PASSED</td><td>2</td><td>Icon cards + tags</td><td>None</td></tr>
   <tr><td>Weapon evolution</td><td class="state-PASSED">PASSED</td><td>2</td><td>Lv 8 + Passive</td><td>None</td></tr>
   <tr><td>Treasure chests</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
-  <tr><td>Buildings (`House`/`Tower`/`Castle`/`Tent`), Weather &amp; Black Bomb</td><td class="state-PASSED">PASSED</td><td>3</td><td>10 Props + 6 Weathers + Bomb</td><td>None</td></tr>
+  <tr><td>Four Seasons (`Spring`/`Summer`/`Autumn`/`Winter`), Buildings &amp; Weather</td><td class="state-PASSED">PASSED</td><td>4</td><td>4×10 Seasonal Props + Buffs</td><td>None</td></tr>
   <tr><td>Campaign maps, levels, bosses &amp; wave HUD</td><td class="state-PASSED">PASSED</td><td>2</td><td>9 Unique Maps + 9 Bosses</td><td>None</td></tr>
   <tr><td>Campaign Checkpoint Map Screen &amp; 16 Enemy/Boss types</td><td class="state-PASSED">PASSED</td><td>3</td><td>Illustrated 3×3 Map + 9 Bosses</td><td>None</td></tr>
   <tr><td>Heroes, 9 Bosses &amp; Summon Pet System (`Red Hare`/`Vermilion`/`Tiger`/`Qilin`)</td><td class="state-PASSED">PASSED</td><td>3</td><td>6 Heroes + 9 Bosses + 4 Pets</td><td>None</td></tr>
@@ -48,7 +48,7 @@
   <tr><td>Pre-game starting perks (3 choices)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Vanguard/Aegis/Windfoot</td><td>None</td></tr>
   <tr><td>HUD + mobile controls</td><td class="state-PASSED">PASSED</td><td>3</td><td>12-slot loadout</td><td>None</td></tr>
   <tr><td>Game-Over summary modal</td><td class="state-PASSED">PASSED</td><td>2</td><td>Portrait + Arsenal</td><td>None</td></tr>
-  <tr><td>Game Audio &amp; SFX (`ElevenLabs` + `uisfx`)</td><td class="state-PASSED">PASSED</td><td>2</td><td>12 ElevenLabs SFX + Mute UI</td><td>None</td></tr>
+  <tr><td>Map BGM &amp; Combat SFX (`ElevenLabs Music v2.5` + `SFX`)</td><td class="state-PASSED">PASSED</td><td>3</td><td>3 Map BGMs + 12 SFX + Mute UI</td><td>None</td></tr>
   <tr><td>Performance (300+ enemies)</td><td class="state-PASSED">PASSED</td><td>6</td><td>60–61 FPS @320</td><td>None</td></tr>
   <tr><td>Sprite presentation + responsive menu</td><td class="state-PASSED">PASSED</td><td>2</td><td>390×844 &amp; 844×390</td><td>None</td></tr>
 </table>
@@ -73,6 +73,7 @@
   <div>[2026-10-27] Integrated @elevenlabs/elevenlabs-js (scripts/generate_elevenlabs_sfx.mjs, vite.config.js /api/sfx/generate, src/audio.js) and generated 12 Three Kingdoms combat &amp; reward sound effects (slash, thrust, spin, shoot, hit, hurt, bomb, heal, gem, chest, levelup, evolve) via ElevenLabs textToSoundEffects.convert</div>
   <div>[2026-10-27] Added 4 Three Kingdoms building types (house, watchtower, castle, tent with solid obstacle collision) in assets/sprites/terrain/props.png and implemented a 56-particle batched Weather System (clear, rain, thunderstorm with lightning, sandstorm, firestorm embers, winter snow) across all 9 stages</div>
   <div>[2026-10-27] Expanded Boss roster to 9 unique Universal LPC Bosses (Cheng Yuanzhi, Deng Mao, Zhang Jiao, Hu Zhen, Li Jue, Hua Xiong, Cai Mao, Zhang Yun, Cao Ren) with 9 distinct boss attack patterns, and added the 4-companion Summon Pet System (Red Hare, Vermilion Bird, White Tiger, Jade Qilin in assets/sprites/pets/pets.png) with starting companion summon, Lv 1–5 upgrade cards, and HUD slots</div>
+  <div>[2026-10-27] Added Four Seasons Map System (Spring cherry blossoms +1.5 HP/s, Summer fireflies +12% DMG/-8% CD, Autumn maple leaves +20% XP, Winter snow caps -12% enemy speed) with a 4×10 seasonal prop atlas (assets/sprites/terrain/props.png) and Menu/HUD season controls, and generated 3 Map BGM tracks (assets/bgm/{outskirts,hulao,redcliffs}.mp3) via ElevenLabs Music v2.5 (client.music.compose)</div>
 </div>
 </body>
 </html>
