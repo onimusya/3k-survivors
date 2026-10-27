@@ -336,6 +336,10 @@ export class Game {
     sub.y = Math.round(topSafe + (bannerH - topSafe) * 0.7);
     this.menuContainer.addChild(sub);
 
+    if (this.hasSavedCheckpoint && this.showResumePrompt) {
+      this.buildResumePromptScreen(W, H, landscape, s, bannerH, topSafe, bottomSafe, margin);
+      return;
+    }
     const cols = landscape ? 3 : 2;
     const rows = landscape ? 2 : 3;
     const maxGridW = Math.round((landscape ? 740 : 440) * s);
@@ -652,6 +656,258 @@ export class Game {
     }
   }
 
+  buildResumePromptScreen(W, H, landscape, s, bannerH, topSafe, bottomSafe, margin) {
+    const data = this.savedSessionData || {};
+    const savedHero = HEROES.find((h) => h.id === data.heroId) || this.selectedHero || HEROES[0];
+    const savedPerk = STARTING_PERKS.find((pk) => pk.id === data.perkId) || this.selectedPerk || STARTING_PERKS[0];
+    const savedOrder = clamp(Number(data.savedStageOrder ?? data.unlockedStageOrder ?? 0), 0, CAMPAIGN_MAPS.length * 10 - 1);
+    const savedMapIdx = Math.floor(savedOrder / 10);
+    const savedLvIdx = savedOrder % 10;
+    const savedWave = clamp(Number(data.currentWave) || 1, 1, 5);
+    const savedMap = CAMPAIGN_MAPS[savedMapIdx] || CAMPAIGN_MAPS[0];
+    const savedStage = savedMap.levels[savedLvIdx] || savedMap.levels[0];
+    const clearedCount = this.clearedStages ? this.clearedStages.size : 0;
+
+    const panelW = Math.min(Math.round((landscape ? 520 : 354) * s), W - margin * 2);
+    const panelH = Math.min(Math.round((landscape ? 250 : 370) * s), H - bannerH - bottomSafe - 16);
+    const panelX = Math.round((W - panelW) / 2);
+    const panelY = Math.round(bannerH + Math.max(12, (H - bannerH - bottomSafe - panelH) * 0.42));
+
+    const card = new Graphics();
+    card.roundRect(panelX + 3, panelY + 5, panelW, panelH, 8).fill({ color: 0x000000, alpha: 0.6 });
+    card.roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x0f1722, alpha: 0.97 })
+      .stroke({ color: 0xf5c84c, width: 2, alpha: 0.95 });
+    this.menuContainer.addChild(card);
+
+    const hdr = new Text({
+      text: 'SAVED CHECKPOINT FOUND',
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: Math.round(13 * s), fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 1.0 }),
+    });
+    hdr.anchor.set(0.5);
+    hdr.x = Math.round(W / 2);
+    hdr.y = Math.round(panelY + 20 * s);
+    this.menuContainer.addChild(hdr);
+
+    const subHdr = new Text({
+      text: 'RESUME YOUR LAST SESSION OR START A NEW GAME',
+      style: new TextStyle({ fill: 0x9ec5e8, fontSize: Math.round(8.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    subHdr.anchor.set(0.5);
+    subHdr.x = Math.round(W / 2);
+    subHdr.y = Math.round(panelY + 36 * s);
+    this.menuContainer.addChild(subHdr);
+
+    // Saved Session Info Box
+    const boxX = panelX + Math.round(14 * s);
+    const boxY = panelY + Math.round(50 * s);
+    const boxW = panelW - Math.round(28 * s);
+    const boxH = Math.round((landscape ? 88 : 132) * s);
+    const infoBox = new Graphics();
+    infoBox.roundRect(boxX, boxY, boxW, boxH, 6)
+      .fill({ color: 0x162231, alpha: 0.96 })
+      .stroke({ color: 0x4b6584, width: 1.4 });
+    this.menuContainer.addChild(infoBox);
+
+    // Hero Portrait + Stage Diorama Thumbnail
+    const pFrameX = boxX + Math.round(10 * s);
+    const pFrameY = boxY + Math.round(10 * s);
+    const pFrameS = Math.round(52 * s);
+    const pf = new Graphics();
+    pf.roundRect(pFrameX, pFrameY, pFrameS, pFrameS, 5)
+      .fill({ color: 0x0b1118 })
+      .stroke({ color: savedHero.color, width: 1.8 });
+    this.menuContainer.addChild(pf);
+    if (this.heroFrames?.[savedHero.id]?.[0]?.[0]) {
+      const hs = new Sprite(this.heroFrames[savedHero.id][0][0]);
+      hs.anchor.set(0.5, 0.58);
+      hs.scale.set(0.95 * s);
+      hs.x = pFrameX + Math.round(pFrameS / 2);
+      hs.y = pFrameY + Math.round(pFrameS / 2) + 2;
+      this.menuContainer.addChild(hs);
+    }
+
+    const txtLeft = pFrameX + pFrameS + Math.round(10 * s);
+    const maxTxtW = boxX + boxW - txtLeft - Math.round(8 * s);
+    const heroTitle = new Text({
+      text: `${savedHero.name.toUpperCase()} · ${savedPerk.short}`,
+      style: new TextStyle({ fill: 0xffffff, fontSize: Math.round(11 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    heroTitle.x = txtLeft;
+    heroTitle.y = pFrameY + 2;
+    this.menuContainer.addChild(heroTitle);
+
+    const stageLbl = new Text({
+      text: `STAGE ${savedMapIdx + 1}-${savedLvIdx + 1}: ${savedStage.name.toUpperCase()} (WAVE ${savedWave}/5)`,
+      style: new TextStyle({ fill: 0x6bffb0, fontSize: Math.round(8.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    if (stageLbl.width > maxTxtW) stageLbl.scale.set(maxTxtW / stageLbl.width);
+    stageLbl.x = txtLeft;
+    stageLbl.y = pFrameY + Math.round(19 * s);
+    this.menuContainer.addChild(stageLbl);
+
+    const progLbl = new Text({
+      text: `CAMPAIGN ${savedMapIdx + 1}/10 (${savedMap.short.toUpperCase()}) · ${clearedCount} STAGES CLEARED`,
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: Math.round(8 * s), fontFamily: 'monospace' }),
+    });
+    if (progLbl.width > maxTxtW) progLbl.scale.set(maxTxtW / progLbl.width);
+    progLbl.x = txtLeft;
+    progLbl.y = pFrameY + Math.round(35 * s);
+    this.menuContainer.addChild(progLbl);
+
+    // Saved Weapons & Skills Icons Row
+    const savedWeapons = Array.isArray(data.weapons) && data.weapons.length
+      ? data.weapons
+      : [{ id: savedHero.weapon, level: 1 }];
+    const savedPassives = data.passives && typeof data.passives === 'object' ? Object.entries(data.passives) : [];
+    const iconRowY = pFrameY + pFrameS + Math.round(10 * s);
+    if (iconRowY + 24 < boxY + boxH) {
+      const loadoutItems = [
+        ...savedWeapons.map((w) => ({ id: w.id, level: w.level, col: WEAPONS[w.id]?.color || 0xf5c84c })),
+        ...savedPassives.map(([k, lv]) => ({ id: k, level: lv, col: PASSIVES[k]?.color || 0x6b9fff })),
+      ].slice(0, 8);
+      loadoutItems.forEach((it, idx) => {
+        const ix = boxX + Math.round(10 * s) + idx * Math.round(28 * s);
+        const slot = new Graphics();
+        slot.roundRect(ix, iconRowY, Math.round(24 * s), Math.round(24 * s), 4)
+          .fill({ color: 0x0b1118 })
+          .stroke({ color: it.col, width: 1.2 });
+        this.menuContainer.addChild(slot);
+        if (this.iconTextures?.[it.id]) {
+          const ic = new Sprite(this.iconTextures[it.id]);
+          ic.scale.set(1.1 * s);
+          ic.x = ix + Math.round(3 * s);
+          ic.y = iconRowY + Math.round(3 * s);
+          this.menuContainer.addChild(ic);
+        }
+        const lvT = new Text({
+          text: `${it.level}`,
+          style: new TextStyle({ fill: 0xfff3c4, fontSize: Math.round(7.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        lvT.anchor.set(1, 1);
+        lvT.x = ix + Math.round(22 * s);
+        lvT.y = iconRowY + Math.round(23 * s);
+        this.menuContainer.addChild(lvT);
+      });
+    }
+
+    // Button 1: RESUME LAST SAVE SESSION
+    const btnW = boxW;
+    const btnH = Math.round((landscape ? 38 : 46) * s);
+    const resumeY = boxY + boxH + Math.round(14 * s);
+    const resumeBtn = new Container();
+    resumeBtn.x = boxX;
+    resumeBtn.y = resumeY;
+    const rBg = new Graphics();
+    rBg.roundRect(0, 0, btnW, btnH, 6)
+      .fill({ color: 0x1f7a4c })
+      .stroke({ color: 0x6bffb0, width: 2 });
+    resumeBtn.addChild(rBg);
+    const rTxt = new Text({
+      text: `▶ RESUME LAST SAVE SESSION (STAGE ${savedMapIdx + 1}-${savedLvIdx + 1})`,
+      style: new TextStyle({ fill: 0xffffff, fontSize: Math.round(10.5 * s), fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.5 }),
+    });
+    if (rTxt.width > btnW - 16) rTxt.scale.set((btnW - 16) / rTxt.width);
+    rTxt.anchor.set(0.5);
+    rTxt.x = Math.round(btnW / 2);
+    rTxt.y = Math.round(btnH / 2);
+    resumeBtn.addChild(rTxt);
+    resumeBtn.eventMode = 'static';
+    resumeBtn.cursor = 'pointer';
+    resumeBtn.on('pointertap', () => this.resumeSavedSession());
+    this.menuContainer.addChild(resumeBtn);
+
+    // Button 2: START NEW GAME (CHOOSE CHARACTER)
+    const newY = resumeY + btnH + Math.round(10 * s);
+    const newBtn = new Container();
+    newBtn.x = boxX;
+    newBtn.y = newY;
+    const nBg = new Graphics();
+    nBg.roundRect(0, 0, btnW, btnH, 6)
+      .fill({ color: 0x223042 })
+      .stroke({ color: 0xf5c84c, width: 1.8 });
+    newBtn.addChild(nBg);
+    const nTxt = new Text({
+      text: '⚔ START NEW GAME · CHOOSE CHARACTER',
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: Math.round(10.5 * s), fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.5 }),
+    });
+    if (nTxt.width > btnW - 16) nTxt.scale.set((btnW - 16) / nTxt.width);
+    nTxt.anchor.set(0.5);
+    nTxt.x = Math.round(btnW / 2);
+    nTxt.y = Math.round(btnH / 2);
+    newBtn.addChild(nTxt);
+    newBtn.eventMode = 'static';
+    newBtn.cursor = 'pointer';
+    newBtn.on('pointertap', () => this.startNewGameFromPrompt());
+    this.menuContainer.addChild(newBtn);
+  }
+
+  resumeSavedSession() {
+    this.sfx.unlock();
+    this.showResumePrompt = false;
+    const data = { ...(this.savedSessionData || {}) };
+    const savedHero = HEROES.find((h) => h.id === data.heroId) || this.selectedHero || HEROES[0];
+    const savedPerk = STARTING_PERKS.find((pk) => pk.id === data.perkId) || this.selectedPerk || STARTING_PERKS[0];
+    const savedOrder = clamp(Number(data.savedStageOrder ?? data.unlockedStageOrder ?? 0), 0, CAMPAIGN_MAPS.length * 10 - 1);
+    const savedMapIdx = Math.floor(savedOrder / 10);
+    const savedLvIdx = savedOrder % 10;
+    const savedWave = clamp(Number(data.currentWave) || 1, 1, 5);
+
+    this._resumingSession = true;
+    this.selectedHero = savedHero;
+    this.selectedPerk = savedPerk;
+    this.startRun(savedHero, savedPerk, savedMapIdx);
+    this.stageIndex = savedLvIdx;
+    this.selectedCheckpointOrder = savedOrder;
+
+    if (Array.isArray(data.weapons) && data.weapons.length) {
+      this.weapons = data.weapons
+        .filter((w) => WEAPONS[w.id])
+        .map((w) => ({
+          id: w.id,
+          level: clamp(Number(w.level) || 1, 1, 8),
+          data: WEAPONS[w.id],
+          evo: Boolean(w.evo || Number(w.level) >= 8),
+          evoId: w.evoId || WEAPONS[w.id].evo,
+          cdTimer: 0,
+        }));
+    }
+    if (data.passives && typeof data.passives === 'object') {
+      this.passives = { ...data.passives };
+    }
+    if (Array.isArray(data.pets) && data.pets.length) {
+      for (const pt of this.pets) {
+        if (pt.sprite) pt.sprite.destroy();
+        if (pt.shadow) pt.shadow.destroy();
+      }
+      this.pets.length = 0;
+      for (const sp of data.pets) {
+        if (PETS[sp.id]) {
+          const petObj = this.summonPet(sp.id);
+          if (petObj) petObj.level = clamp(Number(sp.level) || 1, 1, 5);
+        }
+      }
+    }
+    if (Number(data.gold) > 0) this.gold = Number(data.gold);
+    if (Number(data.level) > 1) this.level = Number(data.level);
+    this.recomputeStats();
+    this._loadoutDirty = true;
+    this.renderHudSlots();
+    this.applyMapTheme();
+    this.setupProps();
+    this._resumingSession = false;
+    this.startWave(savedWave);
+    this.showFloatText(this.player.x, this.player.y - 36, `RESUMED STAGE ${savedMapIdx + 1}-${savedLvIdx + 1} (WAVE ${savedWave}/5)!`, 0x6bffb0);
+  }
+
+  startNewGameFromPrompt() {
+    this.sfx.unlock();
+    this.sfx.play('select');
+    this.showResumePrompt = false;
+    this.selectedMapIndex = 0;
+    this.buildMenu();
+  }
+
   selectHero(hero) {
     this.sfx.unlock();
     if (this.selectedHero.id === hero.id) return;
@@ -683,9 +939,26 @@ export class Game {
       }
       this.selectedMapIndex = clamp(Number(data.selectedMapIndex ?? this.unlockedCampaignIndex) || 0, 0, maxCampaign);
       this.viewingCampaignIndex = this.selectedMapIndex;
-      this.selectedCheckpointOrder = this.unlockedStageOrder;
+      this.selectedCheckpointOrder = clamp(Number(data.savedStageOrder ?? this.unlockedStageOrder) || 0, 0, maxOrder);
       this.lastAutoSavedCampaign = data.lastCompletedCampaign ?? null;
-      return true;
+      if (data.heroId) {
+        const foundHero = HEROES.find((h) => h.id === data.heroId);
+        if (foundHero) this.selectedHero = foundHero;
+      }
+      if (data.perkId) {
+        const foundPerk = STARTING_PERKS.find((pk) => pk.id === data.perkId);
+        if (foundPerk) this.selectedPerk = foundPerk;
+      }
+      const hasCheckpoint = Boolean(
+        data.hasSavedSession
+        || this.unlockedStageOrder > 0
+        || (this.clearedStages && this.clearedStages.size > 0)
+        || (Number(data.currentWave) > 1),
+      );
+      this.hasSavedCheckpoint = hasCheckpoint;
+      this.savedSessionData = data;
+      this.showResumePrompt = hasCheckpoint;
+      return hasCheckpoint;
     } catch {
       return false;
     }
@@ -696,15 +969,30 @@ export class Game {
       if (completedCampaignIdx !== null) {
         this.lastAutoSavedCampaign = completedCampaignIdx;
       }
+      const curStageOrder = (this.mapIndex || 0) * 10 + (this.stageIndex || 0);
       const payload = {
         version: 1,
+        hasSavedSession: true,
+        heroId: this.hero?.id || this.selectedHero?.id || 'guanyu',
+        perkId: this.perk?.id || this.selectedPerk?.id || 'vanguard',
+        mapIndex: this.mapIndex || 0,
+        stageIndex: this.stageIndex || 0,
+        savedStageOrder: Math.max(curStageOrder, this.selectedCheckpointOrder || 0),
+        currentWave: this.currentWave || 1,
         unlockedCampaignIndex: this.unlockedCampaignIndex || 0,
         unlockedStageOrder: this.unlockedStageOrder || 0,
         clearedStages: [...(this.clearedStages || [])],
         selectedMapIndex: this.selectedMapIndex || 0,
         lastCompletedCampaign: this.lastAutoSavedCampaign,
+        weapons: (this.weapons || []).map((w) => ({ id: w.id, level: w.level, evo: Boolean(w.evo), evoId: w.evoId || null })),
+        passives: { ...(this.passives || {}) },
+        pets: (this.pets || []).map((pt) => ({ id: pt.id, level: pt.level })),
+        gold: this.gold || 0,
+        level: this.level || 1,
         savedAt: new Date().toISOString(),
       };
+      this.savedSessionData = payload;
+      this.hasSavedCheckpoint = true;
       window.localStorage?.setItem('3k-survivors-campaign-save-v1', JSON.stringify(payload));
       return payload;
     } catch {
@@ -1628,17 +1916,20 @@ export class Game {
     const { map, stage } = this.getStageSpec();
     this.currentWave = clamp(waveNum, 1, stage.waves);
     const isEarlyCampaign = this.mapIndex === 0;
+    this.finalWaveSpawned = this.currentWave >= stage.waves;
     const waveCurve = isEarlyCampaign
-      ? ([9, 13, 18, 24, 30][this.currentWave - 1] || 14)
-      : ([14, 24, 36, 50, 68][this.currentWave - 1] || 20);
-    this.waveTotalEnemies = Math.round(
-      (waveCurve + this.stageIndex * (isEarlyCampaign ? 3 : 5) + this.mapIndex * 7) * Math.min(2.2, stage.spawnMul || 1),
-    );
+      ? ([9, 13, 18, 24, 300][this.currentWave - 1] || 14)
+      : ([14, 24, 36, 50, 300][this.currentWave - 1] || 20);
+    // Always spawn a massive horde of up to 300 enemies when on the Last Wave (Wave 5/5)!
+    this.waveTotalEnemies = this.finalWaveSpawned
+      ? 300
+      : Math.round(
+        (waveCurve + this.stageIndex * (isEarlyCampaign ? 3 : 5) + this.mapIndex * 7) * Math.min(2.2, stage.spawnMul || 1),
+      );
     this.waveSpawnedCount = 0;
     this.waveKills = 0;
     this.pendingNextWave = null;
-    this.finalWaveSpawned = this.currentWave >= stage.waves;
-    this.spawnTimer = isEarlyCampaign ? 0.35 : 0.2;
+    this.spawnTimer = this.finalWaveSpawned ? 0.05 : (isEarlyCampaign ? 0.35 : 0.2);
     this.birdFlockTimer = isEarlyCampaign
       ? Math.max(8.5, 14.0 - this.currentWave * 1.0)
       : Math.max(5.0, 10.0 - this.currentWave * 1.1);
@@ -1646,18 +1937,17 @@ export class Game {
     if (this.finalWaveSpawned) {
       const bossSpec = stage.levelBoss || map.boss;
       this.stageBoss = this.spawnMapBoss(map, stage, bossSpec);
-      this.waveTotalEnemies++;
+      this.waveTotalEnemies = 300;
       this.waveSpawnedCount++;
       this.sfx.play('hurt');
       this.shake = 12;
       if (this.player) {
-        this.showFloatText(this.player.x, this.player.y - 30, `WAVE 5/5 · BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
+        this.showFloatText(this.player.x, this.player.y - 30, `LAST WAVE 5/5 · 300 HORDE SURGE + BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
       }
     } else if (this.currentWave > 1 && this.player) {
       this.sfx.play('select');
       this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${this.currentWave}/${stage.waves} · HORDE SURGE!`, 0xf5c84c);
     }
-
     // Introduce Siege Catapults and Aerial Bird Flocks gently on early levels, ramping up in later campaigns
     const minCatapultWave = isEarlyCampaign ? (this.stageIndex >= 2 ? 3 : 4) : 2;
     if (this.currentWave >= minCatapultWave) {
@@ -1687,15 +1977,18 @@ export class Game {
     if (this.currentWave >= 3 && !this.enemies.some((e) => e.active && e.isUfo) && Math.random() < 0.03) {
       this.spawnRareUfo();
     }
-    const initBatch = Math.min(
-      (isEarlyCampaign ? 4 : 7) + this.currentWave * (isEarlyCampaign ? 1 : 2),
-      this.waveTotalEnemies - this.waveSpawnedCount,
-    );
+    const initBatch = this.finalWaveSpawned
+      ? Math.min(65, this.waveTotalEnemies - this.waveSpawnedCount)
+      : Math.min(
+        (isEarlyCampaign ? 4 : 7) + this.currentWave * (isEarlyCampaign ? 1 : 2),
+        this.waveTotalEnemies - this.waveSpawnedCount,
+      );
     for (let i = 0; i < initBatch; i++) {
       this.spawnEnemy();
       this.waveSpawnedCount++;
     }
     this.stageProgress = ((this.currentWave - 1) / stage.waves) * (stage.waves * stage.waveDuration);
+    if (!this._resumingSession) this.saveCampaignProgress();
   }
 
   onWaveCleared() {
@@ -1711,8 +2004,9 @@ export class Game {
     this.gems.length = 0;
 
     if (this.currentWave < stage.waves) {
-      // Wave 1..4 cleared -> trigger Weapon / Armor / Pet Upgrade Modal!
+      // Wave 1..4 cleared -> auto-save checkpoint & trigger Weapon / Armor / Pet Upgrade Modal!
       this.pendingNextWave = this.currentWave + 1;
+      this.saveCampaignProgress();
       this.levelUp();
     } else {
       // Final Wave 5 + Boss cleared -> complete Level & auto-save Campaign Checkpoint!
@@ -1725,22 +2019,32 @@ export class Game {
     this.updateStageProgression(dt, map, stage);
 
     const isEarlyCampaign = this.mapIndex === 0;
-    // Spawn remaining enemies of the current wave's finite horde (gentler in early levels, faster in later waves)
-    if (this.waveSpawnedCount < this.waveTotalEnemies && this.enemies.length < 44) {
+    // Spawn remaining enemies of the current wave's finite horde (up to 300 simultaneous enemies on the Last Wave!)
+    const maxOnScreen = this.finalWaveSpawned ? 305 : 44;
+    if (this.waveSpawnedCount < this.waveTotalEnemies && this.enemies.length < maxOnScreen) {
       this.spawnTimer = (this.spawnTimer || 0) - dt;
       if (this.spawnTimer <= 0) {
-        const baseInterval = isEarlyCampaign
-          ? Math.max(0.22, 0.58 - (this.currentWave - 1) * 0.06)
-          : Math.max(0.06, 0.40 - (this.currentWave - 1) * 0.065);
-        this.spawnTimer = Math.max(0.05, baseInterval / (stage.spawnMul || 1));
-        const batch = Math.min(
-          (isEarlyCampaign ? 2 : 3) + Math.floor(this.currentWave * (isEarlyCampaign ? 1 : 1.8)),
-          this.waveTotalEnemies - this.waveSpawnedCount,
-          48 - this.enemies.length,
-        );
-        for (let i = 0; i < batch; i++) {
-          this.spawnEnemy();
-          this.waveSpawnedCount++;
+        if (this.finalWaveSpawned) {
+          this.spawnTimer = 0.05;
+          const batch = Math.min(28, this.waveTotalEnemies - this.waveSpawnedCount, 305 - this.enemies.length);
+          for (let i = 0; i < batch; i++) {
+            this.spawnEnemy();
+            this.waveSpawnedCount++;
+          }
+        } else {
+          const baseInterval = isEarlyCampaign
+            ? Math.max(0.22, 0.58 - (this.currentWave - 1) * 0.06)
+            : Math.max(0.06, 0.40 - (this.currentWave - 1) * 0.065);
+          this.spawnTimer = Math.max(0.05, baseInterval / (stage.spawnMul || 1));
+          const batch = Math.min(
+            (isEarlyCampaign ? 2 : 3) + Math.floor(this.currentWave * (isEarlyCampaign ? 1 : 1.8)),
+            this.waveTotalEnemies - this.waveSpawnedCount,
+            48 - this.enemies.length,
+          );
+          for (let i = 0; i < batch; i++) {
+            this.spawnEnemy();
+            this.waveSpawnedCount++;
+          }
         }
       }
     }
