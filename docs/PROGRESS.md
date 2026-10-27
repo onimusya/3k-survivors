@@ -32,7 +32,7 @@
 | 17 | Multi-res sharp rendering & weapon VFX | `PASSED` | 1 | `1.0x Res + 6 FX Pools` | `src/main.js`, `src/game.js` (`computeLayoutMetrics`, `spawnSlash/Thrust/Spin/Shockwave/SparkBurst`) |
 | 18 | Map decorations & Black Bomb explosion VFX | `PASSED` | 2 | `48 Props + 5-Fireball Bomb` | `src/game.js` (`setupProps`, `spawnExplosion`, `explodeBomb`) |
 | 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
-| 20 | Campaign Checkpoint Map Screen & 10 Enemy/Boss types | `PASSED` | 1 | `3×3 Checkpoint Modal + 10 Types` | `src/game.js` (`showCampaignMapModal`, `deployToCheckpoint`), `scripts/generate_sprites.py` |
+| 20 | Campaign Checkpoint Map Screen & 10 Enemy/Boss types | `PASSED` | 2 | `Illustrated 3×3 Map + 10 Types` | `src/game.js` (`showCampaignMapModal`, `deployToCheckpoint`), `scripts/generate_sprites.py` |
 
 ---
 
@@ -88,3 +88,4 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
   - Expanded the enemy sprite atlas (`assets/sprites/enemies/atlas.png`) and `ENEMY_TYPES` to 10 distinct minion & boss rows (`soldier`, `archer`, `cavalry`, `shield`, `assassin`, `bomber`, `sorcerer`, `elite` Zhang Jiao, `boss_huaxiong` Hua Xiong, `boss_caoren` Cao Ren), with knockback-resistant shields, explosive bombers on death, and multi-bolt sorcerers/bosses.
   - Gave every single one of the 9 levels (`1-1` through `3-3`) a unique map design (`bgColor` with `backgroundBlendMode: 'overlay'`, `layoutPattern` `'glade'`/`'fortress'`/`'corridor'`/`'ring'`, and `propOrder`), progressive minion roster, and a Wave 3 Stage/Map Boss.
   - Added the interactive 3×3 **Campaign Map Checkpoint Screen (`showCampaignMapModal()`, `deployToCheckpoint()`)** whenever a level is cleared, unlocking the next checkpoint and letting the player select and deploy to any unlocked level.
+  - Generated 9 custom pixel-art stage map preview dioramas (`assets/sprites/ui/stages.png`, `56×32` per stage) and upgraded `showCampaignMapModal()` + the pre-game `MAP` selector button to display stage terrain previews, boss portraits, region prop icons, and framed minion squad sprite badges across both `390×844` and `844×390` viewports.

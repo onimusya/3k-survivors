@@ -628,6 +628,64 @@ def make_effects():
             line(cd, [(15, 5), (11, 11)], (255, 107, 107, 255), width=2)
         icons.paste(cell, (idx * 16, 0))
     save(icons, "ui/icons.png")
+    stages = Image.new("RGBA", (56 * 9, 32), (0, 0, 0, 0))
+    stage_palettes = [
+        ((34, 54, 30, 255), (56, 84, 46, 255), (124, 98, 62, 255), "glade"),
+        ((58, 46, 26, 255), (88, 68, 38, 255), (218, 92, 42, 255), "fortress"),
+        ((48, 32, 64, 255), (76, 50, 98, 255), (168, 112, 245, 255), "ring"),
+        ((60, 36, 24, 255), (92, 54, 36, 255), (196, 78, 52, 255), "corridor"),
+        ((68, 28, 26, 255), (104, 42, 38, 255), (224, 88, 56, 255), "fortress"),
+        ((80, 22, 26, 255), (122, 34, 38, 255), (255, 96, 72, 255), "ring"),
+        ((22, 50, 64, 255), (36, 78, 98, 255), (92, 184, 232, 255), "river"),
+        ((26, 38, 70, 255), (44, 62, 108, 255), (122, 168, 245, 255), "armada"),
+        ((50, 26, 68, 255), (82, 42, 108, 255), (245, 194, 82, 255), "flagship"),
+    ]
+    for s_idx, (bg_col, mid_col, acc_col, layout) in enumerate(stage_palettes):
+        sc = Image.new("RGBA", (56, 32), bg_col)
+        sd = ImageDraw.Draw(sc)
+        # Subtle terrain texture bands
+        for ty in range(0, 32, 6):
+            sd.line([(0, ty), (55, ty)], fill=mid_col, width=1)
+        if layout == "glade":
+            polygon(sd, [(0, 22), (24, 15), (55, 19), (55, 27), (24, 23), (0, 29)], (112, 88, 54, 255))
+            for tx, ty in ((8, 6), (42, 5), (14, 20), (45, 21)):
+                ellipse(sd, (tx, ty, tx + 9, ty + 8), (48, 118, 54, 255))
+            rect(sd, (26, 6, 30, 16), (218, 172, 54, 255))
+        elif layout == "fortress":
+            rect(sd, (6, 5, 50, 27), mid_col)
+            for bx in range(8, 48, 8):
+                rect(sd, (bx, 3, bx + 5, 9), (128, 134, 145, 255))
+                rect(sd, (bx, 23, bx + 5, 29), (128, 134, 145, 255))
+            ellipse(sd, (23, 11, 33, 21), acc_col)
+        elif layout == "ring":
+            sd.ellipse((10, 3, 46, 29), outline=acc_col, width=2)
+            sd.ellipse((18, 8, 38, 24), fill=mid_col, outline=(245, 210, 102, 255))
+            for px, py in ((10, 14), (43, 14), (26, 2), (26, 26)):
+                rect(sd, (px, py, px + 4, py + 5), (210, 216, 228, 255))
+        elif layout == "corridor":
+            polygon(sd, [(0, 0), (55, 0), (48, 10), (8, 10)], (78, 64, 58, 255))
+            polygon(sd, [(8, 22), (48, 22), (55, 31), (0, 31)], (78, 64, 58, 255))
+            sd.line([(6, 16), (50, 16)], fill=acc_col, width=2)
+            rect(sd, (42, 9, 50, 23), (148, 154, 166, 255))
+        elif layout == "river":
+            polygon(sd, [(0, 18), (55, 14), (55, 31), (0, 31)], (28, 96, 138, 255))
+            sd.line([(4, 23), (22, 23)], fill=acc_col, width=1)
+            sd.line([(28, 27), (50, 27)], fill=acc_col, width=1)
+            for tx in (8, 22, 38):
+                polygon(sd, [(tx + 4, 3), (tx, 14), (tx + 8, 14)], (42, 112, 74, 255))
+        elif layout == "armada":
+            rect(sd, (0, 0, 55, 31), (20, 42, 78, 255))
+            polygon(sd, [(4, 6), (25, 6), (22, 26), (7, 26)], (118, 76, 44, 255))
+            polygon(sd, [(31, 6), (52, 6), (49, 26), (34, 26)], (118, 76, 44, 255))
+            sd.line([(22, 12), (34, 12)], fill=(192, 204, 218, 255), width=2)
+            sd.line([(22, 20), (34, 20)], fill=(192, 204, 218, 255), width=2)
+        elif layout == "flagship":
+            rect(sd, (0, 0, 55, 31), (32, 22, 58, 255))
+            polygon(sd, [(6, 5), (50, 5), (46, 27), (10, 27)], (136, 42, 48, 255))
+            rect(sd, (18, 9, 38, 23), (188, 56, 58, 255))
+            sd.rectangle((18, 9, 38, 23), outline=acc_col, width=1)
+        stages.paste(sc, (s_idx * 56, 0))
+    save(stages, "ui/stages.png")
 
 HEROES = {
     "guanyu": dict(cloth=(43, 139, 68, 255), accent=(208, 53, 43, 255), trim=(244, 203, 77, 255), hair=(28, 24, 27, 255), beard=(28, 24, 27, 255), helmet=True, plume=True, blade=True),

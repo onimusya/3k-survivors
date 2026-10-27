@@ -176,6 +176,7 @@ export class Game {
     this.effectTextures = this.assets.effects;
     this.iconTextures = this.assets.icons;
     this.propTextures = this.assets.props;
+    this.stageTextures = this.assets.stages;
 
     this.appEl = document.getElementById('app');
     if (this.appEl) {
@@ -342,20 +343,29 @@ export class Game {
     muteBtn.cursor = 'pointer';
     muteBtn.on('pointertap', () => this.toggleSound());
     this.menuContainer.addChild(muteBtn);
-    const curMap = CAMPAIGN_MAPS[this.selectedMapIndex || 0] || CAMPAIGN_MAPS[0];
+    const curMapIdx = this.selectedMapIndex || 0;
+    const curMap = CAMPAIGN_MAPS[curMapIdx] || CAMPAIGN_MAPS[0];
     const mapBtn = new Container();
-    const mapBtnW = Math.round(112 * s), mapBtnH = Math.round(22 * s);
+    const mapBtnW = Math.round(132 * s), mapBtnH = Math.round(22 * s);
     const mapBg = new Graphics();
     mapBg.roundRect(0, 0, mapBtnW, mapBtnH, 4)
       .fill({ color:0x16202b, alpha:0.95 })
       .stroke({ color:0xf5c84c, width:1.2, alpha:0.85 });
     mapBtn.addChild(mapBg);
+    if (this.stageTextures?.[curMapIdx * 3]) {
+      const mThumb = new Sprite(this.stageTextures[curMapIdx * 3]);
+      mThumb.x = Math.round(3 * s);
+      mThumb.y = Math.round(3 * s);
+      mThumb.width = Math.round(26 * s);
+      mThumb.height = Math.round(16 * s);
+      mapBtn.addChild(mThumb);
+    }
     const mapTxt = new Text({
-      text: `MAP ${(this.selectedMapIndex || 0) + 1}: ${curMap.short}`,
+      text: `MAP ${curMapIdx + 1}: ${curMap.short}`,
       style: new TextStyle({ fill:0xfff3c4, fontSize:Math.round(8.5 * s), fontFamily:'monospace', fontWeight:'bold' }),
     });
-    mapTxt.anchor.set(0.5);
-    mapTxt.x = Math.round(mapBtnW / 2);
+    mapTxt.anchor.set(0, 0.5);
+    mapTxt.x = Math.round(33 * s);
     mapTxt.y = Math.round(mapBtnH / 2);
     mapBtn.addChild(mapTxt);
     mapBtn.x = gridX;
@@ -2167,60 +2177,74 @@ export class Game {
 
     const W = this.W, H = this.H;
     const landscape = W >= H;
-    const hudOffset = (this.hudTop ?? (H > W ? 34 : 8)) + 90;
-    const panelW = Math.min(landscape ? 520 : 362, W - 20);
-    const panelH = Math.min(landscape ? H - hudOffset - 10 : 450, H - hudOffset - 12);
+    const hudOffset = (this.hudTop ?? (H > W ? 34 : 8)) + 88;
+    const panelW = Math.min(landscape ? 680 : 366, W - 16);
+    const panelH = landscape
+      ? Math.min(368, H - 12)
+      : Math.min(548, H - hudOffset - 10);
     const panelX = Math.round((W - panelW) / 2);
-    const panelY = Math.max(hudOffset, Math.round((H - panelH) / 2 + 24));
+    const panelY = landscape
+      ? Math.round((H - panelH) / 2)
+      : Math.max(hudOffset, Math.round((H - panelH) / 2 + 22));
 
     const backdrop = new Graphics();
-    backdrop.rect(0, 0, W, H).fill({ color: 0x05080d, alpha: 0.65 });
-    backdrop.roundRect(panelX + 3, panelY + 5, panelW, panelH, 8).fill({ color: 0x000000, alpha: 0.6 });
+    backdrop.rect(0, 0, W, H).fill({ color: 0x05080d, alpha: 0.72 });
+    backdrop.roundRect(panelX + 3, panelY + 5, panelW, panelH, 8).fill({ color: 0x000000, alpha: 0.65 });
     backdrop.roundRect(panelX, panelY, panelW, panelH, 8)
-      .fill({ color: 0x0e151f, alpha: 0.97 })
+      .fill({ color: 0x0d141e, alpha: 0.98 })
       .stroke({ color: 0xf5c84c, width: 2, alpha: 0.95 });
     this.campaignMapContainer.addChild(backdrop);
 
     const title = new Text({
       text: 'STAGE CLEARED! · CAMPAIGN MAP',
-      style: new TextStyle({ fill: 0xf5c84c, fontSize: landscape ? 13 : 14, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.8 }),
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: landscape ? 12.5 : 13.5, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.8 }),
     });
     title.anchor.set(0.5);
     title.x = Math.round(W / 2);
-    title.y = panelY + 18;
+    title.y = panelY + (landscape ? 14 : 17);
     this.campaignMapContainer.addChild(title);
 
     const sub = new Text({
       text: 'NEXT CHECKPOINT UNLOCKED · SELECT STAGE TO CONTINUE',
-      style: new TextStyle({ fill: 0x9ec5e8, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+      style: new TextStyle({ fill: 0x9ec5e8, fontSize: landscape ? 8.5 : 9, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     sub.anchor.set(0.5);
     sub.x = Math.round(W / 2);
-    sub.y = panelY + 34;
+    sub.y = panelY + (landscape ? 28 : 32);
     this.campaignMapContainer.addChild(sub);
 
     const selOrder = clamp(this.selectedCheckpointOrder ?? this.unlockedStageOrder ?? 0, 0, 8);
     const unlockedMax = this.unlockedStageOrder ?? 0;
 
-    const rowStartY = panelY + 48;
-    const rowH = Math.floor((panelH - 152) / 3);
+    const bottomBlockH = landscape ? 98 : 114;
+    const rowStartY = panelY + (landscape ? 38 : 44);
+    const rowH = Math.floor((panelH - (landscape ? 42 : 48) - bottomBlockH) / 3);
     const innerW = panelW - 24;
     const nodeGap = 8;
     const nodeW = Math.floor((innerW - nodeGap * 2) / 3);
-    const nodeH = Math.max(38, rowH - 20);
+    const nodeH = Math.max(48, rowH - (landscape ? 15 : 18));
+    const regionPropKeys = ['tree', 'mountain', 'banner'];
 
     CAMPAIGN_MAPS.forEach((m, mIdx) => {
       const ry = rowStartY + mIdx * rowH;
+      const propKey = regionPropKeys[mIdx] || 'tree';
+      if (this.propTextures?.[propKey]) {
+        const rp = new Sprite(this.propTextures[propKey]);
+        rp.scale.set(0.28);
+        rp.x = panelX + 12;
+        rp.y = ry - 2;
+        this.campaignMapContainer.addChild(rp);
+      }
       const mapLabel = new Text({
         text: `MAP ${mIdx + 1}: ${m.name.toUpperCase()}`,
-        style: new TextStyle({ fill: 0xe6dec8, fontSize: 9.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+        style: new TextStyle({ fill: 0xe6dec8, fontSize: landscape ? 8.5 : 9.5, fontFamily: 'monospace', fontWeight: 'bold' }),
       });
-      mapLabel.x = panelX + 12;
+      mapLabel.x = panelX + 28;
       mapLabel.y = ry;
       this.campaignMapContainer.addChild(mapLabel);
 
       const routeLine = new Graphics();
-      const lineY = ry + 14 + Math.round(nodeH / 2);
+      const lineY = ry + (landscape ? 12 : 14) + Math.round(nodeH / 2);
       routeLine.moveTo(panelX + 12 + nodeW * 0.5, lineY)
         .lineTo(panelX + 12 + nodeW * 2.5 + nodeGap * 2, lineY)
         .stroke({ color: 0x45586c, width: 2, alpha: 0.85 });
@@ -2232,7 +2256,7 @@ export class Game {
         const isCleared = this.clearedStages?.has(order);
         const isSelected = order === selOrder;
         const nx = panelX + 12 + lIdx * (nodeW + nodeGap);
-        const ny = ry + 14;
+        const ny = ry + (landscape ? 12 : 14);
 
         const node = new Container();
         node.x = nx;
@@ -2242,8 +2266,8 @@ export class Game {
           ? 0xf5c84c
           : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
         const fillCol = isSelected
-          ? 0x243244
-          : (isUnlocked ? 0x162230 : 0x0c1118);
+          ? 0x202f42
+          : (isUnlocked ? 0x15202e : 0x0c1118);
         g.roundRect(0, 0, nodeW, nodeH, 5)
           .fill({ color: fillCol, alpha: 0.96 })
           .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
@@ -2253,28 +2277,115 @@ export class Game {
         const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
         const st = new Text({
           text: `${mIdx + 1}-${lIdx + 1} ${statusTag}`,
-          style: new TextStyle({ fill: tagCol, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+          style: new TextStyle({ fill: tagCol, fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
         });
-        st.x = 6;
-        st.y = 4;
+        st.x = 5;
+        st.y = 3;
         node.addChild(st);
 
-        const nm = new Text({
-          text: lv.name.length > 15 ? `${lv.name.slice(0, 14)}.` : lv.name,
-          style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 8.5, fontFamily: 'monospace' }),
-        });
-        nm.x = 6;
-        nm.y = 17;
-        node.addChild(nm);
+        const bossSpec = lv.levelBoss || m.boss;
+        const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
 
-        const bossName = (lv.levelBoss || m.boss).name;
-        const bs = new Text({
-          text: `Boss: ${bossName}`,
-          style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7.5, fontFamily: 'monospace' }),
-        });
-        bs.x = 6;
-        bs.y = Math.max(28, nodeH - 12);
-        node.addChild(bs);
+        if (!landscape && nodeH >= 78) {
+          // Portrait card layout: Full-width Stage Map Preview Banner in the middle of the card
+          const thumbW = nodeW - 10;
+          const thumbH = Math.max(30, nodeH - 46);
+          const thumbY = 16;
+          if (this.stageTextures?.[order]) {
+            const thumb = new Sprite(this.stageTextures[order]);
+            thumb.x = 5;
+            thumb.y = thumbY;
+            thumb.width = thumbW;
+            thumb.height = thumbH;
+            thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
+            node.addChild(thumb);
+          }
+          const thumbFrame = new Graphics();
+          thumbFrame.rect(5, thumbY, thumbW, thumbH)
+            .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1, alpha: 0.9 });
+          node.addChild(thumbFrame);
+
+          // Stage enemy sample sprite on left + Boss sprite on right inside the map preview
+          const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
+          if (this.enemyTextures?.[firstFoe]?.[0]) {
+            const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
+            foeSp.anchor.set(0.5);
+            foeSp.scale.set(0.7);
+            foeSp.x = 20;
+            foeSp.y = thumbY + Math.round(thumbH / 2) + 1;
+            foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+            node.addChild(foeSp);
+          }
+          if (this.enemyTextures?.[bossKey]?.[0]) {
+            const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
+            bossSp.anchor.set(0.5);
+            bossSp.scale.set(0.8);
+            bossSp.x = nodeW - 22;
+            bossSp.y = thumbY + Math.round(thumbH / 2) + 1;
+            bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+            node.addChild(bossSp);
+          }
+
+          const nm = new Text({
+            text: lv.name,
+            style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+          });
+          nm.x = 5;
+          nm.y = thumbY + thumbH + 3;
+          node.addChild(nm);
+
+          const bs = new Text({
+            text: `Boss: ${bossSpec.name}`,
+            style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7.5, fontFamily: 'monospace' }),
+          });
+          bs.x = 5;
+          bs.y = nodeH - 12;
+          node.addChild(bs);
+        } else {
+          // Landscape card layout: Stage Map Preview on left, text + Boss sprite on right
+          const thumbW = 62;
+          const thumbH = Math.max(28, nodeH - 20);
+          const thumbY = 15;
+          if (this.stageTextures?.[order]) {
+            const thumb = new Sprite(this.stageTextures[order]);
+            thumb.x = 5;
+            thumb.y = thumbY;
+            thumb.width = thumbW;
+            thumb.height = thumbH;
+            thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
+            node.addChild(thumb);
+          }
+          const thumbFrame = new Graphics();
+          thumbFrame.rect(5, thumbY, thumbW, thumbH)
+            .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1, alpha: 0.9 });
+          node.addChild(thumbFrame);
+
+          if (this.enemyTextures?.[bossKey]?.[0]) {
+            const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
+            bossSp.anchor.set(0.5);
+            bossSp.scale.set(0.88);
+            bossSp.x = 5 + thumbW - 14;
+            bossSp.y = thumbY + Math.round(thumbH / 2) + 1;
+            bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+            node.addChild(bossSp);
+          }
+
+          const nm = new Text({
+            text: lv.name,
+            style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+          });
+          nm.x = 73;
+          nm.y = 17;
+          node.addChild(nm);
+
+          const bs = new Text({
+            text: `Boss: ${bossSpec.name}`,
+            style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7.5, fontFamily: 'monospace' }),
+          });
+          bs.x = 73;
+          bs.y = 31;
+          node.addChild(bs);
+        }
 
         if (isUnlocked) {
           node.eventMode = 'static';
@@ -2294,35 +2405,106 @@ export class Game {
     const selMap = CAMPAIGN_MAPS[selMapIdx] || CAMPAIGN_MAPS[0];
     const selLv = selMap.levels[selLvIdx] || selMap.levels[0];
     const selBoss = selLv.levelBoss || selMap.boss;
-    const uniqueEnemies = [...new Set(selLv.enemies || ['soldier', 'archer'])].map((k) => ENEMY_TYPES[k]?.name.split(' ').pop() || k).join(', ');
+    const uniqueEnemyKeys = [...new Set(selLv.enemies || ['soldier', 'archer'])];
 
-    const infoY = panelY + panelH - 96;
+    const infoH = landscape ? 56 : 60;
+    const infoY = panelY + panelH - infoH - (landscape ? 40 : 46);
     const infoBox = new Graphics();
-    infoBox.roundRect(panelX + 12, infoY, innerW, 44, 5)
-      .fill({ color: 0x131d29, alpha: 0.95 })
-      .stroke({ color: 0x4b627a, width: 1 });
+    infoBox.roundRect(panelX + 12, infoY, innerW, infoH, 5)
+      .fill({ color: 0x131d29, alpha: 0.96 })
+      .stroke({ color: 0x58738e, width: 1.2 });
     this.campaignMapContainer.addChild(infoBox);
 
+    // Selected Stage Large Diorama Thumbnail + Boss Portrait on the left of the Briefing Box
+    const pvW = landscape ? 74 : 74;
+    const pvH = infoH - 10;
+    if (this.stageTextures?.[selOrder]) {
+      const pv = new Sprite(this.stageTextures[selOrder]);
+      pv.x = panelX + 17;
+      pv.y = infoY + 5;
+      pv.width = pvW;
+      pv.height = pvH;
+      this.campaignMapContainer.addChild(pv);
+    }
+    const pvBorder = new Graphics();
+    pvBorder.rect(panelX + 17, infoY + 5, pvW, pvH)
+      .stroke({ color: 0xf5c84c, width: 1.2 });
+    this.campaignMapContainer.addChild(pvBorder);
+
+    const selBossKey = selBoss.spriteType && this.enemyTextures?.[selBoss.spriteType] ? selBoss.spriteType : 'elite';
+    if (this.enemyTextures?.[selBossKey]?.[0]) {
+      const bossFrame = new Graphics();
+      bossFrame.roundRect(panelX + 17 + pvW + 5, infoY + 5, pvH, pvH, 4)
+        .fill({ color: 0x0c121a })
+        .stroke({ color: selBoss.color || 0xff6b6b, width: 1.2 });
+      this.campaignMapContainer.addChild(bossFrame);
+      const bp = new Sprite(this.enemyTextures[selBossKey][0]);
+      bp.anchor.set(0.5);
+      bp.scale.set(landscape ? 1.1 : 1.15);
+      bp.x = panelX + 17 + pvW + 5 + Math.round(pvH / 2);
+      bp.y = infoY + 5 + Math.round(pvH / 2) + 1;
+      this.campaignMapContainer.addChild(bp);
+    }
+
+    const textLeft = panelX + 17 + pvW + pvH + 12;
     const infoTitle = new Text({
-      text: `CHECKPOINT ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${(selLv.layoutPattern || 'glade').toUpperCase()} MAP)`,
-      style: new TextStyle({ fill: 0xfff3c4, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+      text: `STAGE ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${(selLv.layoutPattern || 'glade').toUpperCase()})`,
+      style: new TextStyle({ fill: 0xfff3c4, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
-    infoTitle.x = panelX + 20;
-    infoTitle.y = infoY + 6;
+    infoTitle.x = textLeft;
+    infoTitle.y = infoY + 4;
     this.campaignMapContainer.addChild(infoTitle);
 
-    const infoSub = new Text({
-      text: `FOES: ${uniqueEnemies}  ·  BOSS: ${selBoss.name.toUpperCase()}`,
-      style: new TextStyle({ fill: 0x9ec5e8, fontSize: 8.5, fontFamily: 'monospace' }),
+    const bossTitle = new Text({
+      text: `BOSS: ${selBoss.name.toUpperCase()} (${(selBoss.title || 'General').toUpperCase()})`,
+      style: new TextStyle({ fill: 0xff9e80, fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
-    infoSub.x = panelX + 20;
-    infoSub.y = infoY + 23;
-    this.campaignMapContainer.addChild(infoSub);
+    bossTitle.x = textLeft;
+    bossTitle.y = infoY + 16;
+    this.campaignMapContainer.addChild(bossTitle);
 
+    const badgeY = infoY + (landscape ? 31 : 33);
+    const badgeSize = 20;
+    const foesLbl = new Text({
+      text: 'FOES:',
+      style: new TextStyle({ fill: 0x9ec5e8, fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    foesLbl.x = textLeft;
+    foesLbl.y = badgeY + 5;
+    this.campaignMapContainer.addChild(foesLbl);
+
+    // Framed 20x20 minion icon badges (with full names in landscape, compact badges in portrait)
+    uniqueEnemyKeys.forEach((ek, idx) => {
+      const step = landscape ? 94 : 25;
+      const bx = textLeft + 32 + idx * step;
+      const slot = new Graphics();
+      slot.roundRect(bx, badgeY, badgeSize, badgeSize, 3)
+        .fill({ color: 0x0c131d })
+        .stroke({ color: ENEMY_TYPES[ek]?.color || 0x58738e, width: 1 });
+      this.campaignMapContainer.addChild(slot);
+      if (this.enemyTextures?.[ek]?.[0]) {
+        const es = new Sprite(this.enemyTextures[ek][0]);
+        es.anchor.set(0.5);
+        es.scale.set(0.55);
+        es.x = bx + 10;
+        es.y = badgeY + 10;
+        this.campaignMapContainer.addChild(es);
+      }
+      if (landscape) {
+        const shortName = ENEMY_TYPES[ek]?.name.split(' ').pop() || ek;
+        const et = new Text({
+          text: shortName,
+          style: new TextStyle({ fill: 0xdbe6f2, fontSize: 7.5, fontFamily: 'monospace' }),
+        });
+        et.x = bx + 24;
+        et.y = badgeY + 5;
+        this.campaignMapContainer.addChild(et);
+      }
+    });
     const deployBtn = new Container();
-    const btnW = innerW, btnH = 36;
+    const btnW = innerW, btnH = landscape ? 32 : 36;
     deployBtn.x = panelX + 12;
-    deployBtn.y = panelY + panelH - 44;
+    deployBtn.y = panelY + panelH - btnH - 6;
     const btnBg = new Graphics();
     btnBg.roundRect(0, 0, btnW, btnH, 6)
       .fill({ color: 0xb93829 })

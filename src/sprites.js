@@ -15,6 +15,7 @@ const PROPS_ATLAS = new URL('../assets/sprites/terrain/props.png', import.meta.u
 const PROP_IDS = ['tree', 'pine', 'rock', 'grass', 'mountain', 'banner'];
 const VIGNETTE = new URL('../assets/sprites/ui/vignette.png', import.meta.url).href;
 const ICONS_ATLAS = new URL('../assets/sprites/ui/icons.png', import.meta.url).href;
+const STAGES_ATLAS = new URL('../assets/sprites/ui/stages.png', import.meta.url).href;
 const ICON_IDS = [
   'blade', 'spear', 'bow', 'fan', 'halberd', 'daggers',
   'might', 'armor', 'swiftness', 'cooldown', 'area', 'growth', 'heal',
@@ -131,12 +132,17 @@ export async function loadSpriteAssets() {
   for (let i = 0; i < ICON_IDS.length; i++) {
     icons[ICON_IDS[i]] = frame(iconsBase.source, i * 16, 0, 16, 16, `icon-${ICON_IDS[i]}`);
   }
+  const stagesBase = nearest(await Assets.load(STAGES_ATLAS));
+  const stages = [];
+  for (let i = 0; i < 9; i++) {
+    stages.push(frame(stagesBase.source, i * 56, 0, 56, 32, `stage-${i}`));
+  }
   const effectFrames = {};
   await Promise.all(Object.entries(EFFECTS).map(async ([id, url]) => {
     effectFrames[id] = nearest(await Assets.load(url));
   }));
 
-  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, effects: effectFrames, enemyBase };
+  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, stages, effects: effectFrames, enemyBase };
 }
 
 export const SPRITE_MANIFEST = {
