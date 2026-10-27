@@ -110,7 +110,7 @@ export const ENEMY_TYPES = {
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
   catapult:   { name:'Siege Catapult',     color:0xd97706, hp:36, speed:26, dmg:9,  size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
   firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:12, speed:240, dmg:5,  size:14, xp:5, weight:0, isBird:true },
-  kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:460, speed:36, dmg:9, size:30, xp:120, weight:0, boss:true, isKaiju:true, knockResist:0.96 },
+  kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:12000, speed:42, dmg:32, size:30, xp:250, weight:0, boss:true, isKaiju:true, knockResist:0.99 },
   ufo:        { name:'Cosmic UFO Saucer',   color:0x38bdf8, hp:95,  speed:190, dmg:0, size:20, xp:60,  weight:0, isUfo:true },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },

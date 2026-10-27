@@ -903,8 +903,20 @@ export class Game {
   startNewGameFromPrompt() {
     this.sfx.unlock();
     this.sfx.play('select');
+    try {
+      window.localStorage?.removeItem('3k-survivors-campaign-save-v1');
+    } catch {}
+    this.hasSavedCheckpoint = false;
+    this.savedSessionData = null;
     this.showResumePrompt = false;
+    this.unlockedCampaignIndex = 0;
+    this.unlockedStageOrder = 0;
+    this.selectedCheckpointOrder = 0;
     this.selectedMapIndex = 0;
+    this.viewingCampaignIndex = 0;
+    this.lastAutoSavedCampaign = null;
+    if (this.clearedStages) this.clearedStages.clear();
+    else this.clearedStages = new Set();
     this.buildMenu();
   }
 
@@ -1920,9 +1932,15 @@ export class Game {
     const waveCurve = isEarlyCampaign
       ? ([9, 13, 18, 24, 300][this.currentWave - 1] || 14)
       : ([14, 24, 36, 50, 300][this.currentWave - 1] || 20);
-    // Always spawn a massive horde of up to 300 enemies when on the Last Wave (Wave 5/5)!
+    const stageRatio = clamp((this.mapIndex * 10 + this.stageIndex) / 99, 0, 1);
+    const finalHordeCount = clamp(
+      randInt(Math.round(300 + stageRatio * 350), Math.round(520 + stageRatio * 480)),
+      300,
+      1000,
+    );
+    // Last Wave (Wave 5/5) always spawns a massive horde between 300 and 1000 enemies!
     this.waveTotalEnemies = this.finalWaveSpawned
-      ? 300
+      ? finalHordeCount
       : Math.round(
         (waveCurve + this.stageIndex * (isEarlyCampaign ? 3 : 5) + this.mapIndex * 7) * Math.min(2.2, stage.spawnMul || 1),
       );
@@ -1937,12 +1955,12 @@ export class Game {
     if (this.finalWaveSpawned) {
       const bossSpec = stage.levelBoss || map.boss;
       this.stageBoss = this.spawnMapBoss(map, stage, bossSpec);
-      this.waveTotalEnemies = 300;
+      this.waveTotalEnemies = finalHordeCount;
       this.waveSpawnedCount++;
       this.sfx.play('hurt');
       this.shake = 12;
       if (this.player) {
-        this.showFloatText(this.player.x, this.player.y - 30, `LAST WAVE 5/5 · 300 HORDE SURGE + BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
+        this.showFloatText(this.player.x, this.player.y - 30, `LAST WAVE 5/5 · ${finalHordeCount} HORDE + BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
       }
     } else if (this.currentWave > 1 && this.player) {
       this.sfx.play('select');
@@ -2019,14 +2037,14 @@ export class Game {
     this.updateStageProgression(dt, map, stage);
 
     const isEarlyCampaign = this.mapIndex === 0;
-    // Spawn remaining enemies of the current wave's finite horde (up to 300 simultaneous enemies on the Last Wave!)
-    const maxOnScreen = this.finalWaveSpawned ? 305 : 44;
+    // Spawn remaining enemies of the current wave's finite horde (300..1000 total horde on the Last Wave!)
+    const maxOnScreen = this.finalWaveSpawned ? 350 : 44;
     if (this.waveSpawnedCount < this.waveTotalEnemies && this.enemies.length < maxOnScreen) {
       this.spawnTimer = (this.spawnTimer || 0) - dt;
       if (this.spawnTimer <= 0) {
         if (this.finalWaveSpawned) {
           this.spawnTimer = 0.05;
-          const batch = Math.min(28, this.waveTotalEnemies - this.waveSpawnedCount, 305 - this.enemies.length);
+          const batch = Math.min(35, this.waveTotalEnemies - this.waveSpawnedCount, 350 - this.enemies.length);
           for (let i = 0; i < batch; i++) {
             this.spawnEnemy();
             this.waveSpawnedCount++;
@@ -2308,6 +2326,10 @@ export class Game {
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(e.x, e.y, x, y) <= blastRadius2) {
+        if (e.isKaiju) {
+          this.showFloatText(e.x, e.y - 28, 'BOMB IMMUNE!', 0x00f5d4);
+          continue;
+        }
         this.damageEnemy(e, blastDmg, x, y);
       }
     }
@@ -3429,22 +3451,24 @@ export class Game {
           e.y += (dy / d) * e.speed * dt;
         }
         // Colossal Kaiju Godzilla Titan: Continuous Seismic Stomp Area Damage (30%-50% HP on hit) & Rare Golden Egg Drop!
+        // Colossal Kaiju Godzilla Titan: Continuous Seismic Stomp Area Damage (35%-50% HP on hit) & Rare Golden Egg Drop!
         if (e.isKaiju) {
-          e.stompTimer = (e.stompTimer ?? 1.8) - dt;
+          if (e._kaijuArmorCd > 0) e._kaijuArmorCd -= dt;
+          e.stompTimer = (e.stompTimer ?? 1.5) - dt;
           if (e.stompTimer <= 0) {
-            e.stompTimer = 2.1;
-            this.shake = Math.max(this.shake, 9);
-            this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.65, 2.9, 0.34);
-            this.spawnExplosion(e.x, e.y, 0.65, 2.2, 0x00f5d4, 0.3);
-            if (d <= 120) {
-              this.damagePlayerPercent(0.30, 0.50, 'KAIJU STOMP');
+            e.stompTimer = 1.65;
+            this.shake = Math.max(this.shake, 11);
+            this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.7, 3.2, 0.36);
+            this.spawnExplosion(e.x, e.y, 0.7, 2.4, 0x00f5d4, 0.32);
+            if (d <= 140) {
+              this.damagePlayerPercent(0.35, 0.50, 'KAIJU STOMP');
             }
           }
-          e.eggTimer = (e.eggTimer ?? 15.0) - dt;
+          e.eggTimer = (e.eggTimer ?? 12.0) - dt;
           if (e.eggTimer <= 0) {
-            e.eggTimer = 15.0;
-            // Rare 15% roll, max 1 Golden Egg per Kaiju encounter!
-            if (!e._droppedGoldenEgg && !this.items.some((it) => it.active && it.kind === 'golden_egg') && !this.ultraman && Math.random() < 0.15) {
+            e.eggTimer = 12.0;
+            // Rare 20% roll while fighting Kaiju, max 1 Golden Egg per Kaiju encounter!
+            if (!e._droppedGoldenEgg && !this.items.some((it) => it.active && it.kind === 'golden_egg') && !this.ultraman && Math.random() < 0.20) {
               this.dropGoldenEggNearPlayer(e);
             }
           }
@@ -3454,11 +3478,11 @@ export class Game {
           e.shootCd -= dt;
           if (e.shootCd <= 0) {
             e.shootCd = e.isKaiju
-              ? 2.1
+              ? 1.7
               : (e.isMapBoss
                 ? (e.enraged ? 1.25 : 1.65)
                 : (e.isCatapult ? 2.8 + e.phase * 0.8 : 1.85 + e.phase * 0.7));
-            const maxRange = e.isKaiju ? 440 : (e.isCatapult ? 420 : 350);
+            const maxRange = e.isKaiju ? 460 : (e.isCatapult ? 420 : 350);
             if (d < maxRange && this.projectiles.length < 48) this.enemyShoot(e);
           }
         }
@@ -3491,13 +3515,13 @@ export class Game {
       this.sfx.play('bomb');
       this.shake = Math.max(this.shake, 11);
       this.spawnThrust(e.x, e.y, baseAng, 195, 0x00f5d4);
-      for (const distStep of [85, 155, 225]) {
+      for (const distStep of [85, 160, 235]) {
         const gx = e.x + Math.cos(baseAng) * distStep;
         const gy = e.y + Math.sin(baseAng) * distStep;
-        this.spawnExplosion(gx, gy, 0.55, 1.95, 0x00f5d4, 0.34);
-        this.spawnShockwave(gx, gy, 0x7dd3fc, 0.4, 1.9, 0.26);
-        if (dist2(gx, gy, p.x, p.y) <= 68 * 68) {
-          this.damagePlayerPercent(0.30, 0.50, 'KAIJU ATOMIC BREATH');
+        this.spawnExplosion(gx, gy, 0.6, 2.1, 0x00f5d4, 0.36);
+        this.spawnShockwave(gx, gy, 0x7dd3fc, 0.45, 2.1, 0.28);
+        if (dist2(gx, gy, p.x, p.y) <= 82 * 82) {
+          this.damagePlayerPercent(0.35, 0.50, 'KAIJU ATOMIC BREATH');
         }
       }
       for (let i = -2; i <= 2; i++) {
@@ -3828,9 +3852,12 @@ export class Game {
   }
 
   damageEnemy(e, dmg, sx, sy) {
-    // Colossal Kaiju Godzilla Titan has 40% Scales Mitigation + 12% Max-HP single-hit cap (hard to kill!)
-    if (e.isKaiju) {
-      dmg = Math.min(dmg * 0.60, e.maxHp * 0.12);
+    // Colossal Kaiju Godzilla Titan has 85% Titan Scales Defence + 0.08s armor tick throttle + 0.045% Max-HP cap
+    // -> requires 2-5 minutes (120s-300s) of sustained player attacks to kill unless Ultraman is summoned!
+    if (e.isKaiju && e.hp > 0) {
+      if ((e._kaijuArmorCd || 0) > 0) return;
+      e._kaijuArmorCd = 0.08;
+      dmg = Math.min(dmg * 0.15, e.maxHp * 0.00045);
     } else if (e.isMapBoss) {
       // Stage & Campaign Bosses have 15% Warlord Armor Mitigation + 30% Max-HP single-hit cap
       dmg = Math.min(dmg * 0.85, e.maxHp * 0.30);
