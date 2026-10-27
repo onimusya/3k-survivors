@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -12,8 +12,10 @@ export class Game {
     this.H = window.innerHeight || app.screen.height;
     this.stage = app.stage;
     this.world = new Container();
+    this.weatherLayer = new Container();
     this.uiLayer = new Container();
     this.stage.addChild(this.world);
+    this.stage.addChild(this.weatherLayer);
     this.stage.addChild(this.uiLayer);
     this.bgGrid = new Container();
     this.world.addChildAt(this.bgGrid, 0);
@@ -45,6 +47,9 @@ export class Game {
     this.gold = 0;
 
     this.props = [];
+    this.weatherDrops = [];
+    this.activeWeather = 'clear';
+    this.lightningTimer = 8;
     this.enemies = [];
     this.projectiles = [];
     this.gems = [];
@@ -255,6 +260,7 @@ export class Game {
       this.fxLayer.addChild(t);
       return { active:false, sprite:t };
     }, (t) => { t.active = false; t.sprite.visible = false; });
+    this.setupWeather();
   }
 
   buildMenu() {
@@ -725,7 +731,15 @@ export class Game {
       'rock', 'grass', 'tree', 'banner', 'pine', 'grass',
     ];
     const pattern = stage.layoutPattern || 'glade';
-    const solidRadii = { tree: 17, pine: 15, rock: 17, mountain: 25 };
+    const solidRadii = {
+      tree: 17, pine: 15, rock: 17, mountain: 25,
+      house: 24, watchtower: 22, castle: 28, tent: 21,
+    };
+    const propScales = {
+      castle: 1.75, watchtower: 1.6, house: 1.55,
+      mountain: 1.5, tree: 1.5, pine: 1.5, tent: 1.45,
+      rock: 1.25, banner: 1.25, grass: 1.0,
+    };
     if (this.props.length === 0) {
       const cols = 8, rows = 6;
       const span = 1600;
@@ -737,8 +751,7 @@ export class Game {
           const tex = this.propTextures[kind] || this.propTextures.tree;
           const sprite = new Sprite(tex);
           sprite.anchor.set(0.5, 0.75);
-          const sc = kind === 'mountain' || kind === 'tree' || kind === 'pine' ? 1.5 : (kind === 'rock' || kind === 'banner' ? 1.25 : 1.0);
-          sprite.scale.set(sc);
+          sprite.scale.set(propScales[kind] || 1.0);
           this.propLayer.addChild(sprite);
           const radius = solidRadii[kind] || 0;
           this.props.push({ kind, solid: radius > 0, radius, x: 0, y: 0, cellW, cellH, idx, r, c, sprite });
@@ -751,8 +764,7 @@ export class Game {
         pr.radius = solidRadii[kind] || 0;
         pr.solid = pr.radius > 0;
         pr.sprite.texture = this.propTextures[kind] || this.propTextures.tree;
-        const sc = kind === 'mountain' || kind === 'tree' || kind === 'pine' ? 1.5 : (kind === 'rock' || kind === 'banner' ? 1.25 : 1.0);
-        pr.sprite.scale.set(sc);
+        pr.sprite.scale.set(propScales[kind] || 1.0);
       }
     }
     const half = 800;
@@ -792,6 +804,112 @@ export class Game {
     }
     if (this.player) {
       this.resolvePropCollisions(this.player, 12);
+    }
+    this.setWeather(stage.weather || 'clear');
+  }
+
+  setupWeather() {
+    if (this.weatherDrops.length > 0) return;
+    const tex = this.effectTextures?.spark || this.effectTextures?.impact;
+    if (!tex) return;
+    for (let i = 0; i < 56; i++) {
+      const sprite = new Sprite(tex);
+      sprite.anchor.set(0.5);
+      sprite.visible = false;
+      this.weatherLayer.addChild(sprite);
+      this.weatherDrops.push({
+        x: Math.random() * this.W,
+        y: Math.random() * this.H,
+        speedMul: 0.8 + (i % 7) * 0.08,
+        phase: i * 0.47,
+        sprite,
+      });
+    }
+  }
+
+  setWeather(weatherId = 'clear') {
+    this.setupWeather();
+    this.activeWeather = WEATHER_TYPES[weatherId] ? weatherId : 'clear';
+    this.lightningTimer = 6.5 + Math.random() * 3.5;
+    const count = this.activeWeather === 'clear' ? 24 : (this.activeWeather === 'embers' ? 48 : 56);
+    for (let i = 0; i < this.weatherDrops.length; i++) {
+      const d = this.weatherDrops[i];
+      const active = i < count;
+      d.sprite.visible = active;
+      if (!active) continue;
+      d.x = ((i * 73) % 100) * 0.01 * this.W;
+      d.y = ((i * 41) % 100) * 0.01 * this.H;
+      if (this.activeWeather === 'rain' || this.activeWeather === 'storm') {
+        d.sprite.tint = this.activeWeather === 'storm' ? 0xa5c8ff : 0x8ecaff;
+        d.sprite.scale.set(this.activeWeather === 'storm' ? 1.15 : 0.95, 0.22);
+        d.sprite.rotation = 1.24;
+        d.sprite.alpha = 0.68;
+      } else if (this.activeWeather === 'snow') {
+        d.sprite.tint = i % 2 === 0 ? 0xffffff : 0xdbeafe;
+        d.sprite.scale.set(0.36, 0.36);
+        d.sprite.rotation = 0;
+        d.sprite.alpha = 0.82;
+      } else if (this.activeWeather === 'embers') {
+        d.sprite.tint = i % 2 === 0 ? 0xff8552 : 0xffe066;
+        d.sprite.scale.set(0.38, 0.38);
+        d.sprite.rotation = 0.4;
+        d.sprite.alpha = 0.85;
+      } else if (this.activeWeather === 'sandstorm') {
+        d.sprite.tint = i % 2 === 0 ? 0xe6a964 : 0xd4a373;
+        d.sprite.scale.set(1.05, 0.26);
+        d.sprite.rotation = 0.14;
+        d.sprite.alpha = 0.62;
+      } else {
+        d.sprite.tint = i % 2 === 0 ? 0xffe89e : 0x95d5b2;
+        d.sprite.scale.set(0.28, 0.28);
+        d.sprite.rotation = 0.3;
+        d.sprite.alpha = 0.52;
+      }
+    }
+  }
+
+  updateWeather(dt) {
+    if (!this.weatherDrops.length) return;
+    const W = this.W, H = this.H;
+    const wType = this.activeWeather || 'clear';
+    if (wType === 'storm') {
+      this.lightningTimer -= dt;
+      if (this.lightningTimer <= 0) {
+        this.lightningTimer = 7 + Math.random() * 4;
+        this.flashScreen(0xdbeafe, 0.22);
+        this.shake = Math.max(this.shake, 7);
+      }
+    }
+    for (let i = 0; i < this.weatherDrops.length; i++) {
+      const d = this.weatherDrops[i];
+      if (!d.sprite.visible) continue;
+      const sm = d.speedMul;
+      if (wType === 'rain' || wType === 'storm') {
+        const vy = (wType === 'storm' ? 700 : 580) * sm;
+        const vx = (wType === 'storm' ? -200 : -155) * sm;
+        d.x += vx * dt;
+        d.y += vy * dt;
+      } else if (wType === 'snow') {
+        d.x += Math.sin(this.time * 2.2 + d.phase) * 42 * dt;
+        d.y += 105 * sm * dt;
+        d.sprite.rotation += 1.2 * dt;
+      } else if (wType === 'embers') {
+        d.x += (48 + Math.sin(this.time * 3 + d.phase) * 28) * dt;
+        d.y -= 135 * sm * dt;
+        d.sprite.alpha = 0.55 + Math.sin(this.time * 8 + d.phase) * 0.32;
+      } else if (wType === 'sandstorm') {
+        d.x += 580 * sm * dt;
+        d.y += (85 + Math.sin(this.time * 4 + d.phase) * 25) * dt;
+      } else {
+        d.x += (24 + Math.cos(this.time * 1.6 + d.phase) * 18) * dt;
+        d.y += 34 * sm * dt;
+      }
+      if (d.x < -16) d.x += W + 32;
+      else if (d.x > W + 16) d.x -= W + 32;
+      if (d.y < -16) d.y += H + 32;
+      else if (d.y > H + 16) d.y -= H + 32;
+      d.sprite.x = Math.round(d.x);
+      d.sprite.y = Math.round(d.y);
     }
   }
 
@@ -1276,6 +1394,7 @@ export class Game {
 
     // particles
     this.updateParticles(dt);
+    this.updateWeather(dt);
 
     // collisions enemy vs player
     this.handlePlayerCollisions(dt);
@@ -2467,8 +2586,9 @@ export class Game {
     }
 
     const textLeft = panelX + 17 + pvW + pvH + 12;
+    const selWeather = WEATHER_TYPES[selLv.weather || 'clear'] || WEATHER_TYPES.clear;
     const infoTitle = new Text({
-      text: `STAGE ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${(selLv.layoutPattern || 'glade').toUpperCase()})`,
+      text: `STAGE ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${(selLv.layoutPattern || 'glade').toUpperCase()} · ${selWeather.short})`,
       style: new TextStyle({ fill: 0xfff3c4, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     infoTitle.x = textLeft;
@@ -3007,9 +3127,11 @@ export class Game {
       }
     }
     const pct = Math.round(waveRatio * 100);
+    const curWeather = WEATHER_TYPES[this.activeWeather] || WEATHER_TYPES.clear;
+    const bossName = (this.stageBoss?.bossName || map.boss.name).toUpperCase();
     const waveLabel = bossActive
-      ? `BOSS: ${map.boss.name.toUpperCase()} · HP ${Math.ceil(this.stageBoss.hp)}/${Math.ceil(this.stageBoss.maxHp)}`
-      : `MAP ${mapNum}-${levelNum} ${map.short} · WAVE ${this.currentWave}/${stage.waves} (${pct}%)`;
+      ? `BOSS: ${bossName} · HP ${Math.ceil(this.stageBoss.hp)}/${Math.ceil(this.stageBoss.maxHp)}`
+      : `MAP ${mapNum}-${levelNum} ${map.short} · ${curWeather.short} · WAVE ${this.currentWave}/${stage.waves} (${pct}%)`;
     if (waveLabel !== this._lastHudWaveText) {
       this._lastHudWaveText = waveLabel;
       this.hudWaveText.text = waveLabel;

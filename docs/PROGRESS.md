@@ -30,7 +30,7 @@
 | 15 | 300+ enemy performance gate | `PASSED` | 6 | `60–61 FPS @ 320` | `src/game.js` (`setupPools`, `hitPool`, `slashPool`, `textPool`) |
 | 16 | Game Audio & SFX (`ElevenLabs` + `uisfx`) | `PASSED` | 2 | `12 ElevenLabs SFX + Mute UI` | `scripts/generate_elevenlabs_sfx.mjs`, `vite.config.js`, `src/audio.js` |
 | 17 | Multi-res sharp rendering & `scenario-pixel-vfx` sheets | `PASSED` | 2 | `1.0x Res + 7 VFX Sheets` | `scripts/generate_vfx.mjs`, `src/sprites.js`, `src/game.js` (`vfxFrames`, `updateParticles`) |
-| 18 | Map decorations & Black Bomb explosion VFX | `PASSED` | 2 | `48 Props + 5-Fireball Bomb` | `src/game.js` (`setupProps`, `spawnExplosion`, `explodeBomb`) |
+| 18 | Buildings (`House`/`Tower`/`Castle`/`Tent`), Weather & Bomb VFX | `PASSED` | 3 | `10 Props + 6 Weathers` | `src/game.js` (`setupProps`, `setupWeather`, `setWeather`, `updateWeather`) |
 | 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
 | 20 | Campaign Checkpoint Map Screen & 10 Enemy/Boss types | `PASSED` | 2 | `Illustrated 3×3 Map + 10 Types` | `src/game.js` (`showCampaignMapModal`, `deployToCheckpoint`), `scripts/generate_sprites.py` |
 
@@ -98,3 +98,6 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
 - **`[2026-10-27]` ElevenLabs Sound Effects Integration (`@elevenlabs/elevenlabs-js`):**
   - Added `@elevenlabs/elevenlabs-js`, `scripts/generate_elevenlabs_sfx.mjs` (`npm run sfx:elevenlabs`), and the `/api/sfx/generate` Vite server endpoint in `vite.config.js`.
   - Generated 12 Three Kingdoms combat & reward sound effects (`slash`, `thrust`, `spin`, `shoot`, `hit`, `hurt`, `bomb`, `heal`, `gem`, `chest`, `levelup`, `evolve`) in `assets/sfx/` via `client.textToSoundEffects.convert` and updated `SoundManager.play()` in `src/audio.js` to prioritize decoded ElevenLabs `AudioBuffer`s.
+- **`[2026-10-27]` Three Kingdoms Buildings & Dynamic Stage Weather System:**
+  - Expanded `assets/sprites/terrain/props.png` (`scripts/generate_sprites.py`) from 6 to 10 props by adding 4 pixel-art building types: **Village House** (`house`, `r=24`), **Archer Watchtower** (`watchtower`, `r=22`), **Fortress Castle Keep** (`castle`, `r=28`), and **War Pavilion Tent** (`tent`, `r=21`), all with solid circular obstacle collision in `setupProps()`.
+  - Added `WEATHER_TYPES` (`clear`, `rain`, `storm`, `sandstorm`, `embers`, `snow`) in `src/data.js` and built a 56-particle batched `weatherLayer` (`setupWeather`, `setWeather`, `updateWeather`) in `src/game.js` with periodic lightning flashes during thunderstorms, sustaining **60–61 FPS** with 310+ active enemies.

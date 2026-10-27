@@ -399,7 +399,10 @@ def make_terrain():
 
 
 def make_props_atlas():
-    prop_kinds = ("tree", "pine", "rock", "grass", "mountain", "banner")
+    prop_kinds = (
+        "tree", "pine", "rock", "grass", "mountain", "banner",
+        "house", "watchtower", "castle", "tent",
+    )
     w, h = 48, 48
     sheet = Image.new("RGBA", (w * len(prop_kinds), h), (0, 0, 0, 0))
     for idx, kind in enumerate(prop_kinds):
@@ -443,6 +446,54 @@ def make_props_atlas():
             polygon(d, [(21, 9), (37, 11), (33, 19), (38, 27), (21, 29)], (196, 48, 44, 255))
             line(d, [(23, 13), (33, 14)], (245, 204, 88, 255), width=2)
             line(d, [(23, 24), (33, 24)], (245, 204, 88, 255), width=2)
+        elif kind == "house":
+            # Three Kingdoms village house: stone base, plaster & timber walls, warm window, curved terracotta roof
+            ellipse(d, (5, 38, 43, 45), (10, 14, 12, 125), outline=None)
+            rect(d, (9, 36, 39, 42), (96, 102, 110, 255))
+            rect(d, (11, 22, 37, 37), (214, 198, 168, 255))
+            for px in (11, 20, 28, 36):
+                line(d, [(px, 22), (px, 37)], (102, 64, 38, 255), width=2)
+            rect(d, (21, 28, 27, 37), (86, 50, 30, 255))
+            rect(d, (14, 25, 19, 31), (255, 210, 92, 255))
+            rect(d, (29, 25, 34, 31), (255, 210, 92, 255))
+            polygon(d, [(5, 23), (12, 11), (36, 11), (43, 23)], (172, 52, 42, 255))
+            line(d, [(4, 23), (44, 23)], (238, 192, 78, 255), width=2)
+            line(d, [(12, 11), (36, 11)], (238, 192, 78, 255), width=2)
+        elif kind == "watchtower":
+            # Military wooden & stone archer watchtower with lookout platform and pennant
+            ellipse(d, (9, 38, 39, 45), (10, 14, 12, 125), outline=None)
+            rect(d, (12, 34, 36, 42), (102, 108, 118, 255))
+            line(d, [(15, 20), (13, 35)], (118, 76, 44, 255), width=3)
+            line(d, [(33, 20), (35, 35)], (118, 76, 44, 255), width=3)
+            line(d, [(15, 24), (33, 33)], (98, 62, 36, 255), width=2)
+            line(d, [(33, 24), (15, 33)], (98, 62, 36, 255), width=2)
+            rect(d, (10, 15, 38, 21), (138, 92, 52, 255))
+            for cx in range(11, 38, 5):
+                rect(d, (cx, 12, cx + 3, 16), (156, 106, 62, 255))
+            polygon(d, [(8, 12), (24, 4), (40, 12)], (178, 48, 42, 255))
+            polygon(d, [(24, 1), (34, 4), (24, 7)], (245, 198, 72, 255))
+        elif kind == "castle":
+            # Grand Three Kingdoms fortress keep / castle gatehouse with stone ramparts & tiered imperial roof
+            ellipse(d, (3, 38, 45, 46), (10, 14, 12, 135), outline=None)
+            rect(d, (5, 21, 43, 42), (112, 120, 132, 255))
+            rect(d, (8, 24, 40, 40), (92, 98, 110, 255))
+            for bx in range(5, 42, 6):
+                rect(d, (bx, 17, bx + 4, 22), (132, 140, 152, 255))
+            polygon(d, [(19, 42), (19, 30), (24, 27), (29, 30), (29, 42)], (38, 28, 26, 255))
+            line(d, [(24, 28), (24, 41)], (188, 152, 72, 255), width=1)
+            rect(d, (13, 11, 35, 18), (168, 46, 42, 255))
+            polygon(d, [(9, 12), (16, 4), (32, 4), (39, 12)], (198, 56, 48, 255))
+            line(d, [(9, 12), (39, 12)], (248, 204, 82, 255), width=2)
+            line(d, [(16, 4), (32, 4)], (248, 204, 82, 255), width=2)
+        elif kind == "tent":
+            # Warlord military command pavilion tent
+            ellipse(d, (7, 37, 41, 45), (10, 14, 12, 120), outline=None)
+            polygon(d, [(7, 39), (13, 18), (35, 18), (41, 39)], (192, 52, 46, 255))
+            polygon(d, [(17, 39), (20, 20), (28, 20), (31, 39)], (236, 196, 88, 255))
+            polygon(d, [(20, 39), (24, 27), (28, 39)], (28, 22, 26, 255))
+            polygon(d, [(10, 19), (24, 7), (38, 19)], (218, 66, 54, 255))
+            line(d, [(10, 19), (38, 19)], (248, 210, 92, 255), width=2)
+            ellipse(d, (22, 4, 26, 8), (255, 224, 98, 255))
         sheet.paste(cell, (idx * w, 0))
     return sheet
 
@@ -698,22 +749,10 @@ HEROES = {
 
 
 def main():
-    for hero_id, spec in HEROES.items():
-        save(make_hero_sheet(spec), f"heroes/{hero_id}.png")
-    enemy_Order = (
-        "soldier", "archer", "cavalry", "shield", "assassin",
-        "bomber", "sorcerer", "elite", "boss_huaxiong", "boss_caoren",
-    )
-    for enemy_id in enemy_Order:
-        save(make_enemy_sheet(enemy_id), f"enemies/{enemy_id}.png")
-    atlas = Image.new("RGBA", (ENEMY_CELL[0] * ENEMY_COLS, ENEMY_CELL[1] * len(enemy_Order)), (0, 0, 0, 0))
-    for row, enemy_id in enumerate(enemy_Order):
-        atlas.paste(make_enemy_sheet(enemy_id), (0, row * ENEMY_CELL[1]))
-    save(atlas, "enemies/atlas.png")
     save(make_terrain(), "terrain/ground.png")
     save(make_props_atlas(), "terrain/props.png")
     make_effects()
-    print(f"Generated original pixel art in {OUT}")
+    print(f"Generated terrain, props (with buildings), UI, and effects in {OUT}")
 
 
 if __name__ == "__main__":

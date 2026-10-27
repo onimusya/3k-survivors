@@ -40,7 +40,7 @@
   <tr><td>XP + leveling</td><td class="state-PASSED">PASSED</td><td>2</td><td>Icon cards + tags</td><td>None</td></tr>
   <tr><td>Weapon evolution</td><td class="state-PASSED">PASSED</td><td>2</td><td>Lv 8 + Passive</td><td>None</td></tr>
   <tr><td>Treasure chests</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
-  <tr><td>Map decorations &amp; Black Bomb multi-fireball explosion</td><td class="state-PASSED">PASSED</td><td>2</td><td>48 Props + 5-Fireball Bomb</td><td>None</td></tr>
+  <tr><td>Buildings (`House`/`Tower`/`Castle`/`Tent`), Weather &amp; Black Bomb</td><td class="state-PASSED">PASSED</td><td>3</td><td>10 Props + 6 Weathers + Bomb</td><td>None</td></tr>
   <tr><td>Campaign maps, levels, bosses &amp; wave HUD</td><td class="state-PASSED">PASSED</td><td>2</td><td>9 Unique Maps + 9 Bosses</td><td>None</td></tr>
   <tr><td>Campaign Checkpoint Map Screen &amp; 10 Enemy/Boss types</td><td class="state-PASSED">PASSED</td><td>2</td><td>Illustrated 3×3 Map + 10 Types</td><td>None</td></tr>
   <tr><td>Heroes &amp; Enemies (`Universal LPC`, 64×64 sheets)</td><td class="state-PASSED">PASSED</td><td>2</td><td>6 Heroes + 10 Enemies</td><td>None</td></tr>
@@ -70,6 +70,7 @@
   <div>[2026-10-27] Integrated scenario-pixel-vfx multi-frame pixel-art VFX sprite sheets (scripts/generate_vfx.mjs &amp; assets/sprites/vfx/) with pooled frame-by-frame animation in updateParticles(), verified at 60–61 FPS with 315–320 active enemies</div>
   <div>[2026-10-27] Built scripts/generate_lpc_sprites.py to composite official Universal LPC Spritesheet Character Generator layers (body, head, expression, legion/plate/leather armor, tabards/frocks, helmets/hoods, capes, shields, and weapons with Three Kingdoms details) into 64×64 4-direction hero sheets (assets/sprites/heroes/*.png) and 10 enemy/boss sheets (assets/sprites/enemies/atlas.png), verified at 60–61 FPS with 306–311 active enemies</div>
   <div>[2026-10-27] Integrated @elevenlabs/elevenlabs-js (scripts/generate_elevenlabs_sfx.mjs, vite.config.js /api/sfx/generate, src/audio.js) and generated 12 Three Kingdoms combat &amp; reward sound effects (slash, thrust, spin, shoot, hit, hurt, bomb, heal, gem, chest, levelup, evolve) via ElevenLabs textToSoundEffects.convert</div>
+  <div>[2026-10-27] Added 4 Three Kingdoms building types (house, watchtower, castle, tent with solid obstacle collision) in assets/sprites/terrain/props.png and implemented a 56-particle batched Weather System (clear, rain, thunderstorm with lightning, sandstorm, firestorm embers, winter snow) across all 9 stages</div>
 </div>
 </body>
 </html>
