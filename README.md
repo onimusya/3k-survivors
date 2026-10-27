@@ -6,7 +6,7 @@ A mobile-first, Three Kingdoms-themed action survival game inspired by *Vampire 
 
 ## Key Features
 
-- **6 Three Kingdoms Warriors:** Guan Yu, Zhang Fei, Zhao Yun, Zhuge Liang, Lu Bu, and Sun Shangxiang—each with distinct base stats, 4-direction walk/attack sprite sheets, and signature starting weapons.
+- **6 Three Kingdoms Warriors (Universal LPC `64×64` Sprite Sheets):** Guan Yu, Zhang Fei, Zhao Yun, Zhuge Liang, Lu Bu, and Sun Shangxiang—composited from official [Universal LPC Spritesheet Character Generator](https://liberatedpixelcup.github.io/Universal-LPC-Spritesheet-Character-Generator/) layers (`body`, `head`, `faces`, `armor`, `tabard/frock`, `helmets`, `capes`, `beards/hair`, and `weapons`) across 4 directions (`walk` + `slash`/`thrust`/`shoot`/`spellcast` attack animations).
 - **3 Pre-Game Starting Perks (War Decrees):** Choose between **Vanguard Edict** (`+20% DMG, +10% Area`), **Imperial Aegis** (`+35 Max HP, +2 Armor`), or **Windfoot Mandate** (`+15% SPD, -10% CD, +25% XP`) before deploying.
 - **3 Campaign Maps × 9 Unique Stage Designs, 10 Enemy/Boss Types & Interactive Checkpoint Map Screen:** Progress through **Yellow Turban Outskirts**, **Hulao Pass Fortress**, and **Red Cliffs Armada** (`1-1` through `3-3`). Every stage features its own map layout (`glade`, `fortress`, `corridor`, `ring`), escalating enemy squads across **10 minion & boss types** (`Militia Spearman`, `Crossbow Scout`, `Steppe Raider`, `Ironclad Guard`, `Shadow Nightblade`, `Firebrand Zealot`, `Taoist Mystic`, plus Stage/Map Bosses **Zhang Jiao**, **Hua Xiong**, **Cao Ren**), and an interactive **3×3 Campaign Map Checkpoint Screen** upon clearing each stage.
 - **Weapon Progression (Lv 1–8) & Evolutions:** Every weapon level scales damage (`+15%/lv`), area (`+8%/lv`), cooldown (`-5%/lv`), projectile/target count (`+1` at Lv 3, 5, 7), and pierce (`+1` at Lv 4, 7). Reaching **Lv 8** with the weapon's paired passive (`Lv 1+`) unlocks its ultimate evolution via Boss Chests.
@@ -43,6 +43,7 @@ npm run preview
 All sprites (`assets/sprites/`) and combat/UI audio (`assets/sfx/`) are deterministically generated:
 ```bash
 python3 scripts/generate_sprites.py
+python3 scripts/generate_lpc_sprites.py
 node scripts/generate_vfx.mjs
 python3 scripts/generate_sfx.py
 ```

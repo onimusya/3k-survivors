@@ -43,7 +43,7 @@
   <tr><td>Map decorations &amp; Black Bomb multi-fireball explosion</td><td class="state-PASSED">PASSED</td><td>2</td><td>48 Props + 5-Fireball Bomb</td><td>None</td></tr>
   <tr><td>Campaign maps, levels, bosses &amp; wave HUD</td><td class="state-PASSED">PASSED</td><td>2</td><td>9 Unique Maps + 9 Bosses</td><td>None</td></tr>
   <tr><td>Campaign Checkpoint Map Screen &amp; 10 Enemy/Boss types</td><td class="state-PASSED">PASSED</td><td>2</td><td>Illustrated 3×3 Map + 10 Types</td><td>None</td></tr>
-  <tr><td>Heroes (Three Kingdoms)</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
+  <tr><td>Heroes &amp; Enemies (`Universal LPC`, 64×64 sheets)</td><td class="state-PASSED">PASSED</td><td>2</td><td>6 Heroes + 10 Enemies</td><td>None</td></tr>
   <tr><td>Pre-game starting perks (3 choices)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Vanguard/Aegis/Windfoot</td><td>None</td></tr>
   <tr><td>HUD + mobile controls</td><td class="state-PASSED">PASSED</td><td>3</td><td>12-slot loadout</td><td>None</td></tr>
   <tr><td>Game-Over summary modal</td><td class="state-PASSED">PASSED</td><td>2</td><td>Portrait + Arsenal</td><td>None</td></tr>
@@ -68,6 +68,7 @@
   <div>[2026-10-26] Updated Bomb pickup to jet-black with multi-fireball explosion VFX (explosionPool + 5 fireballs + 3 shockwaves + 16 sparks), added interactive 3×3 Campaign Map Checkpoint Unlock &amp; Selection Screen upon completing a level, expanded enemy atlas to 10 minion/boss types (soldier, archer, cavalry, shield, assassin, bomber, sorcerer, Zhang Jiao, Hua Xiong, Cao Ren), and gave all 9 levels unique map designs (glade, fortress, corridor, ring)</div>
   <div>[2026-10-27] Added 9 custom pixel-art stage map preview illustrations (assets/sprites/ui/stages.png), overlaid minion &amp; boss sprites on all 9 checkpoint cards, and added a large stage diorama + boss portrait + framed minion squad icon badges to the Campaign Map Selection Screen</div>
   <div>[2026-10-27] Integrated scenario-pixel-vfx multi-frame pixel-art VFX sprite sheets (scripts/generate_vfx.mjs &amp; assets/sprites/vfx/) with pooled frame-by-frame animation in updateParticles(), verified at 60–61 FPS with 315–320 active enemies</div>
+  <div>[2026-10-27] Built scripts/generate_lpc_sprites.py to composite official Universal LPC Spritesheet Character Generator layers (body, head, expression, legion/plate/leather armor, tabards/frocks, helmets/hoods, capes, shields, and weapons with Three Kingdoms details) into 64×64 4-direction hero sheets (assets/sprites/heroes/*.png) and 10 enemy/boss sheets (assets/sprites/enemies/atlas.png), verified at 60–61 FPS with 306–311 active enemies</div>
 </div>
 </body>
 </html>

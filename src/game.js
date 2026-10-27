@@ -316,9 +316,10 @@ export class Game {
     const cardH = Math.round((landscape ? 70 : 90) * s);
     const perkH = Math.round((landscape ? 48 : 66) * s);
     const deployH = Math.round((landscape ? 40 : 48) * s);
-    const contentH = Math.round((landscape ? 24 : 30) * s) + rows * cardH + (rows - 1) * gap + Math.round((landscape ? 24 : 30) * s) + perkH + Math.round((landscape ? 10 : 14) * s) + deployH + (landscape ? 16 : 36);
+    const headerRowH = Math.round((landscape ? 24 : 46) * s);
+    const contentH = headerRowH + rows * cardH + (rows - 1) * gap + Math.round((landscape ? 24 : 28) * s) + perkH + Math.round((landscape ? 10 : 12) * s) + deployH + (landscape ? 16 : 32);
     const extraY = Math.max(0, Math.floor((H - bannerH - bottomSafe - contentH) * 0.45));
-    const gridY = Math.round(bannerH + extraY + (landscape ? 24 : 30) * s);
+    const gridY = Math.round(bannerH + extraY + headerRowH);
     const totalGridW = cols * cardW + (cols - 1) * gap;
     const gridX = Math.round((W - totalGridW) / 2);
     const muteBtn = new Container();
@@ -384,11 +385,11 @@ export class Game {
     });
     section.anchor.set(0.5);
     section.x = Math.round(W / 2);
-    section.y = Math.round(bannerH + extraY + (landscape ? 12 : 16) * s);
+    section.y = Math.round(bannerH + extraY + (landscape ? 12 : 34) * s);
     this.menuContainer.addChild(section);
 
     const portraitW = Math.round(46 * s);
-    const thumbScale = s >= 1.2 ? 1.5 : 1.25;
+    const thumbScale = s >= 1.2 ? 0.96 : 0.82;
 
     HEROES.forEach((h, i) => {
       const bx = gridX + (i % cols) * (cardW + gap);
@@ -418,7 +419,7 @@ export class Game {
       btn.addChild(portrait);
 
       const thumb = new Sprite(this.heroFrames[h.id][0][0]);
-      thumb.anchor.set(0.5, 0.625);
+      thumb.anchor.set(0.5, 0.6);
       thumb.scale.set(thumbScale);
       thumb.x = Math.round(8 + portraitW / 2);
       thumb.y = Math.round(8 + (cardH - (selected ? 24 : 16)) / 2);
@@ -699,7 +700,7 @@ export class Game {
       updateAnchor: false,
     });
     this.playerSprite.anchor.set(0.5, 0.625);
-    this.playerSprite.scale.set(1.5);
+    this.playerSprite.scale.set(1.05);
     this.playerLayer.addChild(this.playerSprite);
     const maxHp = this.hero.hp + (this.perk?.hpBonus || 0);
     this.player = {
@@ -1502,7 +1503,7 @@ export class Game {
     e.sprite.texture = frames[0];
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = d.size >= 18 ? 1.25 : 1.0;
+    const sc = d.size >= 17 ? 0.95 : 0.82;
     e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
@@ -1541,7 +1542,7 @@ export class Game {
     e.sprite.texture = this.enemyTextures.elite[0];
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = 1.5;
+    const sc = 1.2;
     e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
@@ -1575,7 +1576,7 @@ export class Game {
     e.sprite.texture = this.enemyTextures[spriteKey][0];
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = b.scale || 1.75;
+    const sc = (b.scale || 1.75) * 0.78;
     e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
@@ -2328,8 +2329,8 @@ export class Game {
           const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
           if (this.enemyTextures?.[firstFoe]?.[0]) {
             const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
-            foeSp.anchor.set(0.5);
-            foeSp.scale.set(0.7);
+            foeSp.anchor.set(0.5, 0.6);
+            foeSp.scale.set(0.52);
             foeSp.x = 20;
             foeSp.y = thumbY + Math.round(thumbH / 2) + 1;
             foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
@@ -2337,8 +2338,8 @@ export class Game {
           }
           if (this.enemyTextures?.[bossKey]?.[0]) {
             const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
-            bossSp.anchor.set(0.5);
-            bossSp.scale.set(0.8);
+            bossSp.anchor.set(0.5, 0.6);
+            bossSp.scale.set(0.58);
             bossSp.x = nodeW - 22;
             bossSp.y = thumbY + Math.round(thumbH / 2) + 1;
             bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
@@ -2381,8 +2382,8 @@ export class Game {
 
           if (this.enemyTextures?.[bossKey]?.[0]) {
             const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
-            bossSp.anchor.set(0.5);
-            bossSp.scale.set(0.88);
+            bossSp.anchor.set(0.5, 0.6);
+            bossSp.scale.set(0.58);
             bossSp.x = 5 + thumbW - 14;
             bossSp.y = thumbY + Math.round(thumbH / 2) + 1;
             bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
@@ -2458,8 +2459,8 @@ export class Game {
         .stroke({ color: selBoss.color || 0xff6b6b, width: 1.2 });
       this.campaignMapContainer.addChild(bossFrame);
       const bp = new Sprite(this.enemyTextures[selBossKey][0]);
-      bp.anchor.set(0.5);
-      bp.scale.set(landscape ? 1.1 : 1.15);
+      bp.anchor.set(0.5, 0.6);
+      bp.scale.set(landscape ? 0.82 : 0.88);
       bp.x = panelX + 17 + pvW + 5 + Math.round(pvH / 2);
       bp.y = infoY + 5 + Math.round(pvH / 2) + 1;
       this.campaignMapContainer.addChild(bp);
@@ -2503,8 +2504,8 @@ export class Game {
       this.campaignMapContainer.addChild(slot);
       if (this.enemyTextures?.[ek]?.[0]) {
         const es = new Sprite(this.enemyTextures[ek][0]);
-        es.anchor.set(0.5);
-        es.scale.set(0.55);
+        es.anchor.set(0.5, 0.6);
+        es.scale.set(0.38);
         es.x = bx + 10;
         es.y = badgeY + 10;
         this.campaignMapContainer.addChild(es);
@@ -3087,8 +3088,8 @@ export class Game {
 
     if (this.hero && this.heroFrames?.[this.hero.id]) {
       const portrait = new Sprite(this.heroFrames[this.hero.id][0][0]);
-      portrait.anchor.set(0.5);
-      portrait.scale.set(1.5);
+      portrait.anchor.set(0.5, 0.6);
+      portrait.scale.set(1.05);
       portrait.x = panelX + 48;
       portrait.y = panelY + 116;
       this.goContainer.addChild(portrait);

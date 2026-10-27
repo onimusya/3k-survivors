@@ -45,13 +45,13 @@ const VFX_SHEETS = {
   levelup: { url: new URL('../assets/sprites/vfx/levelup.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
 };
 
-const HERO_FRAME_W = 32;
-const HERO_FRAME_H = 40;
+const HERO_FRAME_W = 64;
+const HERO_FRAME_H = 64;
 const HERO_WALK_FRAMES = 4;
 const HERO_ATTACK_FRAMES = 4;
 const HERO_DIRECTIONS = 4;
-const ENEMY_FRAME_W = 32;
-const ENEMY_FRAME_H = 32;
+const ENEMY_FRAME_W = 64;
+const ENEMY_FRAME_H = 64;
 const ENEMY_FRAMES = 4;
 const ENEMY_TYPES = [
   'soldier', 'archer', 'cavalry', 'shield', 'assassin',
