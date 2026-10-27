@@ -28,7 +28,7 @@
 | 13 | Fallen in Battle Game-Over modal | `PASSED` | 2 | `Portrait + Arsenal` | `src/game.js` (`gameOver`) |
 | 14 | Universal LPC character & sprite pipeline | `PASSED` | 3 | `64×64 LPC + 7 VFX Sheets` | `scripts/generate_lpc_sprites.py`, `scripts/generate_sprites.py`, `src/sprites.js` |
 | 15 | 300+ enemy performance gate | `PASSED` | 6 | `60–61 FPS @ 320` | `src/game.js` (`setupPools`, `hitPool`, `slashPool`, `textPool`) |
-| 16 | Game Audio & SFX (`uisfx` + `earshot`) | `PASSED` | 1 | `14 Cues + Mute Toggle` | `src/audio.js` (`SoundManager`), `scripts/generate_sfx.py`, `assets/sfx/*` |
+| 16 | Game Audio & SFX (`ElevenLabs` + `uisfx`) | `PASSED` | 2 | `12 ElevenLabs SFX + Mute UI` | `scripts/generate_elevenlabs_sfx.mjs`, `vite.config.js`, `src/audio.js` |
 | 17 | Multi-res sharp rendering & `scenario-pixel-vfx` sheets | `PASSED` | 2 | `1.0x Res + 7 VFX Sheets` | `scripts/generate_vfx.mjs`, `src/sprites.js`, `src/game.js` (`vfxFrames`, `updateParticles`) |
 | 18 | Map decorations & Black Bomb explosion VFX | `PASSED` | 2 | `48 Props + 5-Fireball Bomb` | `src/game.js` (`setupProps`, `spawnExplosion`, `explodeBomb`) |
 | 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
@@ -95,3 +95,6 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
 - **`[2026-10-27]` Universal LPC Character Sprite Sheet Integration (`scripts/generate_lpc_sprites.py`):**
   - Built `scripts/generate_lpc_sprites.py` to fetch and composite official Universal LPC Spritesheet Character Generator layers (`body`, `head`, `faces`, `torso/armour`, `torso/jacket`, `shoulders`, `arms`, `legs`, `feet`, `beards`, `hair`, `hat/helmet`, `cape`, `shield`, `weapon`) using the official 6-step Universal LPC material palettes (`body`, `metal`, `cloth`, `hair`) plus Three Kingdoms signature details (Guan Yu's long black beard & Guan Dao, Lu Bu's twin pheasant plumes & Fangtian Huaji, Zhuge Liang's white feather fan, mounted Steppe Raider warhorse, and Firebrand Zealot black bomb).
   - Upgraded `src/sprites.js` (`HERO_FRAME_W/H = 64`, `ENEMY_FRAME_W/H = 64`) and `src/game.js` scales, sustaining **60–61 FPS** across 6-second stress windows with **306–311 active enemies**.
+- **`[2026-10-27]` ElevenLabs Sound Effects Integration (`@elevenlabs/elevenlabs-js`):**
+  - Added `@elevenlabs/elevenlabs-js`, `scripts/generate_elevenlabs_sfx.mjs` (`npm run sfx:elevenlabs`), and the `/api/sfx/generate` Vite server endpoint in `vite.config.js`.
+  - Generated 12 Three Kingdoms combat & reward sound effects (`slash`, `thrust`, `spin`, `shoot`, `hit`, `hurt`, `bomb`, `heal`, `gem`, `chest`, `levelup`, `evolve`) in `assets/sfx/` via `client.textToSoundEffects.convert` and updated `SoundManager.play()` in `src/audio.js` to prioritize decoded ElevenLabs `AudioBuffer`s.

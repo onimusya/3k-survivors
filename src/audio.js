@@ -23,11 +23,7 @@ const SFX_URLS = {
 const UISFX_CUE_MAP = {
   select: 'select',
   start: 'start',
-  levelup: 'level-up',
   upgrade: 'bonus',
-  evolve: 'achievement',
-  chest: 'reward',
-  heal: 'success',
   toggleOn: 'toggle-on',
   toggleOff: 'toggle-off',
 };
@@ -51,6 +47,16 @@ const CUE_CONFIG = {
   bomb: { vol: 0.78, minIntervalMs: 140, jitter: 0.05 },
   toggleOn: { vol: 0.40, minIntervalMs: 40, jitter: 0.0 },
   toggleOff: { vol: 0.40, minIntervalMs: 40, jitter: 0.0 },
+};
+export const ELEVENLABS_SFX_PROMPTS = {
+  slash: { text: 'Sharp metallic guandao heavy blade slash whoosh cutting through air', durationSeconds: 0.7 },
+  thrust: { text: 'Fast heavy iron spear lance thrust piercing forward with sharp air crack', durationSeconds: 0.7 },
+  spin: { text: 'Powerful heavy halberd 360 degree whirlwind spin whoosh cutting through wind', durationSeconds: 0.9 },
+  shoot: { text: 'Crisp recurve war bow string release and fast arrow flight whoosh', durationSeconds: 0.6 },
+  hit: { text: 'Punchy melee weapon impact hit on armor with brief metallic spark', durationSeconds: 0.5 },
+  hurt: { text: 'Heavy armor impact thud when warrior takes damage', durationSeconds: 0.6 },
+  bomb: { text: 'Black powder thunder bomb explosion with deep fiery blast wave and debris crackle', durationSeconds: 1.4 },
+  heal: { text: 'Warm shimmering emerald health recovery chime with gentle rising magical sparkle', durationSeconds: 1.0 },
 };
 
 const STORAGE_KEY = '3k-survivors-sfx-enabled';
@@ -95,6 +101,27 @@ export class SoundManager {
         }
       }),
     );
+  }
+
+  async generateWithElevenLabs(cue, customPrompt = null) {
+    const spec = ELEVENLABS_SFX_PROMPTS[cue] || { text: customPrompt || cue, durationSeconds: 0.8 };
+    const res = await fetch('/api/sfx/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: customPrompt || spec.text,
+        durationSeconds: spec.durationSeconds,
+        promptInfluence: 0.75,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to generate SFX for ${cue}`);
+    const buf = await res.arrayBuffer();
+    this.rawBytes.set(cue, buf);
+    if (this.ctx) {
+      const audioBuf = await this.ctx.decodeAudioData(buf.slice(0));
+      this.buffers.set(cue, audioBuf);
+    }
+    return true;
   }
 
   unlock() {
@@ -161,18 +188,7 @@ export class SoundManager {
     this.playedCounts[cue] = (this.playedCounts[cue] || 0) + 1;
     this.lastCue = cue;
 
-    // 1. UI / Progression cues use uisfx live arcade synthesizer when mapped
-    const uiCue = UISFX_CUE_MAP[cue];
-    if (uiCue && this.uisfx) {
-      try {
-        const res = this.uisfx.play(uiCue, { volume: cfg.vol * this.volume });
-        if (res) return true;
-      } catch {
-        // Fall through to decoded buffer playback
-      }
-    }
-
-    // 2. Combat & physical cues play decoded earshot/uisfx AudioBuffer with micro-pitch jitter
+    // 1. Play decoded ElevenLabs / bundled AudioBuffer with micro-pitch jitter when available
     if (this.ctx && this.buffers.has(cue)) {
       try {
         if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
@@ -187,6 +203,17 @@ export class SoundManager {
         gain.connect(this.ctx.destination);
         source.start(0);
         return true;
+      } catch {
+        // Fall through to uisfx synthesizer
+      }
+    }
+
+    // 2. UI / fallback cues use uisfx live arcade synthesizer
+    const uiCue = UISFX_CUE_MAP[cue];
+    if (uiCue && this.uisfx) {
+      try {
+        const res = this.uisfx.play(uiCue, { volume: cfg.vol * this.volume });
+        if (res) return true;
       } catch {
         return false;
       }
