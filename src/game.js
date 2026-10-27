@@ -223,8 +223,20 @@ export class Game {
       const p = new Particle(this.enemyTextures.soldier[0]);
       p.anchorX = 0.5; p.anchorY = 0.625;
       this.enemyContainer.addParticle(p);
-      return { active:false, type:'soldier', x:0, y:0, hp:0, maxHp:0, speed:0, dmg:0, size:14, baseScale:1, xp:1, color:0x7a7a7a, hitFlash:0, knock:0, kx:0, ky:0, knockResist:0, ranged:false, explosive:false, isBoss:false, isMapBoss:false, shootCd:0, sprite:p, frame:-1 };
-    }, (e) => { e.active = false; if (e.sprite) { e.sprite.alpha = 0; } });
+      return { active:false, type:'soldier', _texType:'', x:0, y:0, hp:0, maxHp:0, speed:0, dmg:0, size:14, baseScale:1, xp:1, color:0x7a7a7a, hitFlash:0, knock:0, kx:0, ky:0, knockResist:0, ranged:false, explosive:false, isBoss:false, isMapBoss:false, isKaiju:false, isUfo:false, isBird:false, isCatapult:false, shootCd:0, sprite:p, frame:-1 };
+    }, (e) => {
+      e.active = false;
+      e.isBoss = false;
+      e.isMapBoss = false;
+      e.isKaiju = false;
+      e.isUfo = false;
+      e.isBird = false;
+      e.isCatapult = false;
+      e._kaijuArmorCd = 0;
+      e.frame = -1;
+      e._texType = '';
+      if (e.sprite) { e.sprite.alpha = 0; }
+    });
     this.projPool = new Pool(() => {
       const sprite = new Sprite(this.effectTextures.projectile);
       sprite.anchor.set(0.5);
@@ -2326,11 +2338,11 @@ export class Game {
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(e.x, e.y, x, y) <= blastRadius2) {
-        if (e.isKaiju || e.isUfo) {
-          this.showFloatText(e.x, e.y - 28, e.isUfo ? 'UFO IMMUNE!' : 'BOMB IMMUNE!', 0x00f5d4);
+        if (e.isKaiju) {
+          this.showFloatText(e.x, e.y - 28, 'BOMB IMMUNE!', 0x00f5d4);
           continue;
         }
-        this.damageEnemy(e, blastDmg, x, y);
+        this.damageEnemy(e, blastDmg, x, y, false, true);
       }
     }
   }
@@ -2380,6 +2392,10 @@ export class Game {
     e.explosive = !!d.explosive;
     e.isCatapult = !!d.isCatapult;
     e.isBird = false;
+    e.isUfo = false;
+    e.isKaiju = false;
+    e._kaijuArmorCd = 0;
+    e.frame = -1;
     e.countsForWave = true;
     e.knockResist = d.knockResist || 0;
     e.isBoss = false;
@@ -2443,6 +2459,9 @@ export class Game {
       e.explosive = true;
       e.isCatapult = false;
       e.isBird = true;
+      e.isUfo = false;
+      e.isKaiju = false;
+      e.frame = -1;
       e.countsForWave = false;
       e.flyVx = vx;
       e.flyVy = vy;
@@ -2633,7 +2652,7 @@ export class Game {
     e.baseTint = 0xffffff;
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    const sc = 1.65;
+    const sc = 2.15;
     e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
@@ -2651,6 +2670,7 @@ export class Game {
     e.isBird = true;
     e.isUfo = true;
     e.isKaiju = false;
+    e.frame = -1;
     e.countsForWave = false;
     e.flyVx = vx;
     e.flyVy = vy;
@@ -3463,7 +3483,12 @@ export class Game {
             this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.7, 3.2, 0.36);
             this.spawnExplosion(e.x, e.y, 0.7, 2.4, 0x00f5d4, 0.32);
             if (d <= 140) {
-              this.damagePlayerPercent(0.35, 0.50, 'KAIJU STOMP');
+              this.damagePlayerPercent(0.35, 0.50, 'KAIJU STOMP', {
+                name: 'Kaiju Godzilla Titan',
+                spriteType: 'kaiju',
+                attack: 'Seismic Stomp (AoE)',
+                tint: 0xffffff,
+              });
             }
           }
           e.eggTimer = (e.eggTimer ?? 12.0) - dt;
@@ -3509,11 +3534,25 @@ export class Game {
     const p = this.player;
     const baseAng = angleTo(e.x, e.y, p.x, p.y);
     if (e.isCatapult) {
+      this._currentShooter = {
+        name: 'Siege Catapult',
+        spriteType: 'catapult',
+        attack: 'Flaming Siege Boulder',
+        tint: 0xffffff,
+      };
       this.fireCatapultBoulder(e.x, e.y, baseAng, e.dmg);
+      this._currentShooter = null;
       return;
     }
     if (e.isKaiju) {
-      // Colossal Kaiju Godzilla Atomic Breath Beam + 3-Zone Area Damage (1 hit damages 30%-50% of Player HP)!
+      const kaijuKiller = {
+        name: 'Kaiju Godzilla Titan',
+        spriteType: 'kaiju',
+        attack: 'Atomic Breath (AoE)',
+        tint: 0xffffff,
+      };
+      this._currentShooter = kaijuKiller;
+      // Colossal Kaiju Godzilla Atomic Breath Beam + 3-Zone Area Damage (1 hit damages 35%-50% of Player HP)!
       this.sfx.play('bomb');
       this.shake = Math.max(this.shake, 11);
       this.spawnThrust(e.x, e.y, baseAng, 195, 0x00f5d4);
@@ -3523,17 +3562,24 @@ export class Game {
         this.spawnExplosion(gx, gy, 0.6, 2.1, 0x00f5d4, 0.36);
         this.spawnShockwave(gx, gy, 0x7dd3fc, 0.45, 2.1, 0.28);
         if (dist2(gx, gy, p.x, p.y) <= 82 * 82) {
-          this.damagePlayerPercent(0.35, 0.50, 'KAIJU ATOMIC BREATH');
+          this.damagePlayerPercent(0.35, 0.50, 'KAIJU ATOMIC BREATH', kaijuKiller);
         }
       }
       for (let i = -2; i <= 2; i++) {
         const pr = this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.16, 205, e.dmg, 7, 0x00f5d4);
         if (pr) pr.isKaijuBolt = true;
       }
+      this._currentShooter = null;
       return;
     }
     if (!e.isMapBoss) {
       const { stage } = this.getStageSpec();
+      this._currentShooter = {
+        name: ENEMY_TYPES[e.type]?.name || 'Crossbow Scout',
+        spriteType: e.type || 'archer',
+        attack: e.type === 'sorcerer' ? 'Taoist Arcane Bolt' : 'Crossbow Volley',
+        tint: e.baseTint || 0xffffff,
+      };
       const wStyle = stage.weaponStyle || 'crossbow_volley';
       const isSorcerer = e.type === 'sorcerer';
       const shots = isSorcerer || wStyle === 'crossbow_volley' ? 2 : 1;
@@ -3551,10 +3597,17 @@ export class Game {
         const ang = baseAng + (i - (shots - 1) / 2) * spread;
         this.fireEnemyBolt(e.x, e.y, ang, spd, e.dmg, 5, col);
       }
+      this._currentShooter = null;
       return;
     }
     // 9 Distinct Stage & Map Boss Attack Patterns (with reduced, fair projectile damage)!
     const pat = e.bossPattern || 'thunder_nova';
+    this._currentShooter = {
+      name: e.bossName || ENEMY_TYPES[e.type]?.name || 'Warlord Boss',
+      spriteType: e.type || 'elite',
+      attack: `${pat.replace(/_/g, ' ').toUpperCase()}`,
+      tint: e.baseTint || 0xffffff,
+    };
     const col = e.color || 0xff5f5f;
     const bDmg = Math.max(3, Math.round(e.dmg * 0.68));
     if (pat === 'cleave') {
@@ -3613,6 +3666,7 @@ export class Game {
       }
       if (this.enemies.length < 40) this.spawnEnemy('shield');
     }
+    this._currentShooter = null;
   }
 
   fireEnemyBolt(x, y, ang, spd, dmg, size, col, isBoulder = false, life = 2.5) {
@@ -3632,6 +3686,7 @@ export class Game {
     pr.isBoulder = isBoulder;
     pr.isKaijuBolt = false;
     pr.isUfoLightning = false;
+    pr.killer = this._currentShooter || null;
     pr.sprite.texture = isBoulder ? this.effectTextures.bomb : this.effectTextures.projectile;
     pr.sprite.visible = true;
     pr.sprite.tint = isBoulder ? 0xffffff : col;
@@ -3660,6 +3715,12 @@ export class Game {
     const bullets = this.mapIndex === 0 ? 3 : 5;
     const spread = 0.22;
     const boltDmg = Math.max(2, Math.round(dmg * 0.55));
+    this._currentShooter = {
+      name: 'Feather-Storm Hawk',
+      spriteType: 'firebird',
+      attack: 'Aerial Bullet Rain',
+      tint: 0xffffff,
+    };
     this.spawnSparkBurst(x, y, baseAng, 0xffd166, 2, 130, 0.65, 0.55);
     for (let i = 0; i < bullets; i++) {
       const ang = baseAng + (i - (bullets - 1) / 2) * spread;
@@ -3667,6 +3728,7 @@ export class Game {
       const spd = 220 + (i % 2) * 18;
       this.fireEnemyBolt(x, y, ang, spd, boltDmg, 5, col, false, 2.2);
     }
+    this._currentShooter = null;
   }
 
   detonateEnemyBoulder(x, y, dmg) {
@@ -3675,7 +3737,12 @@ export class Game {
     this.spawnSparkBurst(x, y, Math.random() * Math.PI * 2, 0xffd166, 3, 145, 0.75, Math.PI);
     this.shake = Math.max(this.shake, 5);
     if (this.player && dist2(x, y, this.player.x, this.player.y) <= 42 * 42) {
-      this.damagePlayer(dmg);
+      this.damagePlayer(dmg, {
+        name: 'Siege Catapult',
+        spriteType: 'catapult',
+        attack: 'Flaming Siege Boulder (AoE)',
+        tint: 0xffffff,
+      });
     }
   }
 
@@ -3709,9 +3776,13 @@ export class Game {
     this.spawnSparkBurst(x, y, 0, 0x7dd3fc, 10, 210, 0.95, Math.PI);
     // 1. Once player is hit by UFO Lightning, player loses 80% of Max Health!
     if (this.player && dist2(x, y, this.player.x, this.player.y) <= 46 * 46) {
-      this.damagePlayerPercent(0.80, 0.80, '⚡ UFO LIGHTNING');
+      this.damagePlayerPercent(0.80, 0.80, '⚡ UFO LIGHTNING', {
+        name: 'Cosmic UFO Saucer',
+        spriteType: 'ufo',
+        attack: 'Cosmic Lightning Strike (-80% HP)',
+        tint: 0xffffff,
+      });
     }
-    // 2. If Kaiju/Godzilla/Titan is hit by UFO Lightning, 1 hit damages 30%-50% of its Max Health!
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(x, y, e.x, e.y) <= (52 + e.size) ** 2) {
@@ -3736,22 +3807,34 @@ export class Game {
     for (const pr of this.projectiles) {
       if (!pr.active || !pr.fromEnemy || pr.isUfoLightning) continue;
       if (dist2(pr.x, pr.y, p.x, p.y) < (pr.size + 12) ** 2) {
+        const bKiller = pr.killer || {
+          name: pr.isKaijuBolt ? 'Kaiju Godzilla Titan' : (pr.isBoulder ? 'Siege Catapult' : 'Crossbow Scout'),
+          spriteType: pr.isKaijuBolt ? 'kaiju' : (pr.isBoulder ? 'catapult' : 'archer'),
+          attack: pr.isKaijuBolt ? 'Atomic Plasma Bolt' : (pr.isBoulder ? 'Flaming Siege Boulder' : 'Ranged Projectile'),
+          tint: 0xffffff,
+        };
         if (pr.isKaijuBolt) {
-          this.damagePlayerPercent(0.30, 0.50, 'KAIJU BOLT');
+          this.damagePlayerPercent(0.35, 0.50, 'KAIJU BOLT', bKiller);
         } else {
-          this.damagePlayer(pr.dmg);
+          this.damagePlayer(pr.dmg, bKiller);
         }
         pr.life = 0;
       }
     }
-    // enemy body collision (Kaiju/Godzilla/Titan 1 hit damages 30%-50% of Player Max HP!)
+    // enemy body collision (Kaiju/Godzilla/Titan 1 hit damages 35%-50% of Player Max HP!)
     for (const e of this.enemies) {
       if (!e.active || e.isUfo) continue;
       if (dist2(e.x, e.y, p.x, p.y) < (e.size + 12) ** 2) {
+        const cKiller = {
+          name: e.bossName || ENEMY_TYPES[e.type]?.name || 'Militia Spearman',
+          spriteType: e.type || 'soldier',
+          attack: e.isKaiju ? 'Colossal Body Slam' : (e.isMapBoss ? 'Warlord Clash' : (e.explosive ? 'Zealot Blast' : 'Melee Strike')),
+          tint: e.baseTint || 0xffffff,
+        };
         if (e.isKaiju) {
-          this.damagePlayerPercent(0.30, 0.50, 'KAIJU SLAM');
+          this.damagePlayerPercent(0.35, 0.50, 'KAIJU SLAM', cKiller);
         } else {
-          this.damagePlayer(e.dmg * dt * 2); // per second
+          this.damagePlayer(e.dmg * dt * 2, cKiller); // per second
         }
       }
     }
@@ -3820,9 +3903,10 @@ export class Game {
     }
   }
 
-  damagePlayer(dmg) {
+  damagePlayer(dmg, killer = null) {
     const p = this.player;
     if (p.invuln > 0) return;
+    if (killer) this.lastKiller = killer;
     const actual = Math.max(1, dmg - p.armor);
     p.hp -= actual;
     p.invuln = 0.35;
@@ -3835,9 +3919,10 @@ export class Game {
     }
   }
 
-  damagePlayerPercent(minPct = 0.30, maxPct = 0.50, label = 'CRITICAL HIT') {
+  damagePlayerPercent(minPct = 0.30, maxPct = 0.50, label = 'CRITICAL HIT', killer = null) {
     const p = this.player;
     if (!p || p.invuln > 0) return 0;
+    if (killer) this.lastKiller = killer;
     const pct = minPct + Math.random() * Math.max(0, maxPct - minPct);
     const loss = Math.max(1, Math.round(p.maxHp * pct));
     p.hp -= loss;
@@ -3853,17 +3938,19 @@ export class Game {
     return loss;
   }
 
-  damageEnemy(e, dmg, sx, sy, isArrow = false) {
-    // Cosmic UFO Saucer is 100% IMMUNE to all weapon damages except Arrows, and Arrows only cause 0.5% damage!
+  damageEnemy(e, dmg, sx, sy, isArrow = false, isBomb = false) {
+    // Cosmic UFO Saucer is immune to all weapon damages except Arrows (0.5% damage) and Bombs!
     if (e.isUfo) {
-      if (!isArrow) {
+      if (!isArrow && !isBomb) {
         if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
           this._floatTextThisFrame++;
           this.showFloatText(e.x, e.y - 12, 'IMMUNE!', 0x38bdf8);
         }
         return;
       }
-      dmg = e.maxHp * 0.005;
+      if (isArrow && !isBomb) {
+        dmg = e.maxHp * 0.005;
+      }
     } else if (e.isKaiju && e.hp > 0) {
       // Colossal Kaiju Godzilla Titan has 85% Titan Scales Defence + 0.08s armor tick throttle + 0.045% Max-HP cap
       // -> requires 2-5 minutes (120s-300s) of sustained player attacks to kill unless Ultraman is summoned!
@@ -3884,7 +3971,7 @@ export class Game {
     this.spawnSparkBurst(e.x, e.y, ang, e.color, 1, 135, e.isBoss ? 0.85 : 0.6, 0.5);
     if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
       this._floatTextThisFrame++;
-      this.showFloatText(e.x, e.y - 8, e.isUfo ? '0.5%' : Math.round(dmg).toString(), 0xffffff);
+      this.showFloatText(e.x, e.y - 8, (e.isUfo && isArrow && !isBomb) ? '0.5%' : Math.round(dmg).toString(), 0xffffff);
     }
     // 50% HP Boss Warlord Enrage Phase: +14% Speed, +12% DMG, crimson aura, and 2 Halberdier bodyguards!
     if (e.isMapBoss && e.hp > 0 && !e.enraged && e.hp <= e.maxHp * 0.5) {
@@ -4953,10 +5040,12 @@ export class Game {
       const bob = Math.sin(this.animTime * 8 + e.x * 0.05 + e.y * 0.03) * 1.5;
       s.y = Math.round(e.y + bob);
       s.alpha = 1;
-      const frame = Math.floor(this.animTime * 8 + e.phase * 4) % this.enemyTextures[e.type].length;
-      if (e.frame !== frame) {
+      const texList = this.enemyTextures[e.type] || this.enemyTextures.soldier;
+      const frame = Math.floor(this.animTime * 8 + e.phase * 4) % texList.length;
+      if (e.frame !== frame || e._texType !== e.type) {
         e.frame = frame;
-        s.texture = this.enemyTextures[e.type][frame];
+        e._texType = e.type;
+        s.texture = texList[frame];
       }
       const sc = e.baseScale || 1;
       const dirSign = (e.isBird && (e.flyVx || 0) < 0) ? -1 : 1;
@@ -5129,21 +5218,20 @@ export class Game {
     this.goContainer = new Container();
     this.uiLayer.addChild(this.goContainer);
 
-    const panelW = Math.min(320, this.W - 32);
-    const panelH = 266;
+    const panelW = Math.min(324, this.W - 32);
+    const panelH = 322;
     const panelX = (this.W - panelW) / 2;
-    const panelY = Math.max((this.hudTop ?? 34) + 98, (this.H - panelH) / 2);
+    const panelY = Math.max((this.hudTop ?? 34) + 86, (this.H - panelH) / 2);
 
     const panel = new Graphics();
     panel.roundRect(panelX + 4, panelY + 6, panelW, panelH, 8).fill({ color:0x000000, alpha:0.65 });
     panel.roundRect(panelX, panelY, panelW, panelH, 8)
       .fill({ color:0x0f151e, alpha:0.97 })
       .stroke({ color:0xd35f5f, width:2.5, alpha:0.95 });
-    panel.roundRect(panelX + 14, panelY + 52, panelW - 28, 132, 6)
+    panel.roundRect(panelX + 14, panelY + 50, panelW - 28, 126, 6)
       .fill({ color:0x161f2c, alpha:0.95 })
       .stroke({ color:0x2d3a4b, width:1 });
     this.goContainer.addChild(panel);
-
     const t = new Text({
       text:'FALLEN IN BATTLE',
       style: new TextStyle({ fill:0xff6b6b, fontSize:20, fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.2, stroke:{ color:0x080b10, width:4 } }),
@@ -5171,8 +5259,10 @@ export class Game {
     ];
     const s = new Text({
       text: summaryLines.join('\n'),
-      style: new TextStyle({ fill:0xe6edf5, fontSize:10.5, fontFamily:'monospace', lineHeight:18 }),
+      style: new TextStyle({ fill:0xe6edf5, fontSize:10, fontFamily:'monospace', lineHeight:18 }),
     });
+    const maxSumW = panelW - 104;
+    if (s.width > maxSumW) s.scale.set(maxSumW / s.width);
     s.x = panelX + 84;
     s.y = panelY + 64;
     this.goContainer.addChild(s);
@@ -5207,6 +5297,55 @@ export class Game {
       b.x = wx + 23; b.y = wy + 23;
       this.goContainer.addChild(b);
     });
+
+    // SLAIN BY: Killer Portrait & Fatal Blow Banner!
+    const killer = this.lastKiller || {
+      name: this.stageBoss?.bossName || 'Yellow Turban Horde',
+      spriteType: this.stageBoss?.type || 'soldier',
+      attack: 'Battlefield Clash',
+      tint: 0xffffff,
+    };
+    const kBoxY = panelY + 184;
+    const kBoxH = 54;
+    const kBoxW = panelW - 28;
+    const kBox = new Graphics();
+    kBox.roundRect(panelX + 14, kBoxY, kBoxW, kBoxH, 6)
+      .fill({ color: 0x221318, alpha: 0.96 })
+      .stroke({ color: 0xff5f5f, width: 1.5 });
+    kBox.roundRect(panelX + 20, kBoxY + 6, 42, 42, 5)
+      .fill({ color: 0x0c0f16 })
+      .stroke({ color: 0xf5c84c, width: 1.2 });
+    this.goContainer.addChild(kBox);
+
+    const kSpriteKey = killer.spriteType && this.enemyTextures?.[killer.spriteType] ? killer.spriteType : 'soldier';
+    if (this.enemyTextures?.[kSpriteKey]?.[0]) {
+      const ks = new Sprite(this.enemyTextures[kSpriteKey][0]);
+      ks.anchor.set(0.5, 0.58);
+      ks.scale.set(0.68);
+      ks.tint = killer.tint || 0xffffff;
+      ks.x = panelX + 41;
+      ks.y = kBoxY + 28;
+      this.goContainer.addChild(ks);
+    }
+
+    const kMaxTxtW = kBoxW - 64;
+    const slainByTxt = new Text({
+      text: `SLAIN BY: ${killer.name.toUpperCase()}`,
+      style: new TextStyle({ fill: 0xff8a80, fontSize: 10.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    if (slainByTxt.width > kMaxTxtW) slainByTxt.scale.set(kMaxTxtW / slainByTxt.width);
+    slainByTxt.x = panelX + 70;
+    slainByTxt.y = kBoxY + 10;
+    this.goContainer.addChild(slainByTxt);
+
+    const fatalAtkTxt = new Text({
+      text: `FATAL BLOW: ${(killer.attack || 'Melee Strike').toUpperCase()}`,
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    if (fatalAtkTxt.width > kMaxTxtW) fatalAtkTxt.scale.set(kMaxTxtW / fatalAtkTxt.width);
+    fatalAtkTxt.x = panelX + 70;
+    fatalAtkTxt.y = kBoxY + 30;
+    this.goContainer.addChild(fatalAtkTxt);
     const btnW = (panelW - 38) / 2;
     const btnH = 44;
     const btnY = panelY + panelH - btnH - 16;

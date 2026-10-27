@@ -331,29 +331,36 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
             d.ellipse((45, 27 + bob, 53, 35 + bob), fill=(255, 255, 255, 255))
 
     elif char_id == "ufo":
-        # Cosmic Flying Saucer UFO: metallic chrome-obsidian saucer, glowing cyan dome, rotating neon rim lights & lightning emitter core
-        OUTLINE = (14, 16, 24, 255)
+        # Unmistakable Cosmic Alien Flying Saucer UFO: wide metallic chrome saucer, glowing glass dome with alien pilot, 8 spinning neon lights & tractor beam
+        OUTLINE = (12, 14, 22, 255)
         hover = (-2, 0, 2, 0)[f_idx % 4]
         # High-altitude ground shadow
-        d.ellipse((20, 54, 44, 59), fill=(8, 12, 18, 95))
-        # Saucer under-chassis & glowing lightning emitter core
-        d.ellipse((16, 27 + hover, 48, 41 + hover), fill=(45, 55, 72, 255), outline=OUTLINE)
-        d.ellipse((25, 32 + hover, 39, 42 + hover), fill=(0, 245, 212, 245), outline=(14, 116, 144, 255))
-        d.ellipse((28, 34 + hover, 36, 40 + hover), fill=(255, 255, 255, 255))
-        # Main metallic flying saucer disc
-        d.ellipse((6, 20 + hover, 58, 36 + hover), fill=(100, 116, 139, 255), outline=OUTLINE)
-        d.ellipse((10, 21 + hover, 54, 33 + hover), fill=(148, 163, 184, 255))
-        # Translucent glowing alien glass cockpit dome
-        d.ellipse((18, 11 + hover, 46, 27 + hover), fill=(56, 189, 248, 235), outline=OUTLINE)
-        d.ellipse((22, 13 + hover, 36, 21 + hover), fill=(224, 242, 254, 255))
-        # Rotating 6-lamp neon rim lights around saucer perimeter
+        d.ellipse((16, 55, 48, 61), fill=(8, 12, 18, 105))
+        # Tractor-beam / lightning emitter cone underneath saucer
+        d.polygon([(24, 37 + hover), (16, 56), (48, 56), (40, 37 + hover)], fill=(56, 189, 248, 75))
+        if f_idx in (1, 3):
+            d.line([(32, 39 + hover), (26, 47 + hover), (36, 51 + hover), (29, 59)], fill=(125, 211, 252, 255), width=2)
+            d.line([(32, 39 + hover), (37, 46 + hover), (28, 53 + hover)], fill=(255, 255, 255, 255), width=1)
+        # Bottom reactor dome & glowing cyan core
+        d.ellipse((14, 28 + hover, 50, 43 + hover), fill=(30, 41, 59, 255), outline=OUTLINE)
+        d.ellipse((23, 33 + hover, 41, 43 + hover), fill=(0, 245, 212, 255), outline=OUTLINE)
+        d.ellipse((27, 35 + hover, 37, 41 + hover), fill=(255, 255, 255, 255))
+        # Wide metallic flying saucer disc (spans x=2..62)
+        d.ellipse((2, 19 + hover, 62, 38 + hover), fill=(71, 85, 105, 255), outline=OUTLINE)
+        d.ellipse((5, 20 + hover, 59, 35 + hover), fill=(148, 163, 184, 255), outline=OUTLINE)
+        d.ellipse((10, 21 + hover, 54, 31 + hover), fill=(203, 213, 225, 255))
+        # Translucent glowing cyan glass cockpit dome + green Alien Pilot head & black oval eyes inside!
+        d.ellipse((15, 7 + hover, 49, 27 + hover), fill=(56, 189, 248, 230), outline=OUTLINE)
+        d.ellipse((26, 11 + hover, 38, 23 + hover), fill=(74, 222, 128, 255), outline=OUTLINE)
+        d.ellipse((28, 15 + hover, 31, 18 + hover), fill=(15, 23, 42, 255))
+        d.ellipse((33, 15 + hover, 36, 18 + hover), fill=(15, 23, 42, 255))
+        d.ellipse((19, 9 + hover, 31, 15 + hover), fill=(224, 242, 254, 240))
+        # Rotating 8-lamp neon rim lights around saucer perimeter
         light_cols = [(0, 245, 212, 255), (250, 204, 21, 255), (244, 63, 94, 255), (168, 85, 247, 255)]
-        for lx_i, (lx, ly) in enumerate(((11, 27), (19, 30), (28, 31), (36, 31), (45, 30), (53, 27))):
+        rim_pts = ((6, 28), (13, 31), (21, 33), (28, 34), (36, 34), (43, 33), (51, 31), (58, 28))
+        for lx_i, (lx, ly) in enumerate(rim_pts):
             col = light_cols[(lx_i + f_idx) % len(light_cols)]
             d.ellipse((lx - 2, ly - 2 + hover, lx + 2, ly + 2 + hover), fill=col, outline=OUTLINE)
-        if f_idx in (1, 3):
-            d.line([(32, 41 + hover), (27, 48 + hover), (35, 51 + hover), (30, 58)], fill=(125, 211, 252, 255), width=2)
-            d.line([(32, 41 + hover), (36, 47 + hover), (29, 53 + hover)], fill=(255, 255, 255, 255), width=1)
 def build_character_frames(layers_spec, anim, frame_indices, lpc_rows=(2, 1, 3, 0), char_id="", is_attack=False):
     loaded_layers = []
     for item in layers_spec:
