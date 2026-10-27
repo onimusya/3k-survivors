@@ -58,7 +58,7 @@ const ENEMY_FRAME_H = 64;
 const ENEMY_FRAMES = 4;
 const ENEMY_TYPES = [
   'soldier', 'archer', 'cavalry', 'shield', 'assassin',
-  'bomber', 'sorcerer',
+  'bomber', 'sorcerer', 'halberdier', 'catapult', 'firebird',
   'boss_chengyuanzhi', 'boss_dengmao', 'elite',
   'boss_huzhen', 'boss_lijue', 'boss_huaxiong',
   'boss_caimao', 'boss_zhangyun', 'boss_caoren',

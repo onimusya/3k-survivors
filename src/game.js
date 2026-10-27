@@ -1608,7 +1608,8 @@ export class Game {
   getActiveEnemyCount() {
     let count = 0;
     for (let i = 0; i < this.enemies.length; i++) {
-      if (this.enemies[i].active && this.enemies[i].hp > 0) count++;
+      const e = this.enemies[i];
+      if (e.active && e.hp > 0 && e.countsForWave !== false) count++;
     }
     return count;
   }
@@ -1616,12 +1617,16 @@ export class Game {
   startWave(waveNum = 1) {
     const { map, stage } = this.getStageSpec();
     this.currentWave = clamp(waveNum, 1, stage.waves);
-    this.waveTotalEnemies = Math.round(10 + this.currentWave * 4 + this.stageIndex * 2);
+    const waveCurve = [16, 28, 44, 62, 84][this.currentWave - 1] || 20;
+    this.waveTotalEnemies = Math.round(
+      (waveCurve + this.stageIndex * 6 + this.mapIndex * 8) * Math.min(2.2, stage.spawnMul || 1),
+    );
     this.waveSpawnedCount = 0;
     this.waveKills = 0;
     this.pendingNextWave = null;
     this.finalWaveSpawned = this.currentWave >= stage.waves;
-    this.spawnTimer = 0.25;
+    this.spawnTimer = 0.18;
+    this.birdFlockTimer = Math.max(4.5, 9.5 - this.currentWave * 1.1);
 
     if (this.finalWaveSpawned) {
       const bossSpec = stage.levelBoss || map.boss;
@@ -1635,10 +1640,22 @@ export class Game {
       }
     } else if (this.currentWave > 1 && this.player) {
       this.sfx.play('select');
-      this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${this.currentWave}/${stage.waves}!`, 0xf5c84c);
+      this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${this.currentWave}/${stage.waves} · HORDE SURGE!`, 0xf5c84c);
     }
 
-    const initBatch = Math.min(6 + this.currentWave, this.waveTotalEnemies - this.waveSpawnedCount);
+    // Waves 2..5 bring Siege Catapults and Aerial Bombing Bird Flocks!
+    if (this.currentWave >= 2) {
+      const catapultCount = Math.min(3, Math.floor(this.currentWave / 2));
+      for (let c = 0; c < catapultCount; c++) {
+        if (this.waveSpawnedCount < this.waveTotalEnemies) {
+          this.spawnEnemy('catapult');
+          this.waveSpawnedCount++;
+        }
+      }
+      this.spawnBirdFlock(3 + Math.floor(this.currentWave / 2));
+    }
+
+    const initBatch = Math.min(8 + this.currentWave * 3, this.waveTotalEnemies - this.waveSpawnedCount);
     for (let i = 0; i < initBatch; i++) {
       this.spawnEnemy();
       this.waveSpawnedCount++;
@@ -1672,20 +1689,28 @@ export class Game {
     const { map, stage } = this.getStageSpec();
     this.updateStageProgression(dt, map, stage);
 
-    // Spawn remaining enemies of the current wave's finite horde
-    if (this.waveSpawnedCount < this.waveTotalEnemies) {
+    // Spawn remaining enemies of the current wave's finite horde (faster & larger batches each wave!)
+    if (this.waveSpawnedCount < this.waveTotalEnemies && this.enemies.length < 44) {
       this.spawnTimer = (this.spawnTimer || 0) - dt;
       if (this.spawnTimer <= 0) {
-        this.spawnTimer = Math.max(0.12, 0.42 / (stage.spawnMul || 1));
+        const baseInterval = Math.max(0.05, 0.38 - (this.currentWave - 1) * 0.065);
+        this.spawnTimer = Math.max(0.04, baseInterval / (stage.spawnMul || 1));
         const batch = Math.min(
-          2 + Math.floor(this.currentWave / 2),
+          3 + this.currentWave * 2,
           this.waveTotalEnemies - this.waveSpawnedCount,
+          48 - this.enemies.length,
         );
         for (let i = 0; i < batch; i++) {
           this.spawnEnemy();
           this.waveSpawnedCount++;
         }
       }
+    }
+    // Periodic V-formation Aerial Bombing Bird Flocks fly over and drop bombs from the sky!
+    this.birdFlockTimer = (this.birdFlockTimer ?? 8.5) - dt;
+    if (this.birdFlockTimer <= 0 && this.getActiveEnemyCount() > 0) {
+      this.birdFlockTimer = Math.max(5.5, 12.5 - this.currentWave * 1.3);
+      this.spawnBirdFlock(3 + Math.floor(this.currentWave / 2));
     }
     // periodic battlefield item drops (heart / bomb)
     this.itemTimer = (this.itemTimer ?? 14) - dt;
@@ -1863,9 +1888,14 @@ export class Game {
     const t = forceType && ENEMY_TYPES[forceType] ? forceType : pick(types);
     const d = ENEMY_TYPES[t] || ENEMY_TYPES.soldier;
     const ang = Math.random() * Math.PI * 2;
-    const r = 420 + Math.random() * 120;
+    const r = t === 'catapult' ? (320 + Math.random() * 70) : (400 + Math.random() * 120);
     const x = this.player.x + Math.cos(ang) * r;
     const y = this.player.y + Math.sin(ang) * r;
+
+    const waveIdx = Math.max(0, (this.currentWave || 1) - 1);
+    const waveHpMul = 1 + waveIdx * 0.28;
+    const waveDmgMul = 1 + waveIdx * 0.16;
+    const waveSpdMul = 1 + waveIdx * 0.06;
 
     const e = this.enemyPool.acquire();
     e.active = true;
@@ -1873,32 +1903,110 @@ export class Game {
     e.x = x; e.y = y;
     const frames = this.enemyTextures[t] || this.enemyTextures.soldier;
     e.sprite.texture = frames[0];
-    e.sprite.tint = 0xffffff;
+    const tints = stage.factionTints || [0xffffff];
+    const baseTint = (t === 'catapult' || t === 'firebird')
+      ? 0xffffff
+      : tints[(this.enemySerial + Math.max(0, types.indexOf(t))) % tints.length];
+    e.baseTint = baseTint;
+    e.sprite.tint = baseTint;
     e.sprite.alpha = 1;
-    const sc = d.size >= 17 ? 0.95 : 0.82;
+    const sc = t === 'catapult' ? 1.18 : (d.size >= 16 ? 0.96 : 0.84);
     e.baseScale = sc;
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
-    e.hp = d.hp * (stage.hpMul || 1) * (1 + this.time * 0.015);
+    e.hp = d.hp * (stage.hpMul || 1) * waveHpMul * (1 + this.time * 0.012);
     e.maxHp = e.hp;
     const sSlow = SEASONS[this.activeSeason]?.enemySlow || 0;
-    e.speed = d.speed * (stage.speedMul || 1) * (1 - sSlow);
-    e.dmg = d.dmg * (stage.dmgMul || 1);
+    e.speed = d.speed * (stage.speedMul || 1) * waveSpdMul * (1 - sSlow);
+    e.dmg = d.dmg * (stage.dmgMul || 1) * waveDmgMul;
     e.size = d.size;
     e.xp = d.xp;
     e.color = d.color;
     e.ranged = !!d.ranged;
     e.explosive = !!d.explosive;
+    e.isCatapult = !!d.isCatapult;
+    e.isBird = false;
+    e.countsForWave = true;
     e.knockResist = d.knockResist || 0;
     e.isBoss = false;
     e.isMapBoss = false;
-    e.shootCd = 1.4 + e.phase * 2.2;
+    e.enraged = false;
+    e.shootCd = t === 'catapult' ? (1.1 + e.phase * 0.9) : (1.3 + e.phase * 1.8);
     e.hitFlash = 0;
     e.knock = 0;
     e.kx = 0; e.ky = 0;
     this.enemies.push(e);
     return e;
+  }
+
+  spawnBirdFlock(count = 4) {
+    if (!this.player) return [];
+    const { stage } = this.getStageSpec();
+    const d = ENEMY_TYPES.firebird || ENEMY_TYPES.assassin;
+    const p = this.player;
+    const fromLeft = Math.random() < 0.5;
+    const baseAng = (fromLeft ? 0 : Math.PI) + (Math.random() - 0.5) * 0.45;
+    const vx = Math.cos(baseAng) * d.speed;
+    const vy = Math.sin(baseAng) * d.speed;
+    const startDist = 360;
+    const leaderX = p.x - Math.cos(baseAng) * startDist;
+    const leaderY = p.y - Math.sin(baseAng) * startDist + (Math.random() - 0.5) * 90;
+    const perpX = -Math.sin(baseAng);
+    const perpY = Math.cos(baseAng);
+    const backX = -Math.cos(baseAng);
+    const backY = -Math.sin(baseAng);
+    const waveIdx = Math.max(0, (this.currentWave || 1) - 1);
+
+    const flock = [];
+    for (let i = 0; i < count; i++) {
+      const wingRank = Math.ceil(i / 2);
+      const wingSide = i === 0 ? 0 : (i % 2 === 1 ? 1 : -1);
+      const bx = leaderX + backX * (wingRank * 26) + perpX * (wingSide * wingRank * 24);
+      const by = leaderY + backY * (wingRank * 26) + perpY * (wingSide * wingRank * 24);
+      const e = this.enemyPool.acquire();
+      e.active = true;
+      e.type = 'firebird';
+      e.x = bx;
+      e.y = by;
+      const frames = this.enemyTextures.firebird || this.enemyTextures.assassin;
+      e.sprite.texture = frames[0];
+      e.baseTint = 0xffffff;
+      e.sprite.tint = 0xffffff;
+      e.sprite.alpha = 1;
+      const sc = 0.96;
+      e.baseScale = sc;
+      e.sprite.scaleX = fromLeft ? sc : -sc;
+      e.sprite.scaleY = sc;
+      e.phase = (this.enemySerial++ * 0.61803398875) % 1;
+      e.hp = d.hp * (stage.hpMul || 1) * (1 + waveIdx * 0.2);
+      e.maxHp = e.hp;
+      e.speed = d.speed;
+      e.dmg = d.dmg * (stage.dmgMul || 1) * (1 + waveIdx * 0.14);
+      e.size = d.size;
+      e.xp = d.xp;
+      e.color = d.color;
+      e.ranged = false;
+      e.explosive = true;
+      e.isCatapult = false;
+      e.isBird = true;
+      e.countsForWave = false;
+      e.flyVx = vx;
+      e.flyVy = vy;
+      e.bombTimer = 0.65 + i * 0.26;
+      e.bombsLeft = 2;
+      e.knockResist = 0.85;
+      e.isBoss = false;
+      e.isMapBoss = false;
+      e.enraged = false;
+      e.hitFlash = 0;
+      e.knock = 0;
+      e.kx = 0; e.ky = 0;
+      this.enemies.push(e);
+      flock.push(e);
+    }
+    this.showFloatText(p.x, p.y - 38, 'BOMBING BIRD FLOCK OVERHEAD!', 0xff8552);
+    return flock;
   }
 
   spawnElite() {
@@ -1954,19 +2062,24 @@ export class Game {
     e.sprite.scaleX = sc;
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
-    e.hp = b.hp * (stage.hpMul || 1);
+    e.baseTint = 0xffffff;
+    e.hp = b.hp * (stage.hpMul || 1) * 1.35;
     e.maxHp = e.hp;
     e.speed = b.speed;
-    e.dmg = b.dmg;
+    e.dmg = b.dmg * (stage.dmgMul || 1);
     e.size = 24;
-    e.xp = 45;
+    e.xp = 65;
     e.color = b.color || 0xf5c84c;
     e.ranged = true;
     e.explosive = false;
-    e.knockResist = 0.75;
-    e.shootCd = 1.2;
+    e.isCatapult = false;
+    e.isBird = false;
+    e.countsForWave = true;
+    e.knockResist = 0.82;
+    e.shootCd = 0.95;
     e.isBoss = true;
     e.isMapBoss = true;
+    e.enraged = false;
     e.bossName = b.name;
     e.bossPattern = b.pattern || 'thunder_nova';
     e.hitFlash = 0; e.knock = 0; e.kx = 0; e.ky = 0;
@@ -2234,6 +2347,9 @@ export class Game {
     p.homing = homing || (wd && wd.name==='Twin Dragons');
     p.isMagic = isMagic || Boolean(wd);
     p.fromEnemy = false;
+    p.isBoulder = false;
+    p.sprite.texture = this.effectTextures.projectile;
+    p.sprite.scale.set(1.0);
     p.sprite.visible = true;
     p.sprite.tint = color;
     p.sprite.alpha = 1;
@@ -2257,7 +2373,14 @@ export class Game {
       pr.x += pr.vx * dt;
       pr.y += pr.vy * dt;
       pr.life -= dt;
-      if (pr.life <= 0) { this.projPool.release(pr); this.projectiles.splice(i,1); continue; }
+      if (pr.life <= 0) {
+        if (pr.isBoulder) {
+          this.detonateEnemyBoulder(pr.x, pr.y, pr.dmg);
+        }
+        this.projPool.release(pr);
+        this.projectiles.splice(i, 1);
+        continue;
+      }
       if (pr.fromEnemy) continue;
       // collision with enemies
       const r = pr.size + 14;
@@ -2293,19 +2416,37 @@ export class Game {
         e.knock -= dt * 8;
         if (e.knock < 0) e.knock = 0;
       }
-      // move toward player
-      const dx = p.x - e.x, dy = p.y - e.y;
-      const d = Math.hypot(dx, dy);
-      if (d > 1) {
-        e.x += (dx / d) * e.speed * dt;
-        e.y += (dy / d) * e.speed * dt;
-      }
-      // ranged shoot
-      if (e.ranged) {
-        e.shootCd -= dt;
-        if (e.shootCd <= 0) {
-          e.shootCd = 2.2 + e.phase * 0.8;
-          if (d < 340 && this.projectiles.length < 24) this.enemyShoot(e);
+      // Aerial Bombing Fire-Hawks fly straight across the sky and drop air-bombs!
+      if (e.isBird) {
+        e.x += (e.flyVx || 200) * dt;
+        e.y += (e.flyVy || 0) * dt;
+        e.bombTimer = (e.bombTimer ?? 0.6) - dt;
+        if (e.bombTimer <= 0 && (e.bombsLeft ?? 0) > 0) {
+          e.bombsLeft--;
+          e.bombTimer = 0.68;
+          this.dropAirBomb(e.x, e.y, e.dmg, (e.flyVx || 0) * 0.18);
+        }
+        if (dist2(e.x, e.y, p.x, p.y) > 560 * 560) {
+          e.active = false;
+        }
+      } else {
+        // move toward player (Siege Catapults hold artillery distance at ~230px)
+        const dx = p.x - e.x, dy = p.y - e.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 1 && (!e.isCatapult || d > 230)) {
+          e.x += (dx / d) * e.speed * dt;
+          e.y += (dy / d) * e.speed * dt;
+        }
+        // ranged shoot
+        if (e.ranged) {
+          e.shootCd -= dt;
+          if (e.shootCd <= 0) {
+            e.shootCd = e.isMapBoss
+              ? (e.enraged ? 0.95 : 1.35)
+              : (e.isCatapult ? 2.1 + e.phase * 0.6 : 1.85 + e.phase * 0.7);
+            const maxRange = e.isCatapult ? 420 : 350;
+            if (d < maxRange && this.projectiles.length < 36) this.enemyShoot(e);
+          }
         }
       }
       if (e.hitFlash > 0) e.hitFlash -= dt;
@@ -2326,19 +2467,31 @@ export class Game {
   enemyShoot(e) {
     const p = this.player;
     const baseAng = angleTo(e.x, e.y, p.x, p.y);
+    if (e.isCatapult) {
+      this.fireCatapultBoulder(e.x, e.y, baseAng, e.dmg);
+      return;
+    }
     if (!e.isMapBoss) {
+      const { stage } = this.getStageSpec();
+      const wStyle = stage.weaponStyle || 'crossbow_volley';
       const isSorcerer = e.type === 'sorcerer';
-      const shots = isSorcerer ? 2 : 1;
+      const shots = isSorcerer || wStyle === 'crossbow_volley' ? 2 : 1;
       const spread = 0.18;
-      const col = isSorcerer ? 0xc77dff : 0xffaa5f;
-      const spd = isSorcerer ? 165 : 180;
+      const styleCols = {
+        crossbow_volley: 0xffaa5f,
+        fire_arrows: 0xff6b3d,
+        poison_darts: 0x6bffb0,
+        throwing_axes: 0xe2e8f0,
+        taoist_thunder: 0xc77dff,
+      };
+      const col = isSorcerer ? 0xc77dff : (styleCols[wStyle] || 0xffaa5f);
+      const spd = isSorcerer ? 175 : 195;
       for (let i = 0; i < shots; i++) {
         const ang = baseAng + (i - (shots - 1) / 2) * spread;
         this.fireEnemyBolt(e.x, e.y, ang, spd, e.dmg, 5, col);
       }
       return;
     }
-
     // 9 Distinct Stage & Map Boss Attack Patterns!
     const pat = e.bossPattern || 'thunder_nova';
     const col = e.color || 0xff5f5f;
@@ -2400,23 +2553,64 @@ export class Game {
     }
   }
 
-  fireEnemyBolt(x, y, ang, spd, dmg, size, col) {
-    if (this.projectiles.length >= 36) return;
+  fireEnemyBolt(x, y, ang, spd, dmg, size, col, isBoulder = false, life = 2.5) {
+    if (this.projectiles.length >= 44) return;
     const pr = this.projPool.acquire();
     pr.active = true;
     pr.x = x; pr.y = y;
     pr.vx = Math.cos(ang) * spd;
     pr.vy = Math.sin(ang) * spd;
     pr.dmg = dmg;
-    pr.life = 2.5;
+    pr.life = life;
     pr.pierce = 1;
     pr.size = size;
     pr.color = col;
     pr.homing = false;
     pr.fromEnemy = true;
+    pr.isBoulder = isBoulder;
+    pr.sprite.texture = isBoulder ? this.effectTextures.bomb : this.effectTextures.projectile;
     pr.sprite.visible = true;
-    pr.sprite.tint = col;
+    pr.sprite.tint = isBoulder ? 0xffffff : col;
+    pr.sprite.scale.set(isBoulder ? 1.15 : 1.0);
     this.projectiles.push(pr);
+    return pr;
+  }
+
+  fireCatapultBoulder(x, y, ang, dmg) {
+    const p = this.player;
+    const dist = clamp(Math.hypot(p.x - x, p.y - y), 110, 360);
+    const spd = 195;
+    const flightTime = dist / spd;
+    const targetX = x + Math.cos(ang) * dist;
+    const targetY = y + Math.sin(ang) * dist;
+    this.spawnSparkBurst(x, y - 8, ang, 0xffae42, 3, 130, 0.7, 0.5);
+    // Ground warning ring at impact zone
+    this.spawnShockwave(targetX, targetY, 0xff5f5f, 0.5, 0.3, Math.min(0.45, flightTime));
+    this.fireEnemyBolt(x, y - 6, ang, spd, dmg, 9, 0xff7b3d, true, flightTime);
+  }
+
+  dropAirBomb(x, y, dmg, driftVx = 0) {
+    const fallTime = 0.48;
+    const fallVy = 155;
+    const targetX = x + driftVx * fallTime;
+    const targetY = y + fallVy * fallTime;
+    // Ground warning ring directly below bombing bird
+    this.spawnShockwave(targetX, targetY, 0xff4d29, 0.55, 0.25, 0.42);
+    const pr = this.fireEnemyBolt(x, y, Math.PI / 2, fallVy, dmg, 8, 0xffae42, true, fallTime);
+    if (pr) {
+      pr.vx = driftVx;
+      pr.vy = fallVy;
+    }
+  }
+
+  detonateEnemyBoulder(x, y, dmg) {
+    this.spawnExplosion(x, y, 0.48, 1.65, 0xff8552, 0.32);
+    this.spawnShockwave(x, y, 0xff5f5f, 0.38, 1.75, 0.24);
+    this.spawnSparkBurst(x, y, Math.random() * Math.PI * 2, 0xffd166, 3, 145, 0.75, Math.PI);
+    this.shake = Math.max(this.shake, 5);
+    if (this.player && dist2(x, y, this.player.x, this.player.y) <= 42 * 42) {
+      this.damagePlayer(dmg);
+    }
   }
 
   // override projectile collision for enemy bullets
@@ -2519,7 +2713,10 @@ export class Game {
   }
 
   damageEnemy(e, dmg, sx, sy) {
-    const armor = 0;
+    // Stage & Campaign Bosses have 35% Warlord Armor Mitigation + 15% Max-HP single-hit cap!
+    if (e.isMapBoss) {
+      dmg = Math.min(dmg * 0.65, e.maxHp * 0.15);
+    }
     e.hp -= dmg;
     e.hitFlash = 0.12;
     this.sfx.play('hit');
@@ -2531,6 +2728,27 @@ export class Game {
     if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
       this._floatTextThisFrame++;
       this.showFloatText(e.x, e.y - 8, Math.round(dmg).toString(), 0xffffff);
+    }
+    // 50% HP Boss Warlord Enrage Phase: +28% Speed, +25% DMG, crimson aura, and 3 Imperial Halberdier bodyguards!
+    if (e.isMapBoss && e.hp > 0 && !e.enraged && e.hp <= e.maxHp * 0.5) {
+      e.enraged = true;
+      e.speed *= 1.28;
+      e.dmg *= 1.25;
+      e.baseScale *= 1.12;
+      e.baseTint = 0xff9e9e;
+      e.shootCd = Math.min(e.shootCd || 0.5, 0.35);
+      this.sfx.play('explosion');
+      this.shake = Math.max(this.shake, 14);
+      this.spawnExplosion(e.x, e.y, 0.68, 2.2, 0xff4d29, 0.38);
+      this.spawnShockwave(e.x, e.y, 0xff3b3b, 0.45, 2.3, 0.3);
+      this.showFloatText(e.x, e.y - 26, `${(e.bossName || 'BOSS').toUpperCase()} ENRAGED!`, 0xff3b3b);
+      for (let g = 0; g < 3; g++) {
+        const guard = this.spawnEnemy('halberdier');
+        guard.x = e.x + Math.cos((g * Math.PI * 2) / 3) * 54;
+        guard.y = e.y + Math.sin((g * Math.PI * 2) / 3) * 54;
+        this.waveTotalEnemies++;
+        this.waveSpawnedCount++;
+      }
     }
     if (e.hp <= 0) {
       // spawn gem (or merge into existing gem when >40 gems active)
@@ -3643,13 +3861,14 @@ export class Game {
         s.texture = this.enemyTextures[e.type][frame];
       }
       const sc = e.baseScale || 1;
+      const dirSign = (e.isBird && (e.flyVx || 0) < 0) ? -1 : 1;
       if (e.hitFlash > 0) {
         s.tint = 0xfff0b0;
-        s.scaleX = sc * 1.16;
+        s.scaleX = sc * 1.16 * dirSign;
         s.scaleY = sc * 0.86;
       } else {
-        s.tint = 0xffffff;
-        s.scaleX = sc;
+        s.tint = e.baseTint || 0xffffff;
+        s.scaleX = sc * dirSign;
         s.scaleY = sc;
       }
       if (e.isBoss && e.hp < e.maxHp) {

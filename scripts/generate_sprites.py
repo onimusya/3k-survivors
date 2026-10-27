@@ -410,127 +410,178 @@ def make_props_atlas():
         for idx, kind in enumerate(prop_kinds):
             cell = Image.new("RGBA", (w, h), (0, 0, 0, 0))
             d = ImageDraw.Draw(cell)
+            OUTLINE = (22, 18, 22, 255)
             if kind == "tree":
-                ellipse(d, (11, 37, 37, 44), (10, 14, 12, 110), outline=None)
-                rect(d, (20, 26, 27, 41), (104, 66, 38, 255))
-                line(d, [(23, 28), (23, 40)], (134, 88, 52, 255), width=1)
+                # CraftPix Medieval Fortress style multi-lobed oak/blossom tree with flared trunk & 3-tier shading
+                ellipse(d, (9, 37, 39, 45), (10, 14, 12, 120), outline=None)
+                polygon(d, [(18, 41), (20, 26), (28, 26), (30, 41)], (104, 64, 38, 255), outline=OUTLINE)
+                line(d, [(23, 28), (22, 40)], (138, 88, 52, 255), width=2)
                 if season == "spring":
-                    ellipse(d, (7, 10, 29, 30), (206, 92, 138, 255))
-                    ellipse(d, (18, 9, 40, 29), (228, 116, 162, 255))
-                    ellipse(d, (12, 4, 36, 25), (245, 152, 192, 255))
-                    ellipse(d, (16, 6, 31, 18), (255, 210, 228, 255), outline=None)
+                    c_dark, c_mid, c_hi, c_spec = (186, 68, 116, 255), (228, 108, 156, 255), (248, 158, 198, 255), (255, 222, 238, 255)
                 elif season == "autumn":
-                    ellipse(d, (7, 10, 29, 30), (178, 58, 28, 255))
-                    ellipse(d, (18, 9, 40, 29), (218, 96, 34, 255))
-                    ellipse(d, (12, 4, 36, 25), (242, 142, 44, 255))
-                    ellipse(d, (16, 6, 31, 18), (255, 204, 76, 255), outline=None)
+                    c_dark, c_mid, c_hi, c_spec = (158, 52, 24, 255), (212, 92, 32, 255), (244, 148, 42, 255), (255, 210, 82, 255)
                 elif season == "winter":
-                    ellipse(d, (7, 10, 29, 30), (138, 168, 198, 255))
-                    ellipse(d, (18, 9, 40, 29), (168, 198, 226, 255))
-                    ellipse(d, (12, 4, 36, 25), (212, 232, 248, 255))
-                    ellipse(d, (15, 5, 33, 18), (248, 252, 255, 255), outline=None)
+                    c_dark, c_mid, c_hi, c_spec = (118, 148, 178, 255), (164, 196, 224, 255), (216, 236, 250, 255), (250, 254, 255, 255)
                 else:
-                    ellipse(d, (7, 10, 29, 30), (42, 98, 52, 255))
-                    ellipse(d, (18, 9, 40, 29), (48, 112, 58, 255))
-                    ellipse(d, (12, 4, 36, 25), (62, 136, 68, 255))
-                    ellipse(d, (16, 6, 31, 18), (92, 168, 86, 255), outline=None)
+                    c_dark, c_mid, c_hi, c_spec = (76, 112, 36, 255), (126, 168, 44, 255), (168, 206, 58, 255), (204, 234, 88, 255)
+                for bx, by, br in ((15, 23, 9), (33, 23, 9), (24, 25, 10), (14, 15, 9), (34, 15, 9), (24, 12, 10)):
+                    ellipse(d, (bx - br, by - br, bx + br, by + br), c_dark, outline=OUTLINE)
+                for bx, by, br in ((15, 21, 8), (33, 21, 8), (24, 22, 9), (15, 14, 8), (33, 14, 8), (24, 11, 9)):
+                    ellipse(d, (bx - br, by - br, bx + br, by + br), c_mid, outline=None)
+                for bx, by, br in ((16, 13, 6), (31, 13, 6), (24, 10, 7), (20, 18, 6), (29, 18, 5)):
+                    ellipse(d, (bx - br, by - br, bx + br, by + br), c_hi, outline=None)
+                for px, py in ((19, 8), (25, 7), (14, 12), (29, 11), (22, 15)):
+                    d.rectangle((px, py, px + 2, py + 2), fill=c_spec)
             elif kind == "pine":
-                ellipse(d, (13, 38, 35, 44), (10, 14, 12, 110), outline=None)
-                rect(d, (21, 30, 26, 42), (96, 60, 35, 255))
+                # CraftPix Medieval Fortress style tiered conifer pine with serrated boughs
+                ellipse(d, (12, 38, 36, 45), (10, 14, 12, 120), outline=None)
+                rect(d, (20, 31, 28, 42), (96, 58, 34, 255), outline=OUTLINE)
                 if season == "autumn":
-                    polygon(d, [(24, 16), (9, 34), (39, 34)], (148, 82, 34, 255))
-                    polygon(d, [(24, 10), (12, 26), (36, 26)], (188, 116, 42, 255))
-                    polygon(d, [(24, 4), (15, 18), (33, 18)], (228, 162, 58, 255))
+                    p_dark, p_mid, p_hi = (138, 72, 28, 255), (186, 112, 38, 255), (234, 166, 56, 255)
                 elif season == "winter":
-                    polygon(d, [(24, 16), (9, 34), (39, 34)], (42, 78, 72, 255))
-                    polygon(d, [(24, 16), (13, 28), (35, 28)], (228, 242, 255, 255))
-                    polygon(d, [(24, 10), (12, 26), (36, 26)], (52, 96, 88, 255))
-                    polygon(d, [(24, 10), (15, 21), (33, 21)], (238, 248, 255, 255))
-                    polygon(d, [(24, 4), (15, 18), (33, 18)], (248, 252, 255, 255))
+                    p_dark, p_mid, p_hi = (52, 86, 78, 255), (168, 204, 228, 255), (242, 250, 255, 255)
                 else:
-                    polygon(d, [(24, 16), (9, 34), (39, 34)], (36, 86, 54, 255))
-                    polygon(d, [(24, 10), (12, 26), (36, 26)], (48, 108, 66, 255))
-                    polygon(d, [(24, 4), (15, 18), (33, 18)], (68, 136, 82, 255))
+                    p_dark, p_mid, p_hi = (58, 92, 34, 255), (102, 146, 44, 255), (148, 192, 58, 255)
+                tiers = [
+                    ([(24, 17), (7, 35), (15, 34), (12, 37), (24, 36), (36, 37), (33, 34), (41, 35)], 20),
+                    ([(24, 11), (10, 28), (17, 27), (15, 30), (24, 29), (33, 30), (31, 27), (38, 28)], 14),
+                    ([(24, 5), (13, 21), (19, 20), (17, 22), (24, 21), (31, 22), (29, 20), (35, 21)], 8),
+                    ([(24, 2), (17, 13), (24, 14), (31, 13)], 4),
+                ]
+                for pts, hi_y in tiers:
+                    polygon(d, pts, p_dark, outline=OUTLINE)
+                polygon(d, [(24, 18), (11, 33), (24, 34), (37, 33)], p_mid, outline=None)
+                polygon(d, [(24, 12), (13, 26), (24, 27), (35, 26)], p_mid, outline=None)
+                polygon(d, [(24, 6), (16, 19), (24, 20), (32, 19)], p_hi, outline=None)
+                polygon(d, [(24, 3), (19, 11), (24, 12), (29, 11)], p_hi, outline=None)
             elif kind == "rock":
-                ellipse(d, (7, 33, 41, 42), (10, 14, 12, 105), outline=None)
-                polygon(d, [(8, 36), (12, 20), (25, 15), (38, 22), (41, 36)], (96, 102, 108, 255))
-                top_col = (238, 246, 255, 255) if season == "winter" else (138, 146, 154, 255)
-                polygon(d, [(13, 21), (25, 16), (33, 22), (22, 27)], top_col, outline=None)
-                polygon(d, [(6, 38), (9, 28), (18, 26), (22, 38)], (78, 84, 90, 255))
-                line(d, [(16, 36), (22, 31), (29, 36)], (56, 62, 66, 255), width=1)
+                # CraftPix faceted blue-grey fortress boulder + companion pebbles
+                ellipse(d, (6, 33, 42, 43), (10, 14, 12, 115), outline=None)
+                polygon(d, [(7, 36), (10, 21), (22, 14), (35, 18), (40, 34), (31, 39), (14, 39)], (104, 103, 122, 255), outline=OUTLINE)
+                top_col = (238, 246, 255, 255) if season == "winter" else (178, 177, 198, 255)
+                mid_col = (140, 139, 160, 255)
+                polygon(d, [(11, 21), (22, 15), (34, 19), (28, 27), (15, 26)], top_col, outline=None)
+                polygon(d, [(15, 26), (28, 27), (38, 33), (30, 38), (14, 38)], mid_col, outline=None)
+                line(d, [(22, 15), (20, 25), (28, 27)], (78, 77, 94, 255), width=1)
+                # Companion pebble
+                polygon(d, [(33, 39), (36, 33), (43, 34), (44, 40), (36, 41)], (124, 123, 144, 255), outline=OUTLINE)
+                polygon(d, [(6, 39), (8, 34), (14, 35), (14, 40)], (96, 95, 114, 255), outline=OUTLINE)
             elif kind == "grass":
-                g1 = (196, 118, 44, 255) if season == "autumn" else ((168, 206, 235, 255) if season == "winter" else (68, 134, 68, 255))
-                g2 = (238, 168, 62, 255) if season == "autumn" else ((228, 244, 255, 255) if season == "winter" else (98, 168, 82, 255))
-                for gx, gy, gh in ((14, 34, 10), (19, 36, 13), (24, 35, 11), (29, 37, 12), (34, 34, 9)):
-                    line(d, [(gx, gy), (gx - 3, gy - gh)], g1, width=2)
-                    line(d, [(gx, gy), (gx + 3, gy - gh + 2)], g2, width=2)
-                fcol1 = (255, 168, 204, 255) if season == "spring" else (242, 204, 84, 255)
-                for fx, fy, col in ((16, 24, fcol1), (28, 25, (235, 112, 98, 255))):
-                    d.rectangle((fx - 1, fy - 1, fx + 1, fy + 1), fill=col)
+                # CraftPix outlined flowering shrub & grass tuft
+                ellipse(d, (10, 35, 38, 42), (10, 14, 12, 105), outline=None)
+                if season == "autumn":
+                    b_dark, b_mid, b_hi = (158, 72, 28, 255), (208, 114, 38, 255), (244, 168, 58, 255)
+                elif season == "winter":
+                    b_dark, b_mid, b_hi = (108, 138, 168, 255), (168, 202, 228, 255), (236, 248, 255, 255)
+                else:
+                    b_dark, b_mid, b_hi = (68, 108, 34, 255), (118, 164, 44, 255), (164, 208, 62, 255)
+                for bx, by, br in ((16, 32, 7), (32, 32, 7), (24, 28, 8), (24, 34, 8)):
+                    ellipse(d, (bx - br, by - br, bx + br, by + br), b_dark, outline=OUTLINE)
+                for bx, by, br in ((16, 31, 6), (32, 31, 6), (24, 27, 7), (24, 33, 7)):
+                    ellipse(d, (bx - br, by - br, bx + br, by + br), b_mid, outline=None)
+                for bx, by, br in ((18, 29, 4), (30, 29, 4), (24, 25, 5)):
+                    ellipse(d, (bx - br, by - br, bx + br, by + br), b_hi, outline=None)
+                fcol1 = (255, 158, 198, 255) if season == "spring" else (250, 214, 82, 255)
+                for fx, fy, col in ((17, 27, fcol1), (29, 28, (238, 88, 78, 255)), (23, 32, fcol1)):
+                    rect(d, (fx - 2, fy - 2, fx + 2, fy + 2), col, outline=OUTLINE)
             elif kind == "mountain":
-                ellipse(d, (3, 36, 45, 44), (10, 14, 12, 115), outline=None)
-                polygon(d, [(3, 40), (16, 12), (31, 40)], (76, 82, 92, 255))
-                polygon(d, [(16, 40), (30, 7), (45, 40)], (94, 102, 114, 255))
-                snow_y = 28 if season == "winter" else 20
-                polygon(d, [(30, 8), (22, snow_y), (30, snow_y - 3), (38, snow_y)], (236, 244, 252, 255), outline=None)
-                polygon(d, [(16, 13), (10, snow_y + 2), (16, snow_y - 1), (22, snow_y + 2)], (216, 228, 242, 255), outline=None)
+                ellipse(d, (3, 36, 45, 44), (10, 14, 12, 120), outline=None)
+                polygon(d, [(3, 40), (16, 11), (31, 40)], (88, 87, 106, 255), outline=OUTLINE)
+                polygon(d, [(16, 40), (30, 6), (45, 40)], (118, 117, 138, 255), outline=OUTLINE)
+                snow_y = 28 if season == "winter" else 19
+                polygon(d, [(30, 7), (22, snow_y), (30, snow_y - 3), (38, snow_y)], (238, 246, 255, 255), outline=None)
+                polygon(d, [(16, 12), (10, snow_y + 2), (16, snow_y - 1), (22, snow_y + 2)], (218, 230, 245, 255), outline=None)
             elif kind == "banner":
-                ellipse(d, (15, 38, 33, 44), (10, 14, 12, 105), outline=None)
-                line(d, [(20, 7), (20, 41)], (188, 152, 78, 255), width=2)
-                polygon(d, [(21, 9), (37, 11), (33, 19), (38, 27), (21, 29)], (196, 48, 44, 255))
-                line(d, [(23, 13), (33, 14)], (245, 204, 88, 255), width=2)
-                line(d, [(23, 24), (33, 24)], (245, 204, 88, 255), width=2)
+                # CraftPix wooden supply crate + iron-hooped barrel + Three Kingdoms war banner
+                ellipse(d, (8, 36, 40, 44), (10, 14, 12, 115), outline=None)
+                line(d, [(16, 5), (16, 41)], (188, 142, 72, 255), width=2)
+                polygon(d, [(17, 7), (35, 9), (31, 17), (36, 25), (17, 27)], (198, 48, 44, 255), outline=OUTLINE)
+                line(d, [(19, 12), (31, 13)], (248, 208, 88, 255), width=2)
+                line(d, [(19, 22), (31, 22)], (248, 208, 88, 255), width=2)
+                # CraftPix iron-hooped wooden barrel at base
+                ellipse(d, (22, 27, 36, 41), (142, 88, 52, 255), outline=OUTLINE)
+                line(d, [(23, 31), (35, 31)], (184, 190, 204, 255), width=2)
+                line(d, [(23, 37), (35, 37)], (184, 190, 204, 255), width=2)
+                ellipse(d, (24, 27, 34, 31), (176, 118, 74, 255), outline=OUTLINE)
             elif kind == "house":
-                ellipse(d, (5, 38, 43, 45), (10, 14, 12, 125), outline=None)
-                rect(d, (9, 36, 39, 42), (96, 102, 110, 255))
-                rect(d, (11, 22, 37, 37), (214, 198, 168, 255))
-                for px in (11, 20, 28, 36):
-                    line(d, [(px, 22), (px, 37)], (102, 64, 38, 255), width=2)
-                rect(d, (21, 28, 27, 37), (86, 50, 30, 255))
-                rect(d, (14, 25, 19, 31), (255, 210, 92, 255))
-                rect(d, (29, 25, 34, 31), (255, 210, 92, 255))
-                roof_col = (228, 242, 255, 255) if season == "winter" else ((208, 96, 38, 255) if season == "autumn" else (172, 52, 42, 255))
-                trim_col = (186, 216, 245, 255) if season == "winter" else (238, 192, 78, 255)
-                polygon(d, [(5, 23), (12, 11), (36, 11), (43, 23)], roof_col)
-                line(d, [(4, 23), (44, 23)], trim_col, width=2)
-                line(d, [(12, 11), (36, 11)], trim_col, width=2)
+                # CraftPix Fantasy Medieval Village House: stone base, honey-timber walls, terracotta shingle roof & chimney
+                ellipse(d, (4, 37, 44, 45), (10, 14, 12, 130), outline=None)
+                rect(d, (8, 35, 40, 42), (118, 124, 138, 255), outline=OUTLINE)
+                rect(d, (9, 20, 39, 36), (204, 148, 88, 255), outline=OUTLINE)
+                for py in (24, 28, 32):
+                    line(d, [(10, py), (38, py)], (152, 102, 54, 255), width=1)
+                for px in (10, 19, 29, 38):
+                    line(d, [(px, 20), (px, 36)], (122, 78, 42, 255), width=2)
+                # Arched wooden door + framed windows
+                rect(d, (21, 27, 27, 36), (116, 68, 38, 255), outline=OUTLINE)
+                d.point((25, 32), fill=(238, 204, 96, 255))
+                for wx in (12, 31):
+                    rect(d, (wx, 25, wx + 5, 31), (255, 218, 108, 255), outline=OUTLINE)
+                    line(d, [(wx + 2, 25), (wx + 2, 31)], OUTLINE, width=1)
+                # Pitched Terracotta Shingle Roof + Stone Chimney
+                roof_dark = (188, 214, 238, 255) if season == "winter" else ((168, 74, 34, 255) if season == "autumn" else (156, 56, 46, 255))
+                roof_hi = (238, 248, 255, 255) if season == "winter" else ((214, 108, 46, 255) if season == "autumn" else (196, 78, 64, 255))
+                polygon(d, [(4, 22), (24, 6), (44, 22)], roof_dark, outline=OUTLINE)
+                polygon(d, [(7, 21), (24, 8), (41, 21)], roof_hi, outline=None)
+                for ry in (12, 16, 20):
+                    half_w = int((ry - 6) * 1.15)
+                    line(d, [(24 - half_w, ry), (24 + half_w, ry)], roof_dark, width=1)
+                # Stone chimney on left roof slope
+                rect(d, (11, 6, 17, 15), (124, 128, 142, 255), outline=OUTLINE)
+                rect(d, (10, 5, 18, 8), (154, 158, 172, 255), outline=OUTLINE)
             elif kind == "watchtower":
-                ellipse(d, (9, 38, 39, 45), (10, 14, 12, 125), outline=None)
-                rect(d, (12, 34, 36, 42), (102, 108, 118, 255))
-                line(d, [(15, 20), (13, 35)], (118, 76, 44, 255), width=3)
-                line(d, [(33, 20), (35, 35)], (118, 76, 44, 255), width=3)
-                line(d, [(15, 24), (33, 33)], (98, 62, 36, 255), width=2)
-                line(d, [(33, 24), (15, 33)], (98, 62, 36, 255), width=2)
-                rect(d, (10, 15, 38, 21), (138, 92, 52, 255))
-                for cx in range(11, 38, 5):
-                    rect(d, (cx, 12, cx + 3, 16), (156, 106, 62, 255))
-                roof_col = (232, 244, 255, 255) if season == "winter" else (178, 48, 42, 255)
-                polygon(d, [(8, 12), (24, 4), (40, 12)], roof_col)
-                polygon(d, [(24, 1), (34, 4), (24, 7)], (245, 198, 72, 255))
+                # CraftPix Medieval Fortress Stone Watchtower with crenelated deck, arrow slits & wooden ladder
+                ellipse(d, (7, 37, 41, 45), (10, 14, 12, 130), outline=None)
+                rect(d, (11, 10, 37, 42), (122, 120, 140, 255), outline=OUTLINE)
+                rect(d, (13, 12, 35, 22), (150, 148, 170, 255), outline=OUTLINE)
+                # Stone brick courses on tower shaft
+                for by in (25, 30, 35, 39):
+                    line(d, [(12, by), (36, by)], (88, 86, 104, 255), width=1)
+                for bx in (18, 26, 32):
+                    line(d, [(bx, 23), (bx, 41)], (88, 86, 104, 255), width=1)
+                # Crenelated top merlons
+                cap_col = (232, 244, 255, 255) if season == "winter" else (168, 166, 188, 255)
+                for cx in (10, 17, 25, 32):
+                    rect(d, (cx, 6, cx + 5, 12), cap_col, outline=OUTLINE)
+                # Arched arrow slit + wooden scaling ladder
+                rect(d, (18, 26, 22, 34), (28, 24, 32, 255), outline=OUTLINE)
+                rect(d, (28, 14, 33, 42), (138, 86, 48, 255), outline=OUTLINE)
+                for ly in range(16, 41, 4):
+                    line(d, [(28, ly), (33, ly)], (188, 128, 76, 255), width=1)
             elif kind == "castle":
-                ellipse(d, (3, 38, 45, 46), (10, 14, 12, 135), outline=None)
-                rect(d, (5, 21, 43, 42), (112, 120, 132, 255))
-                rect(d, (8, 24, 40, 40), (92, 98, 110, 255))
-                bat_col = (228, 240, 252, 255) if season == "winter" else (132, 140, 152, 255)
-                for bx in range(5, 42, 6):
-                    rect(d, (bx, 17, bx + 4, 22), bat_col)
-                polygon(d, [(19, 42), (19, 30), (24, 27), (29, 30), (29, 42)], (38, 28, 26, 255))
-                line(d, [(24, 28), (24, 41)], (188, 152, 72, 255), width=1)
-                roof_col = (235, 245, 255, 255) if season == "winter" else (198, 56, 48, 255)
-                trim_col = (188, 218, 248, 255) if season == "winter" else (248, 204, 82, 255)
-                rect(d, (13, 11, 35, 18), (168, 46, 42, 255))
-                polygon(d, [(9, 12), (16, 4), (32, 4), (39, 12)], roof_col)
-                line(d, [(9, 12), (39, 12)], trim_col, width=2)
-                line(d, [(16, 4), (32, 4)], trim_col, width=2)
+                # CraftPix Medieval Fortress Gatehouse: coursed blue-grey stone wall, crenelations & double wooden gate with twin ring knockers
+                ellipse(d, (2, 37, 46, 46), (10, 14, 12, 140), outline=None)
+                rect(d, (4, 11, 44, 42), (122, 120, 140, 255), outline=OUTLINE)
+                rect(d, (6, 13, 42, 22), (152, 150, 172, 255), outline=None)
+                for by in (22, 27, 32, 37):
+                    line(d, [(5, by), (43, by)], (86, 84, 102, 255), width=1)
+                for bx in (12, 20, 28, 36):
+                    line(d, [(bx, 13), (bx, 41)], (86, 84, 102, 255), width=1)
+                # Top battlements (5 merlons)
+                merlon_col = (235, 245, 255, 255) if season == "winter" else (168, 166, 188, 255)
+                for bx in (4, 12, 20, 28, 36):
+                    rect(d, (bx, 6, bx + 6, 12), merlon_col, outline=OUTLINE)
+                # Stone archway + double wooden plank gate + twin silver ring knockers
+                polygon(d, [(14, 42), (14, 26), (19, 21), (29, 21), (34, 26), (34, 42)], (92, 90, 108, 255), outline=OUTLINE)
+                polygon(d, [(16, 42), (16, 27), (20, 23), (28, 23), (32, 27), (32, 42)], (140, 88, 56, 255), outline=OUTLINE)
+                line(d, [(24, 23), (24, 42)], OUTLINE, width=1)
+                for gx in (19, 29):
+                    line(d, [(gx, 25), (gx, 41)], (104, 62, 38, 255), width=1)
+                ellipse(d, (20, 32, 23, 35), (218, 224, 236, 255), outline=OUTLINE)
+                ellipse(d, (25, 32, 28, 35), (218, 224, 236, 255), outline=OUTLINE)
             elif kind == "tent":
-                ellipse(d, (7, 37, 41, 45), (10, 14, 12, 120), outline=None)
-                polygon(d, [(7, 39), (13, 18), (35, 18), (41, 39)], (192, 52, 46, 255))
-                polygon(d, [(17, 39), (20, 20), (28, 20), (31, 39)], (236, 196, 88, 255))
-                polygon(d, [(20, 39), (24, 27), (28, 39)], (28, 22, 26, 255))
-                top_col = (232, 244, 255, 255) if season == "winter" else (218, 66, 54, 255)
-                polygon(d, [(10, 19), (24, 7), (38, 19)], top_col)
-                line(d, [(10, 19), (38, 19)], (248, 210, 92, 255), width=2)
-                ellipse(d, (22, 4, 26, 8), (255, 224, 98, 255))
+                # Command War Pavilion + CraftPix wooden supply crate
+                ellipse(d, (5, 37, 43, 45), (10, 14, 12, 125), outline=None)
+                polygon(d, [(6, 39), (12, 18), (36, 18), (42, 39)], (196, 52, 46, 255), outline=OUTLINE)
+                polygon(d, [(16, 39), (19, 19), (29, 19), (32, 39)], (242, 198, 84, 255), outline=OUTLINE)
+                polygon(d, [(19, 39), (24, 26), (29, 39)], (32, 24, 28, 255), outline=OUTLINE)
+                top_col = (232, 244, 255, 255) if season == "winter" else (222, 68, 54, 255)
+                polygon(d, [(9, 19), (24, 6), (39, 19)], top_col, outline=OUTLINE)
+                line(d, [(9, 19), (39, 19)], (250, 212, 92, 255), width=2)
+                ellipse(d, (22, 3, 26, 7), (255, 228, 102, 255), outline=OUTLINE)
+                # CraftPix wooden supply crate beside pavilion
+                rect(d, (33, 30, 44, 41), (156, 98, 56, 255), outline=OUTLINE)
+                rect(d, (35, 32, 42, 39), (124, 76, 42, 255), outline=OUTLINE)
             sheet.paste(cell, (idx * w, s_row * h))
     return sheet
 
@@ -598,12 +649,15 @@ def make_effects():
 
     chest = Image.new("RGBA", (28, 24), (0, 0, 0, 0))
     d = ImageDraw.Draw(chest)
-    rect(d, (3, 8, 24, 21), (133, 77, 35, 255))
-    d.arc((3, 2, 24, 16), 180, 360, fill=(174, 111, 42, 255), width=5)
-    line(d, [(4, 10), (23, 10)], (218, 171, 71, 255), width=2)
-    rect(d, (11, 9, 16, 16), (245, 207, 91, 255))
+    OUTLINE = (22, 18, 22, 255)
+    rect(d, (2, 4, 25, 21), (156, 94, 48, 255), outline=OUTLINE)
+    rect(d, (3, 5, 24, 11), (198, 132, 74, 255), outline=OUTLINE)
+    # Silver/iron CraftPix chest bands + gold lock plate
+    for bx in (4, 21):
+        rect(d, (bx, 4, bx + 2, 21), (206, 214, 228, 255), outline=OUTLINE)
+    line(d, [(3, 12), (24, 12)], OUTLINE, width=1)
+    rect(d, (11, 9, 16, 16), (250, 212, 92, 255), outline=OUTLINE)
     save(chest, "effects/chest.png")
-
     projectile = Image.new("RGBA", (14, 8), (0, 0, 0, 0))
     d = ImageDraw.Draw(projectile)
     polygon(d, [(12, 4), (5, 1), (2, 4), (5, 7)], (244, 220, 157, 255))
@@ -795,49 +849,71 @@ def make_effects():
         for f_idx in range(4):
             pcell = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
             pd = ImageDraw.Draw(pcell)
-            bob = (0, -2, 0, 1)[f_idx]
-            step = (-2, 0, 2, 0)[f_idx]
-            ellipse(pd, (6, 25, 26, 30), (10, 14, 18, 115), outline=None)
+            bob = (0, -2, -1, 1)[f_idx]
+            # 4 distinct stride phases for each leg!
+            leg_offsets = (
+                (-2, 1, -1, 2),
+                (0, -2, 2, -1),
+                (2, -1, 1, -2),
+                (-1, 2, -2, 0),
+            )[f_idx]
+            l0, l1, l2, l3 = leg_offsets
+            OUTLINE = (22, 18, 22, 255)
+            ellipse(pd, (6, 25, 26, 29), (10, 14, 18, 125), outline=None)
             if pid == "redhare":
-                # Crimson Warhorse Spirit with golden mane & fiery hooves
-                for lx in (9 + step, 13 - step, 19 + step, 23 - step):
-                    rect(pd, (lx, 19 + bob, lx + 3, 27), (168, 38, 34, 255))
-                    rect(pd, (lx, 25, lx + 3, 28), (255, 214, 82, 255))
-                ellipse(pd, (7, 12 + bob, 24, 22 + bob), (218, 52, 42, 255))
-                rect(pd, (12, 12 + bob, 19, 17 + bob), (245, 196, 72, 255))
-                polygon(pd, [(19, 14 + bob), (23, 6 + bob), (28, 9 + bob), (25, 16 + bob)], (228, 58, 46, 255))
-                polygon(pd, [(17, 11 + bob), (22, 4 + bob), (24, 8 + bob), (19, 13 + bob)], (255, 216, 88, 255))
-                polygon(pd, [(7, 14 + bob), (2, 18 - bob), (5, 22 - bob), (9, 17 + bob)], (255, 168, 62, 255))
+                # Crimson Warhorse Spirit with 4-phase gallop, dark outline & 4px cell margin
+                for lx in (9 + l0, 12 + l1, 17 + l2, 20 + l3):
+                    rect(pd, (lx, 19 + bob, lx + 3, 26), (168, 38, 34, 255), outline=OUTLINE)
+                    rect(pd, (lx, 24, lx + 3, 27), (255, 214, 82, 255), outline=OUTLINE)
+                tail_y = (16, 14, 18, 20)[f_idx]
+                polygon(pd, [(8, 14 + bob), (4, tail_y), (6, tail_y + 4), (10, 18 + bob)], (255, 174, 62, 255), outline=OUTLINE)
+                ellipse(pd, (8, 11 + bob, 23, 21 + bob), (218, 52, 42, 255), outline=OUTLINE)
+                ellipse(pd, (10, 12 + bob, 20, 17 + bob), (242, 82, 68, 255), outline=None)
+                rect(pd, (12, 12 + bob, 18, 18 + bob), (246, 198, 74, 255), outline=OUTLINE)
+                polygon(pd, [(18, 14 + bob), (21, 6 + bob), (27, 9 + bob), (24, 16 + bob)], (228, 58, 46, 255), outline=OUTLINE)
+                polygon(pd, [(16, 11 + bob), (20, 4 + bob), (23, 8 + bob), (19, 13 + bob)], (255, 218, 88, 255), outline=OUTLINE)
+                pd.rectangle((23, 8 + bob, 25, 10 + bob), fill=(255, 248, 162, 255))
             elif pid == "vermilion":
-                # Vermilion Fire Phoenix with flapping wings
-                wing_y = (6, 12, 7, 14)[f_idx]
-                polygon(pd, [(16, 14 + bob), (2, wing_y), (5, 20 + bob), (14, 18 + bob)], (238, 74, 38, 255))
-                polygon(pd, [(16, 14 + bob), (30, wing_y), (27, 20 + bob), (18, 18 + bob)], (238, 74, 38, 255))
-                polygon(pd, [(16, 15 + bob), (6, wing_y + 3), (9, 19 + bob)], (255, 210, 82, 255))
-                polygon(pd, [(16, 15 + bob), (26, wing_y + 3), (23, 19 + bob)], (255, 210, 82, 255))
-                ellipse(pd, (12, 9 + bob, 20, 21 + bob), (255, 118, 48, 255))
-                polygon(pd, [(14, 5 + bob), (16, 1 + bob), (18, 5 + bob)], (255, 232, 98, 255))
-                polygon(pd, [(13, 20 + bob), (10, 28), (16, 25), (22, 28), (19, 20 + bob)], (255, 184, 68, 255))
+                # Vermilion Fire Phoenix with 4 distinct wing-flap angles & 4px cell margin
+                wing_top = (4, 9, 15, 11)[f_idx]
+                wing_bot = (17, 20, 23, 19)[f_idx]
+                tail_spread = (-2, 0, 2, 1)[f_idx]
+                polygon(pd, [(12, 19 + bob), (9 + tail_spread, 28), (16, 25), (23 - tail_spread, 28), (20, 19 + bob)], (255, 184, 68, 255), outline=OUTLINE)
+                polygon(pd, [(15, 13 + bob), (4, wing_top), (6, wing_bot), (14, 18 + bob)], (238, 74, 38, 255), outline=OUTLINE)
+                polygon(pd, [(17, 13 + bob), (28, wing_top), (26, wing_bot), (18, 18 + bob)], (238, 74, 38, 255), outline=OUTLINE)
+                polygon(pd, [(14, 14 + bob), (7, wing_top + 2), (9, wing_bot - 1)], (255, 214, 82, 255), outline=None)
+                polygon(pd, [(18, 14 + bob), (25, wing_top + 2), (23, wing_bot - 1)], (255, 214, 82, 255), outline=None)
+                ellipse(pd, (11, 8 + bob, 21, 21 + bob), (255, 118, 48, 255), outline=OUTLINE)
+                ellipse(pd, (13, 10 + bob, 19, 18 + bob), (255, 224, 96, 255), outline=None)
+                polygon(pd, [(13, 7 + bob), (16, 2 + bob), (19, 7 + bob)], (255, 236, 104, 255), outline=OUTLINE)
+                pd.rectangle((14, 10 + bob, 15, 11 + bob), fill=(255, 255, 255, 255))
+                pd.rectangle((17, 10 + bob, 18, 11 + bob), fill=(255, 255, 255, 255))
             elif pid == "white_tiger":
-                # Frost-fang White Tiger guardian
-                for lx in (8 + step, 13 - step, 19 + step, 24 - step):
-                    rect(pd, (lx, 19 + bob, lx + 3, 27), (225, 234, 245, 255))
-                ellipse(pd, (6, 12 + bob, 24, 22 + bob), (242, 248, 255, 255))
-                for sx in (10, 14, 18):
-                    line(pd, [(sx, 13 + bob), (sx - 1, 20 + bob)], (42, 52, 68, 255), width=2)
-                ellipse(pd, (18, 8 + bob, 28, 18 + bob), (245, 250, 255, 255))
-                pd.rectangle((22, 11 + bob, 24, 13 + bob), fill=(72, 224, 255, 255))
-                pd.rectangle((25, 11 + bob, 27, 13 + bob), fill=(72, 224, 255, 255))
+                # Frost-fang White Tiger guardian with 4-phase prowl, dark outline & 4px cell margin
+                for lx in (9 + l0, 12 + l1, 17 + l2, 21 + l3):
+                    rect(pd, (lx, 19 + bob, lx + 3, 26), (218, 228, 242, 255), outline=OUTLINE)
+                tail_y = (11, 14, 17, 13)[f_idx]
+                polygon(pd, [(8, 15 + bob), (4, tail_y), (5, tail_y + 4), (9, 18 + bob)], (238, 246, 255, 255), outline=OUTLINE)
+                ellipse(pd, (8, 11 + bob, 23, 21 + bob), (242, 248, 255, 255), outline=OUTLINE)
+                for sx in (11, 14, 17):
+                    line(pd, [(sx, 12 + bob), (sx - 1, 19 + bob)], (36, 44, 58, 255), width=2)
+                ellipse(pd, (17, 8 + bob, 27, 18 + bob), (246, 250, 255, 255), outline=OUTLINE)
+                pd.rectangle((20, 11 + bob, 22, 13 + bob), fill=(64, 224, 255, 255))
+                pd.rectangle((24, 11 + bob, 26, 13 + bob), fill=(64, 224, 255, 255))
+                line(pd, [(18, 15 + bob), (23, 17 + bob)], (245, 198, 76, 255), width=2)
             elif pid == "qilin":
-                # Jade Celestial Qilin with golden antlers & aura
-                for lx in (9 + step, 13 - step, 19 + step, 23 - step):
-                    rect(pd, (lx, 19 + bob, lx + 3, 27), (58, 178, 118, 255))
-                    rect(pd, (lx, 25, lx + 3, 28), (245, 208, 86, 255))
-                ellipse(pd, (7, 12 + bob, 24, 22 + bob), (76, 214, 142, 255))
-                ellipse(pd, (11, 14 + bob, 20, 20 + bob), (158, 248, 196, 255))
-                polygon(pd, [(19, 14 + bob), (22, 7 + bob), (28, 9 + bob), (25, 16 + bob)], (82, 224, 152, 255))
-                line(pd, [(21, 7 + bob), (18, 2 + bob), (23, 3 + bob)], (255, 222, 92, 255), width=2)
-                line(pd, [(24, 7 + bob), (27, 2 + bob)], (255, 222, 92, 255), width=2)
+                # Jade Celestial Qilin with 4-phase prance, outlined antlers & 4px cell margin
+                for lx in (9 + l0, 12 + l1, 17 + l2, 20 + l3):
+                    rect(pd, (lx, 19 + bob, lx + 3, 26), (52, 168, 112, 255), outline=OUTLINE)
+                    rect(pd, (lx, 24, lx + 3, 27), (248, 210, 86, 255), outline=OUTLINE)
+                tail_y = (14, 17, 19, 15)[f_idx]
+                polygon(pd, [(8, 14 + bob), (4, tail_y), (6, tail_y + 4), (10, 18 + bob)], (128, 242, 184, 255), outline=OUTLINE)
+                ellipse(pd, (8, 11 + bob, 23, 21 + bob), (72, 212, 142, 255), outline=OUTLINE)
+                ellipse(pd, (11, 13 + bob, 19, 19 + bob), (158, 248, 198, 255), outline=None)
+                polygon(pd, [(18, 14 + bob), (21, 7 + bob), (27, 9 + bob), (24, 16 + bob)], (82, 224, 152, 255), outline=OUTLINE)
+                polygon(pd, [(19, 8 + bob), (17, 3 + bob), (21, 4 + bob), (22, 8 + bob)], (255, 222, 92, 255), outline=OUTLINE)
+                polygon(pd, [(22, 8 + bob), (24, 3 + bob), (27, 5 + bob), (25, 8 + bob)], (255, 222, 92, 255), outline=OUTLINE)
+                pd.rectangle((23, 9 + bob, 25, 11 + bob), fill=(255, 244, 142, 255))
             pets_sheet.paste(pcell, (f_idx * 32, r_idx * 32))
     save(pets_sheet, "pets/pets.png")
 

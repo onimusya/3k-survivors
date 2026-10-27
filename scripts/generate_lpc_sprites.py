@@ -237,6 +237,45 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
         d.ellipse((bx - 3, by - 3, bx, by), fill=(156, 168, 185, 255))
         d.line([(bx + 1, by - 6), (bx + 5, by - 10)], fill=(232, 196, 116, 255), width=2)
         d.polygon([(bx + 5, by - 13), (bx + 7, by - 10), (bx + 10, by - 10), (bx + 7, by - 8), (bx + 5, by - 5), (bx + 4, by - 8), (bx + 1, by - 10), (bx + 4, by - 10)], fill=(255, 238, 92, 255))
+    elif char_id == "catapult":
+        # Wooden & iron wheeled Siege Catapult War Machine with flaming boulder payload
+        arm_lift = (0, -3, -6, -2)[f_idx % 4]
+        d.ellipse((10, 50, 54, 60), fill=(10, 14, 18, 130))
+        # Heavy timber chassis & A-frame struts
+        d.rectangle((14, 42, 50, 49), fill=(118, 74, 40, 255), outline=(58, 34, 18, 255))
+        d.polygon([(18, 44), (28, 22), (32, 22), (24, 44)], fill=(138, 88, 48, 255), outline=(58, 34, 18, 255))
+        d.polygon([(46, 44), (36, 22), (32, 22), (40, 44)], fill=(138, 88, 48, 255), outline=(58, 34, 18, 255))
+        d.rectangle((26, 20, 38, 25), fill=(88, 96, 108, 255), outline=(38, 42, 50, 255))
+        # Throwing arm + blazing fire-boulder basket
+        by = 16 + arm_lift
+        d.line([(32, 36), (32, by + 4)], fill=(156, 102, 54, 255), width=4)
+        d.ellipse((23, by - 6, 41, by + 10), fill=(68, 46, 28, 255), outline=(38, 24, 14, 255))
+        d.ellipse((25, by - 5, 39, by + 8), fill=(218, 72, 32, 255), outline=(255, 196, 72, 255))
+        d.ellipse((28, by - 2, 36, by + 5), fill=(255, 232, 110, 255))
+        # 4 iron-rimmed spoked wheels
+        for wx in (14, 40):
+            d.ellipse((wx, 45, wx + 11, 56), fill=(78, 50, 28, 255), outline=(142, 152, 166, 255))
+            d.ellipse((wx + 3, 48, wx + 8, 53), fill=(168, 176, 188, 255))
+
+    elif char_id == "firebird":
+        # Aerial Bombing Fire-Crow / War Hawk clutching a lit black-powder bomb in its talons
+        wing_dy = (-7, 2, 8, 0)[f_idx % 4]
+        # Ground shadow far below to emphasize altitude
+        d.ellipse((22, 54, 42, 59), fill=(8, 12, 16, 95))
+        # Wings
+        d.polygon([(30, 24 + bob), (8, 14 + wing_dy), (12, 28 + wing_dy // 2), (28, 29 + bob)], fill=(168, 38, 38, 255), outline=(58, 16, 20, 255))
+        d.polygon([(34, 24 + bob), (56, 14 + wing_dy), (52, 28 + wing_dy // 2), (36, 29 + bob)], fill=(168, 38, 38, 255), outline=(58, 16, 20, 255))
+        d.line([(12, 18 + wing_dy), (26, 24 + bob)], fill=(255, 168, 62, 255), width=2)
+        d.line([(52, 18 + wing_dy), (38, 24 + bob)], fill=(255, 168, 62, 255), width=2)
+        # Body & head
+        d.ellipse((25, 18 + bob, 39, 33 + bob), fill=(198, 48, 42, 255), outline=(58, 16, 20, 255))
+        d.polygon([(28, 15 + bob), (32, 9 + bob), (36, 15 + bob)], fill=(255, 196, 72, 255))
+        d.polygon([(30, 31 + bob), (32, 36 + bob), (34, 31 + bob)], fill=(255, 224, 88, 255))
+        d.rectangle((29, 21 + bob, 31, 23 + bob), fill=(255, 242, 120, 255))
+        d.rectangle((33, 21 + bob, 35, 23 + bob), fill=(255, 242, 120, 255))
+        # Clutched black bomb with lit spark underneath
+        d.ellipse((27, 34 + bob, 37, 44 + bob), fill=(20, 22, 28, 255), outline=(112, 120, 135, 255))
+        d.rectangle((34, 32 + bob, 38, 35 + bob), fill=(255, 232, 88, 255))
 
 
 def build_character_frames(layers_spec, anim, frame_indices, lpc_rows=(2, 1, 3, 0), char_id="", is_attack=False):
@@ -494,6 +533,22 @@ ENEMY_RECIPES = {
         ("cape/solid/fg/{anim}.png", "cloth", "purple"),
         ("weapon/magic/simple/foreground/{anim}/simple.png", None, None),
     ],
+    "halberdier": [
+        ("shadow/adult/{anim}.png", None, None),
+        ("cape/solid/bg/{anim}.png", "cloth", "red"),
+        ("body/bodies/male/{anim}.png", "body", "light"),
+        ("legs/armour/plate/male/{anim}.png", "metal", "gold"),
+        ("feet/armour/plate/male/{anim}.png", "metal", "gold"),
+        ("torso/armour/plate/male/{anim}.png", "metal", "crimson_metal"),
+        ("torso/jacket/tabard/male/{anim}/red.png", None, None),
+        ("shoulders/legion/male/{anim}.png", "metal", "gold"),
+        ("head/heads/human/male/{anim}.png", "body", "light"),
+        ("hat/helmet/armet/adult/{anim}.png", "metal", "gold"),
+        ("cape/solid/fg/{anim}.png", "cloth", "red"),
+        ("weapon/polearm/halberd/{anim}/halberd.png", "metal", "gold"),
+    ],
+    "catapult": [],
+    "firebird": [],
     "boss_chengyuanzhi": [
         ("shadow/adult/{anim}.png", None, None),
         ("cape/tattered/bg/{anim}.png", "cloth", "yellow"),

@@ -103,6 +103,9 @@ export const ENEMY_TYPES = {
   assassin: { name:'Shadow Nightblade', color:0xc83e5b, hp:10, speed:128, dmg:11, size:13, xp:3, weight:15 },
   bomber: { name:'Firebrand Zealot', color:0xe8682c, hp:12, speed:86, dmg:15, size:14, xp:3, weight:14, explosive:true },
   sorcerer: { name:'Taoist Mystic', color:0x9b62d8, hp:14, speed:48, dmg:12, size:14, xp:4, weight:14, ranged:true },
+  halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
+  catapult: { name:'Siege Catapult', color:0xd97706, hp:52, speed:28, dmg:22, size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
+  firebird: { name:'Bombing Fire-Hawk', color:0xef4444, hp:14, speed:240, dmg:18, size:14, xp:5, weight:0, isBird:true },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:14, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:17, size:22, xp:25, weight:0, boss:true },
   elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:20, size:23, xp:30, weight:0, boss:true },
@@ -319,19 +322,32 @@ const CAMPAIGN_SPECS = [
   },
 ];
 
-const ENEMY_POOLS_BY_TIER = [
-  ['soldier', 'soldier', 'archer'],
-  ['soldier', 'shield', 'archer'],
-  ['soldier', 'shield', 'archer', 'bomber'],
-  ['shield', 'archer', 'cavalry', 'bomber'],
-  ['shield', 'bomber', 'sorcerer', 'cavalry'],
-  ['shield', 'assassin', 'archer', 'cavalry'],
-  ['shield', 'assassin', 'bomber', 'sorcerer'],
-  ['shield', 'assassin', 'sorcerer', 'cavalry', 'bomber'],
+const CAMPAIGN_FACTION_TINTS = [
+  [0xffe4a0, 0xffd180, 0xfef08a], // C1 Outskirts: Yellow Turban Ochre & Gold
+  [0xffb4b4, 0xfca5a5, 0xe2e8f0], // C2 Hulao: Dong Zhuo Crimson & Black-Iron
+  [0xfde68a, 0xfcd34d, 0xfed7aa], // C3 Guandu: Yuan Shao Gilded Amber & Bronze
+  [0xbfdbfe, 0x93c5fd, 0xc7d2fe], // C4 Changban: Cao Wei Cobalt & Frost-Silver
+  [0x99f6e4, 0x7dd3fc, 0xfda4af], // C5 Red Cliffs: Naval Teal & Crimson Lacquer
+  [0xfed7aa, 0xfdba74, 0xd6d3d1], // C6 Tong Pass: Xiliang Sand-Bronze & Iron
+  [0xa7f3d0, 0x6ee7b7, 0xbae6fd], // C7 Hefei: Jiangdong Emerald-Jade & Silver
+  [0xbae6fd, 0xa5b4fc, 0xe0f2fe], // C8 Fan Castle: Flooded Storm-Sapphire
+  [0xfecaca, 0xfdba74, 0xfef08a], // C9 Yiling: Blazing Vermilion & Ember-Gold
+  [0xe9d5ff, 0xd8b4fe, 0xfef08a], // C10 Wuzhang: Imperial Violet & Gold
 ];
+
+const LEVEL_SQUAD_TEMPLATES = [
+  ['soldier', 'soldier', 'archer', 'halberdier'],
+  ['shield', 'halberdier', 'archer', 'catapult'],
+  ['cavalry', 'assassin', 'halberdier', 'bomber'],
+  ['catapult', 'bomber', 'shield', 'sorcerer', 'halberdier'],
+  ['halberdier', 'shield', 'catapult', 'sorcerer', 'cavalry', 'assassin'],
+];
+
+const WEAPON_STYLES = ['spear_volley', 'crossbow_bolt', 'throwing_axe', 'fire_pot', 'arcane_orb'];
 
 export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
   const finalBoss = c.bosses[4];
+  const cTints = CAMPAIGN_FACTION_TINTS[cIdx % CAMPAIGN_FACTION_TINTS.length];
   return {
     id: c.id,
     name: c.name,
@@ -340,33 +356,42 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
     bgColor: c.bgColors[0],
     bgFilter: 'none',
     propOrder: c.props,
-    boss: { ...finalBoss, hp: 220 + cIdx * 75, dmg: 20 + cIdx * 4, speed: 75 + cIdx * 2, scale: 1.85 },
+    factionTints: cTints,
+    boss: { ...finalBoss, hp: 900 + cIdx * 320, dmg: 24 + cIdx * 5, speed: 78 + cIdx * 2, scale: 1.9 },
     levels: c.stageNames.map((stName, lIdx) => {
       const order = cIdx * 5 + lIdx;
       const bSpec = c.bosses[lIdx];
-      const tierIdx = Math.min(ENEMY_POOLS_BY_TIER.length - 1, Math.floor(order / 6));
+      const squad = LEVEL_SQUAD_TEMPLATES[lIdx % LEVEL_SQUAD_TEMPLATES.length];
+      // Rotate tint priority per level so each level has visibly distinct armor colors
+      const levelTints = [
+        cTints[lIdx % cTints.length],
+        cTints[(lIdx + 1) % cTints.length],
+        cTints[(lIdx + 2) % cTints.length],
+      ];
       return {
         level: lIdx + 1,
         name: stName,
         waves: 5,
         waveDuration: 10,
-        hpMul: +(1.0 + order * 0.22).toFixed(2),
-        dmgMul: +(1.0 + order * 0.08).toFixed(2),
-        speedMul: +(1.0 + order * 0.01).toFixed(3),
-        spawnMul: +(1.0 + order * 0.04).toFixed(2),
+        hpMul: +(1.0 + order * 0.25).toFixed(2),
+        dmgMul: +(1.0 + order * 0.09).toFixed(2),
+        speedMul: +(1.0 + order * 0.012).toFixed(3),
+        spawnMul: +(1.0 + order * 0.05).toFixed(2),
         bossStage: lIdx === 4,
         bgColor: c.bgColors[lIdx],
         layoutPattern: c.patterns[lIdx],
         season: c.seasons[lIdx],
         weather: c.weathers[lIdx],
         propOrder: c.props,
-        enemies: ENEMY_POOLS_BY_TIER[tierIdx],
+        enemies: squad,
+        factionTints: levelTints,
+        weaponStyle: WEAPON_STYLES[(cIdx + lIdx) % WEAPON_STYLES.length],
         levelBoss: {
           ...bSpec,
-          hp: Math.round(130 + order * 16),
-          dmg: Math.round(14 + order * 1.4),
-          speed: Math.min(96, 68 + Math.floor(order * 0.6)),
-          scale: lIdx === 4 ? 1.85 : 1.65,
+          hp: Math.round((560 + order * 85) * (lIdx === 4 ? 1.45 : 1.0)),
+          dmg: Math.round(18 + order * 1.8),
+          speed: Math.min(102, 72 + Math.floor(order * 0.65)),
+          scale: lIdx === 4 ? 1.9 : 1.7,
         },
       };
     }),
