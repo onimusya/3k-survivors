@@ -110,15 +110,15 @@ export const ENEMY_TYPES = {
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
   catapult:   { name:'Siege Catapult',     color:0xd97706, hp:36, speed:26, dmg:9,  size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
   firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:14, speed:240, dmg:13, size:14, xp:5, weight:0, isBird:true },
-  boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:14, size:22, xp:22, weight:0, boss:true },
-  boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:17, size:22, xp:25, weight:0, boss:true },
-  elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:20, size:23, xp:30, weight:0, boss:true },
-  boss_huzhen: { name:'Hu Zhen', color:0xe66756, hp:135, speed:78, dmg:22, size:23, xp:32, weight:0, boss:true },
-  boss_lijue: { name:'Li Jue', color:0xff784f, hp:150, speed:82, dmg:25, size:24, xp:35, weight:0, boss:true },
-  boss_huaxiong: { name:'Hua Xiong', color:0xff5f5f, hp:170, speed:84, dmg:28, size:24, xp:40, weight:0, boss:true },
-  boss_caimao: { name:'Cai Mao', color:0x5ca8ff, hp:185, speed:84, dmg:30, size:24, xp:42, weight:0, boss:true },
-  boss_zhangyun: { name:'Zhang Yun', color:0x7cb8ff, hp:205, speed:88, dmg:33, size:25, xp:45, weight:0, boss:true },
-  boss_caoren: { name:'Cao Ren', color:0x6b9fff, hp:230, speed:90, dmg:36, size:25, xp:50, weight:0, boss:true },
+  boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
+  boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },
+  elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:9, size:23, xp:30, weight:0, boss:true },
+  boss_huzhen: { name:'Hu Zhen', color:0xe66756, hp:135, speed:78, dmg:10, size:23, xp:32, weight:0, boss:true },
+  boss_lijue: { name:'Li Jue', color:0xff784f, hp:150, speed:82, dmg:11, size:24, xp:35, weight:0, boss:true },
+  boss_huaxiong: { name:'Hua Xiong', color:0xff5f5f, hp:170, speed:84, dmg:12, size:24, xp:40, weight:0, boss:true },
+  boss_caimao: { name:'Cai Mao', color:0x5ca8ff, hp:185, speed:84, dmg:13, size:24, xp:42, weight:0, boss:true },
+  boss_zhangyun: { name:'Zhang Yun', color:0x7cb8ff, hp:205, speed:88, dmg:14, size:25, xp:45, weight:0, boss:true },
+  boss_caoren: { name:'Cao Ren', color:0x6b9fff, hp:230, speed:90, dmg:15, size:25, xp:50, weight:0, boss:true },
 };
 
 export const LEVEL_XP = (lvl) => Math.floor(20 * Math.pow(1.15, lvl - 1));
@@ -368,7 +368,7 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
     bgFilter: 'none',
     propOrder: c.props,
     factionTints: cTints,
-    boss: { ...finalBoss, hp: 900 + cIdx * 320, dmg: 24 + cIdx * 5, speed: 78 + cIdx * 2, scale: 1.9 },
+    boss: { ...finalBoss, hp: 900 + cIdx * 320, dmg: 10 + cIdx * 2, speed: 78 + cIdx * 2, scale: 1.9 },
     levels: c.stageNames.map((stName, lIdx) => {
       const order = cIdx * 5 + lIdx;
       const bSpec = c.bosses[lIdx];
@@ -402,7 +402,7 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
         levelBoss: {
           ...bSpec,
           hp: Math.round((210 + order * 26) * (lIdx === 4 ? 1.25 : 1.0)),
-          dmg: Math.round(12 + order * 0.9),
+          dmg: Math.round(6 + order * 0.45),
           speed: Math.min(88, 66 + Math.floor(order * 0.45)),
           scale: lIdx === 4 ? 1.85 : 1.65,
         },

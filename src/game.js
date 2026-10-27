@@ -1127,8 +1127,13 @@ export class Game {
 
   getWeaponStats(w) {
     const base = WEAPONS[w.id];
-    const wd = w.evo ? EVOLUTIONS[w.evoId || base.evo] : null;
     const lvl = Math.max(1, w.level || 1);
+    if (lvl >= 8 && !w.evo) {
+      w.evo = true;
+      w.evoId = base.evo;
+    }
+    const wd = w.evo ? EVOLUTIONS[w.evoId || base.evo] : null;
+    const isMax = lvl >= 8 || Boolean(wd);
     const delta = lvl - 1;
     const p = this.player;
     const lvlDmgMul = 1 + delta * 0.15;
@@ -1139,7 +1144,7 @@ export class Game {
     const dmg = base.dmg * lvlDmgMul * p.dmgMul * (wd ? wd.dmgMul : 1);
     const area = base.area * lvlAreaMul * p.areaMul * (wd ? wd.areaMul : 1);
     const cd = base.cd * lvlCdMul * p.cdMul * (wd ? wd.cdMul : 1);
-    return { base, wd, lvl, delta, dmg, area, cd, bonusCount, bonusPierce };
+    return { base, wd, isMax, lvl, delta, dmg, area, cd, bonusCount, bonusPierce };
   }
 
   buildHud() {
@@ -2150,21 +2155,58 @@ export class Game {
     g.clear();
     if (!this.player) return;
     const p = this.player;
+
+    // 1. Render & trigger Max-Level (Lv 5) Mastered Passive Skill Auras & Special Attacks!
+    this.updateMaxedPassives(dt, g);
+
+    // 2. Render & update Orbiting Defensive Weapons (Flying Blades & Eight-Trigram Shields)
     for (const w of this.weapons) {
       const base = WEAPONS[w.id];
       if (!base || base.type !== 'orbit') continue;
       const stats = this.getWeaponStats(w);
       const isShield = w.id === 'bagua_shields';
-      const count = 3 + stats.bonusCount + (stats.wd ? 2 : 0);
+      const isMax = stats.isMax;
+      const count = 3 + stats.bonusCount + (isMax ? 3 : 0);
       const radius = (isShield ? 46 : 58) * stats.area;
       const dir = isShield ? -1 : 1;
-      const angularSpd = (isShield ? 3.5 : 4.8) * (stats.wd ? 1.35 : 1.0) * dir;
+      const angularSpd = (isShield ? 3.5 : 4.8) * (isMax ? 1.4 : 1.0) * dir;
       const baseAngle = this.time * angularSpd;
       const ringCol = stats.wd ? stats.wd.color : base.color;
 
-      // Subtle orbital energy track around the warrior
+      // Orbital energy track(s) around the warrior
       g.circle(Math.round(p.x), Math.round(p.y), radius)
-        .stroke({ color: ringCol, alpha: 0.22, width: 1.5 });
+        .stroke({ color: ringCol, alpha: isMax ? 0.45 : 0.22, width: isMax ? 2.2 : 1.5 });
+      if (isMax) {
+        g.circle(Math.round(p.x), Math.round(p.y), radius * 0.58)
+          .stroke({ color: 0xfff3b0, alpha: 0.35, width: 1.5 });
+      }
+
+      // Max-Level Special Periodic Pulse for Orbit Weapons!
+      if (isMax) {
+        w.specialTimer = (w.specialTimer || 0) - dt;
+        if (w.specialTimer <= 0) {
+          w.specialTimer = isShield ? 1.25 : 1.1;
+          if (isShield) {
+            // Imperial Aegis Ring: Sacred Bagua Repulsion Explosion + Shockwave!
+            this.spawnShockwave(p.x, p.y, 0xfde047, 0.45, 2.3 * stats.area, 0.28);
+            this.spawnSparkBurst(p.x, p.y, this.time, 0xfde047, 6, 175, 0.85, Math.PI);
+            const specialDmg = stats.dmg * 0.65;
+            const r2 = (115 * stats.area) ** 2;
+            for (const e of this.enemies) {
+              if (e.active && dist2(e.x, e.y, p.x, p.y) <= r2) {
+                this.damageEnemy(e, specialDmg, p.x, p.y);
+                e.knock = Math.max(e.knock || 0, 16 * (1 - (e.knockResist || 0)));
+              }
+            }
+          } else {
+            // Celestial Sword Wheel: Fires 6 Radial Celestial Sword-Beam Projectiles outward!
+            for (let b = 0; b < 6; b++) {
+              const ba = this.time * 2 + (b * Math.PI) / 3;
+              this.spawnProjectile(p.x, p.y, ba, stats.dmg * 0.6, stats.area, 0x7dd3fc, stats.wd, false, 3, true, true);
+            }
+          }
+        }
+      }
 
       for (let i = 0; i < count; i++) {
         const ang = baseAngle + (i * Math.PI * 2) / count;
@@ -2173,48 +2215,140 @@ export class Game {
         const spin = this.time * 12 * dir + i;
 
         if (isShield) {
-          // Golden Eight-Trigram (Bagua) Ward Shield
-          g.circle(bx, by, 10).fill({ color: 0x78350f, alpha: 0.92 }).stroke({ color: ringCol, width: 2.2 });
-          g.circle(bx, by, 4.5).fill({ color: 0xfef08a, alpha: 0.95 });
+          // Golden Eight-Trigram (Bagua) Ward Shield (larger & dragon-rimmed at Max Level!)
+          const shR = isMax ? 12.5 : 10;
+          g.circle(bx, by, shR).fill({ color: isMax ? 0xb45309 : 0x78350f, alpha: 0.94 }).stroke({ color: ringCol, width: isMax ? 2.8 : 2.2 });
+          g.circle(bx, by, isMax ? 6 : 4.5).fill({ color: 0xfef08a, alpha: 0.98 });
         } else {
-          // Spinning 4-wing Flying Blade / Glaive Star
-          const rOut = stats.wd ? 13 : 11;
-          const rIn = 3.5;
+          // Spinning Flying Blade / Celestial 8-Pointed Sword Wheel at Max Level!
+          const wings = isMax ? 12 : 8;
+          const rOut = isMax ? 14.5 : 11;
+          const rIn = isMax ? 5 : 3.5;
           const pts = [];
-          for (let k = 0; k < 8; k++) {
-            const a = spin + (k * Math.PI) / 4;
+          for (let k = 0; k < wings; k++) {
+            const a = spin + (k * Math.PI * 2) / wings;
             const r = k % 2 === 0 ? rOut : rIn;
             pts.push(bx + Math.cos(a) * r, by + Math.sin(a) * r);
           }
-          g.poly(pts).fill({ color: ringCol, alpha: 0.95 }).stroke({ color: 0xe0f2fe, width: 1.2 });
-          g.circle(bx, by, 3).fill(0xffffff);
+          g.poly(pts).fill({ color: ringCol, alpha: 0.96 }).stroke({ color: isMax ? 0xfef08a : 0xe0f2fe, width: 1.4 });
+          g.circle(bx, by, isMax ? 4 : 3).fill(0xffffff);
         }
 
         // 1. Deflect / block incoming enemy bolts!
         for (let pi = this.projectiles.length - 1; pi >= 0; pi--) {
           const pr = this.projectiles[pi];
           if (!pr.active || !pr.fromEnemy || pr.isBoulder) continue;
-          if (dist2(pr.x, pr.y, bx, by) <= 22 * 22) {
+          if (dist2(pr.x, pr.y, bx, by) <= 24 * 24) {
             pr.life = 0;
             this.spawnHitSpark(pr.x, pr.y, ringCol, 0.45, 0.12);
           }
         }
 
         // 2. Continuously slice/bash enemies touching the orbiting blade/shield!
-        const hitR = isShield ? 18 : 16;
+        const hitR = (isShield ? 18 : 16) + (isMax ? 4 : 0);
         const cands = this.spatial.query(bx, by, hitR + 24);
         const list = cands.length ? cands : this.enemies;
         for (const e of list) {
           if (!e.active || (e._orbitHitCd || 0) > 0) continue;
           if (dist2(e.x, e.y, bx, by) <= (hitR + e.size) ** 2) {
-            e._orbitHitCd = Math.max(0.2, stats.cd * 0.65);
-            this.damageEnemy(e, stats.dmg, p.x, p.y);
+            e._orbitHitCd = Math.max(0.18, stats.cd * 0.6);
+            const hitDmg = stats.dmg * (isMax ? 1.25 : 1.0);
+            this.damageEnemy(e, hitDmg, p.x, p.y);
+            if (isMax) {
+              this.spawnHitSpark(e.x, e.y, ringCol, 0.55, 0.14);
+            }
             if (isShield) {
-              e.knock = Math.max(e.knock || 0, 12 * (1 - (e.knockResist || 0)));
+              e.knock = Math.max(e.knock || 0, (isMax ? 16 : 12) * (1 - (e.knockResist || 0)));
             }
           }
         }
       }
+    }
+  }
+
+  updateMaxedPassives(dt, g) {
+    const p = this.player;
+    if (!p || !this.passives) return;
+    const ps = this.passives;
+    this._passivePulseTimers = this._passivePulseTimers || {};
+    const auraColors = [];
+    for (const id in PASSIVES) {
+      const spec = PASSIVES[id];
+      if ((ps[id] || 0) >= spec.max) {
+        auraColors.push(spec.color);
+        this._passivePulseTimers[id] = (this._passivePulseTimers[id] || 0) - dt;
+        if (this._passivePulseTimers[id] <= 0) {
+          this._passivePulseTimers[id] = 2.4;
+          const baseDmg = 36 * (p.dmgMul || 1);
+          if (id === 'might') {
+            // Mastered Might Lv 5: Crimson War-God Explosion Nova!
+            this.spawnExplosion(p.x, p.y, 0.55, 1.95, 0xff6b6b, 0.3);
+            this.spawnShockwave(p.x, p.y, 0xff6b6b, 0.4, 2.1, 0.25);
+            for (const e of this.enemies) {
+              if (e.active && dist2(e.x, e.y, p.x, p.y) <= 130 * 130) {
+                this.damageEnemy(e, baseDmg * 1.35, p.x, p.y);
+              }
+            }
+          } else if (id === 'armor') {
+            // Mastered Armor Lv 5: Sapphire Aegis Repulsion Pulse!
+            this.spawnShockwave(p.x, p.y, 0x6b9fff, 0.45, 2.0, 0.25);
+            for (const e of this.enemies) {
+              if (e.active && dist2(e.x, e.y, p.x, p.y) <= 120 * 120) {
+                this.damageEnemy(e, baseDmg, p.x, p.y);
+                e.knock = Math.max(e.knock || 0, 15 * (1 - (e.knockResist || 0)));
+              }
+            }
+          } else if (id === 'swiftness') {
+            // Mastered Swiftness Lv 5: Emerald Gale-Step Wind-Shear Slash!
+            const ne = this.nearestEnemy(p.x, p.y);
+            const ang = ne ? angleTo(p.x, p.y, ne.x, ne.y) : this.time * 3;
+            this.spawnSlash(p.x, p.y, 0x6bffb0, 1.35, ang);
+            for (const e of this.enemies) {
+              if (e.active && dist2(e.x, e.y, p.x, p.y) <= 115 * 115) {
+                this.damageEnemy(e, baseDmg, p.x, p.y);
+              }
+            }
+          } else if (id === 'cooldown') {
+            // Mastered Cooldown Lv 5: Golden Chrono-Thunder Strike on nearest foe!
+            const ne = this.nearestEnemy(p.x, p.y);
+            if (ne) {
+              this.spawnLevelUpVfx(ne.x, ne.y);
+              this.spawnShockwave(ne.x, ne.y, 0xffb06b, 0.38, 1.65, 0.24);
+              for (const e of this.enemies) {
+                if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= 90 * 90) {
+                  this.damageEnemy(e, baseDmg * 1.4, p.x, p.y);
+                }
+              }
+            }
+          } else if (id === 'area') {
+            // Mastered Area Lv 5: Violet Void Singularity Shockwave!
+            this.spawnShockwave(p.x, p.y, 0xb06bff, 0.5, 2.6, 0.28);
+            for (const e of this.enemies) {
+              if (e.active && dist2(e.x, e.y, p.x, p.y) <= 165 * 165) {
+                this.damageEnemy(e, baseDmg * 1.15, p.x, p.y);
+              }
+            }
+          } else if (id === 'growth') {
+            // Mastered Growth Lv 5: Golden Imperial Starfall Burst!
+            const ne = this.nearestEnemy(p.x, p.y);
+            const tx = ne ? ne.x : p.x;
+            const ty = ne ? ne.y : p.y;
+            this.spawnExplosion(tx, ty, 0.45, 1.55, 0xffff6b, 0.28);
+            this.spawnSparkBurst(tx, ty, 0, 0xffff6b, 6, 165, 0.85, Math.PI);
+            for (const e of this.enemies) {
+              if (e.active && dist2(e.x, e.y, tx, ty) <= 95 * 95) {
+                this.damageEnemy(e, baseDmg * 1.2, p.x, p.y);
+              }
+            }
+          }
+        }
+      }
+    }
+    // Draw pulsing Mastered Skill Halo Ring(s) beneath the warrior!
+    for (let i = 0; i < auraColors.length; i++) {
+      const pulse = 20 + i * 5 + Math.sin(this.time * 6 + i) * 2.5;
+      g.circle(Math.round(p.x), Math.round(p.y + 6), pulse)
+        .stroke({ color: auraColors[i], alpha: 0.48, width: 1.8 });
     }
   }
 
@@ -2298,44 +2432,57 @@ export class Game {
         if (!ne || dist2(pt.x, pt.y, ne.x, ne.y) > spec.range * spec.range) continue;
         const ang = angleTo(pt.x, pt.y, ne.x, ne.y);
 
+        const isMaxPet = pt.level >= (spec.max || 5);
+        const specialMul = isMaxPet ? 1.45 : 1.0;
         if (pt.id === 'redhare') {
-          pt.lungeX = Math.cos(ang) * 46;
-          pt.lungeY = Math.sin(ang) * 46;
-          this.spawnExplosion(ne.x, ne.y, 0.45, 1.35, 0xff6b52, 0.28);
-          this.spawnSparkBurst(ne.x, ne.y, ang, 0xffd166, 4, 160, 0.75, 0.8);
-          const r2 = 68 * 68;
+          pt.lungeX = Math.cos(ang) * (isMaxPet ? 58 : 46);
+          pt.lungeY = Math.sin(ang) * (isMaxPet ? 58 : 46);
+          this.spawnExplosion(ne.x, ne.y, isMaxPet ? 0.65 : 0.45, isMaxPet ? 1.95 : 1.35, 0xff6b52, 0.3);
+          if (isMaxPet) this.spawnShockwave(ne.x, ne.y, 0xffd166, 0.4, 1.85, 0.24);
+          this.spawnSparkBurst(ne.x, ne.y, ang, 0xffd166, isMaxPet ? 7 : 4, 175, 0.85, 0.9);
+          const r2 = (isMaxPet ? 96 : 68) ** 2;
           for (const e of this.enemies) {
             if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= r2) {
-              this.damageEnemy(e, dmg, pt.x, pt.y);
+              this.damageEnemy(e, dmg * specialMul, pt.x, pt.y);
             }
           }
         } else if (pt.id === 'vermilion') {
-          const shots = 1 + Math.floor(pt.level / 3);
+          const shots = isMaxPet ? 5 : (1 + Math.floor(pt.level / 3));
           for (let s = 0; s < shots; s++) {
-            const sa = ang + (s - (shots - 1) / 2) * 0.22;
-            this.spawnProjectile(pt.x, pt.y, sa, dmg, 1.15, 0xffae42, null, true, 2, true);
+            const sa = ang + (s - (shots - 1) / 2) * 0.2;
+            this.spawnProjectile(pt.x, pt.y, sa, dmg * specialMul, isMaxPet ? 1.35 : 1.15, 0xffae42, null, true, isMaxPet ? 3 : 2, true, isMaxPet);
           }
-          this.spawnSparkBurst(pt.x, pt.y, ang, 0xffae42, 2, 130, 0.65, 0.5);
+          if (isMaxPet) this.spawnShockwave(pt.x, pt.y, 0xffae42, 0.35, 1.4, 0.2);
+          this.spawnSparkBurst(pt.x, pt.y, ang, 0xffae42, isMaxPet ? 5 : 2, 145, 0.75, 0.6);
         } else if (pt.id === 'white_tiger') {
-          pt.lungeX = Math.cos(ang) * 52;
-          pt.lungeY = Math.sin(ang) * 52;
-          this.spawnSlash(ne.x, ne.y, 0x7ce8ff, 0.95, ang);
+          pt.lungeX = Math.cos(ang) * (isMaxPet ? 64 : 52);
+          pt.lungeY = Math.sin(ang) * (isMaxPet ? 64 : 52);
+          this.spawnSlash(ne.x, ne.y, 0x7ce8ff, isMaxPet ? 1.35 : 0.95, ang);
+          if (isMaxPet) {
+            this.spawnSlash(ne.x, ne.y, 0xffffff, 1.15, ang + Math.PI / 2);
+            this.spawnShockwave(ne.x, ne.y, 0x7ce8ff, 0.38, 1.75, 0.24);
+          }
           let hits = 0;
-          const maxHits = 2 + pt.level;
+          const maxHits = isMaxPet ? 10 : (2 + pt.level);
+          const r2 = (isMaxPet ? 92 : 64) ** 2;
           for (const e of this.enemies) {
-            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= 64 * 64) {
-              this.damageEnemy(e, dmg, pt.x, pt.y);
+            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= r2) {
+              this.damageEnemy(e, dmg * specialMul, pt.x, pt.y);
               if (++hits >= maxHits) break;
             }
           }
         } else if (pt.id === 'qilin') {
           this.spawnLevelUpVfx(ne.x, ne.y);
-          this.spawnShockwave(ne.x, ne.y, 0x6bffb0, 0.3, 1.35, 0.22);
+          if (isMaxPet) {
+            this.spawnExplosion(ne.x, ne.y, 0.5, 1.7, 0x6bffb0, 0.28);
+          }
+          this.spawnShockwave(ne.x, ne.y, 0x6bffb0, 0.38, isMaxPet ? 1.9 : 1.35, 0.24);
           let hits = 0;
-          const maxHits = 2 + pt.level;
+          const maxHits = isMaxPet ? 10 : (2 + pt.level);
+          const r2 = (isMaxPet ? 105 : 80) ** 2;
           for (const e of this.enemies) {
-            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= 80 * 80) {
-              this.damageEnemy(e, dmg, pt.x, pt.y);
+            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= r2) {
+              this.damageEnemy(e, dmg * specialMul, pt.x, pt.y);
               if (++hits >= maxHits) break;
             }
           }
@@ -2376,13 +2523,13 @@ export class Game {
 
   fireWeapon(w, stats = this.getWeaponStats(w)) {
     const p = this.player;
-    const { base, wd, dmg, area, bonusCount, bonusPierce } = stats;
+    const { base, wd, isMax, dmg, area, bonusCount, bonusPierce } = stats;
     const type = base.type;
 
     if (type === 'melee_arc') {
       // slash nearest enemies within range using spatial hash
-      const maxTargets = 8 + bonusCount * 2 + (wd ? 4 : 0);
-      const cands = this.spatial.query(p.x, p.y, 90 * area + 24);
+      const maxTargets = 8 + bonusCount * 2 + (isMax ? 6 : 0);
+      const cands = this.spatial.query(p.x, p.y, 90 * area + 28);
       const pool = cands.length ? cands : this.enemies;
       const targets = pool.filter((e) => e.active).sort((a,b)=>dist2(a.x,a.y,p.x,p.y)-dist2(b.x,b.y,p.x,p.y)).slice(0, maxTargets);
       const slashAng = targets.length
@@ -2390,15 +2537,23 @@ export class Game {
         : ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[p.direction] ?? 0);
       const facing = this.directionFromAngle(slashAng);
       this.beginAttack(facing, 0.28);
+      const specialBonus = isMax ? 1.35 : 1.0;
       for (const e of targets) {
         if (dist2(e.x,e.y,p.x,p.y) < (90*area)**2) {
-          this.damageEnemy(e, dmg, p.x, p.y);
+          this.damageEnemy(e, dmg * specialBonus, p.x, p.y);
         }
       }
       this.sfx.play('slash');
       const col = wd ? wd.color : 0x5fd38d;
       this.spawnSlash(p.x, p.y, col, area, slashAng);
-      if (wd) this.spawnShockwave(p.x, p.y, wd.color, 0.45, 1.85 * area, 0.24);
+      if (isMax) {
+        // Max-Level Dragon Slayer Special: Twin Cross-Crescent Slash + Dragon-Fire Shockwave + 3 Piercing Dragon Flame Waves!
+        this.spawnSlash(p.x, p.y, 0xffe066, area * 1.18, slashAng + 0.32);
+        this.spawnShockwave(p.x, p.y, col, 0.5, 2.1 * area, 0.26);
+        for (let i = -1; i <= 1; i++) {
+          this.spawnProjectile(p.x, p.y, slashAng + i * 0.22, dmg * 0.65, area * 1.15, 0x1fff8a, wd, false, 4, true, true);
+        }
+      }
     } else if (type === 'thrust') {
       let ang = this.joystick.active ? Math.atan2(this.joystick.y, this.joystick.x) : 0;
       if (!this.joystick.active && this.enemies.length) {
@@ -2407,69 +2562,107 @@ export class Game {
       }
       this.beginAttack(this.directionFromAngle(ang), 0.3);
       const len = 120 * area * (1 + stats.delta * 0.04);
+      const specialBonus = isMax ? 1.35 : 1.0;
       for (const e of this.enemies) {
         const dx = e.x - p.x, dy = e.y - p.y;
         const proj = dx*Math.cos(ang) + dy*Math.sin(ang);
         if (proj >= 0 && proj <= len) {
           const perp = Math.abs(-dx*Math.sin(ang) + dy*Math.cos(ang));
-          if (perp < 20*area) this.damageEnemy(e, dmg, p.x, p.y);
+          if (perp < (isMax ? 32 : 20) * area) this.damageEnemy(e, dmg * specialBonus, p.x, p.y);
         }
       }
       this.sfx.play('thrust');
       this.spawnThrust(p.x, p.y, ang, len, wd ? wd.color : 0xd35f5f);
+      if (isMax) {
+        // Max-Level Iron Pike Special: Triple-Pronged Trident Thrust + Spear-Tip Explosion Detonation!
+        this.spawnThrust(p.x, p.y, ang - 0.16, len * 0.92, 0xffd166);
+        this.spawnThrust(p.x, p.y, ang + 0.16, len * 0.92, 0xffd166);
+        const tipX = p.x + Math.cos(ang) * len * 0.85;
+        const tipY = p.y + Math.sin(ang) * len * 0.85;
+        this.spawnExplosion(tipX, tipY, 0.55, 1.85 * area, 0xff5f5f, 0.3);
+        this.spawnShockwave(tipX, tipY, 0xffae42, 0.38, 1.65 * area, 0.22);
+        const r2 = (75 * area) ** 2;
+        for (const e of this.enemies) {
+          if (e.active && dist2(e.x, e.y, tipX, tipY) <= r2) {
+            this.damageEnemy(e, dmg * 0.65, tipX, tipY);
+          }
+        }
+      }
     } else if (type === 'spin') {
       this.beginAttack(p.direction, 0.34);
+      const specialBonus = isMax ? 1.4 : 1.0;
       for (const e of this.enemies) {
-        if (dist2(e.x,e.y,p.x,p.y) < (110*area)**2) this.damageEnemy(e, dmg, p.x, p.y);
+        if (dist2(e.x,e.y,p.x,p.y) < (110*area)**2) this.damageEnemy(e, dmg * specialBonus, p.x, p.y);
       }
       this.sfx.play('spin');
       this.spawnSpin(p.x, p.y, area, wd ? wd.color : 0xd38f5f);
+      if (isMax) {
+        // Max-Level Sky Halberd Special: Dual Counter-Rotating Whirlwind + 4 Cardinal Heaven-Splitter Explosions!
+        this.spawnSpin(p.x, p.y, area * 1.25, 0xffe066);
+        this.spawnShockwave(p.x, p.y, 0xffaa5f, 0.5, 2.3 * area, 0.28);
+        for (let k = 0; k < 4; k++) {
+          const ka = this.time * 2 + (k * Math.PI) / 2;
+          const ex = p.x + Math.cos(ka) * 72 * area;
+          const ey = p.y + Math.sin(ka) * 72 * area;
+          this.spawnExplosion(ex, ey, 0.45, 1.55, 0xff7b3d, 0.28);
+          for (const e of this.enemies) {
+            if (e.active && dist2(e.x, e.y, ex, ey) <= (68 * area) ** 2) {
+              this.damageEnemy(e, dmg * 0.6, ex, ey);
+            }
+          }
+        }
+      }
     } else if (type === 'projectile' || type === 'magic_bolt') {
       this.sfx.play('shoot');
-      const count = (wd ? 5 : (w.id === 'daggers' ? 2 : 1)) + bonusCount;
-      const pierce = (wd ? 3 : 1) + bonusPierce;
+      const count = (isMax ? 6 : (w.id === 'daggers' ? 2 : 1)) + bonusCount;
+      const pierce = (isMax ? 4 : 1) + bonusPierce;
       const isMagic = type === 'magic_bolt';
       const targets = this.nearestEnemies(p.x, p.y, count);
       const firstAng = targets.length ? angleTo(p.x, p.y, targets[0].x, targets[0].y) : 0;
       this.beginAttack(targets.length ? this.directionFromAngle(firstAng) : p.direction, 0.24);
-      this.spawnSparkBurst(p.x + Math.cos(firstAng) * 12, p.y + Math.sin(firstAng) * 12, firstAng, wd ? wd.color : base.color, 2, 115, 0.65, 0.45);
+      this.spawnSparkBurst(p.x + Math.cos(firstAng) * 12, p.y + Math.sin(firstAng) * 12, firstAng, wd ? wd.color : base.color, isMax ? 5 : 2, 135, 0.75, 0.55);
+      if (isMax && isMagic) {
+        // Max-Level Gale Fan Special: Whirlwind Tempest Ring around warrior!
+        this.spawnSpin(p.x, p.y, area * 1.15, 0xffffff);
+      }
       if (targets.length === 0) {
-        for (let i=0;i<count;i++) this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, wd ? wd.color : base.color, wd, false, pierce, isMagic);
+        for (let i=0;i<count;i++) this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, wd ? wd.color : base.color, wd, false, pierce, isMagic, isMax);
       } else {
         for (let i = 0; i < count; i++) {
           const t = targets[i % targets.length];
           const spread = i >= targets.length ? (i - targets.length + 1) * 0.14 : 0;
           const ang = angleTo(p.x, p.y, t.x, t.y) + spread;
-          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers', pierce, isMagic);
+          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers', pierce, isMagic, isMax);
         }
       }
-      if (isMagic && !wd) {
+      if (isMagic && !isMax) {
         const extraBolts = 1 + Math.floor(stats.delta / 3);
         for (let i = 0; i < extraBolts; i++) {
-          this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, base.color, wd, false, pierce, true);
+          this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, base.color, wd, false, pierce, true, false);
         }
       }
     }
   }
 
-  spawnProjectile(x, y, ang, dmg, area, color, wd, homing=false, pierceOverride=null, isMagic=false) {
+  spawnProjectile(x, y, ang, dmg, area, color, wd, homing=false, pierceOverride=null, isMagic=false, isMaxSpecial=false) {
     const p = this.projPool.acquire();
     p.active = true;
     p.x = x; p.y = y;
-    const speed = 320 * (wd?1.3:1);
+    const speed = 320 * (wd || isMaxSpecial ? 1.32 : 1);
     p.vx = Math.cos(ang) * speed;
     p.vy = Math.sin(ang) * speed;
     p.dmg = dmg;
     p.life = 2.0;
     p.pierce = pierceOverride ?? (wd ? 3 : 1);
-    p.size = 6 * area;
+    p.size = (isMaxSpecial ? 7.5 : 6) * area;
     p.color = color;
     p.homing = homing || (wd && wd.name==='Twin Dragons');
     p.isMagic = isMagic || Boolean(wd);
+    p.isMaxSpecial = Boolean(isMaxSpecial || wd);
     p.fromEnemy = false;
     p.isBoulder = false;
     p.sprite.texture = this.effectTextures.projectile;
-    p.sprite.scale.set(1.0);
+    p.sprite.scale.set(p.isMaxSpecial ? 1.35 : 1.0);
     p.sprite.visible = true;
     p.sprite.tint = color;
     p.sprite.alpha = 1;
@@ -2511,7 +2704,19 @@ export class Game {
         if (pr.hit.has(e)) continue;
         if (dist2(pr.x, pr.y, e.x, e.y) < (pr.size + e.size) ** 2) {
           this.damageEnemy(e, pr.dmg, pr.x - pr.vx * 0.05, pr.y - pr.vy * 0.05);
-          if (pr.isMagic) this.spawnShockwave(e.x, e.y, pr.color, 0.25, 0.9, 0.18);
+          if (pr.isMaxSpecial) {
+            // Max-Level Projectile Special: Explosive Elemental Burst + AoE Splash Damage!
+            this.spawnExplosion(e.x, e.y, 0.36, 1.35, pr.color, 0.22);
+            this.spawnShockwave(e.x, e.y, pr.color, 0.3, 1.3, 0.2);
+            const splashDmg = pr.dmg * 0.45;
+            for (const ne of list) {
+              if (ne !== e && ne.active && dist2(e.x, e.y, ne.x, ne.y) <= 56 * 56) {
+                this.damageEnemy(ne, splashDmg, e.x, e.y);
+              }
+            }
+          } else if (pr.isMagic) {
+            this.spawnShockwave(e.x, e.y, pr.color, 0.25, 0.9, 0.18);
+          }
           pr.hit.add(e);
           pr.pierce--;
           if (pr.pierce <= 0) { pr.life = 0; break; }
@@ -2613,15 +2818,16 @@ export class Game {
       }
       return;
     }
-    // 9 Distinct Stage & Map Boss Attack Patterns!
+    // 9 Distinct Stage & Map Boss Attack Patterns (with reduced, fair projectile damage)!
     const pat = e.bossPattern || 'thunder_nova';
     const col = e.color || 0xff5f5f;
+    const bDmg = Math.max(3, Math.round(e.dmg * 0.68));
     if (pat === 'cleave') {
       e.x += Math.cos(baseAng) * 26;
       e.y += Math.sin(baseAng) * 26;
       this.spawnSlash(e.x, e.y, col, 1.2, baseAng);
       for (let i = -1; i <= 1; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.22, 195, e.dmg, 6, col);
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.22, 185, bDmg, 6, col);
       }
     } else if (pat === 'bomb_barrage') {
       const bx = e.x + Math.cos(baseAng) * 95;
@@ -2629,12 +2835,12 @@ export class Game {
       this.spawnExplosion(bx, by, 0.5, 1.75, 0xff9248, 0.34);
       this.spawnShockwave(bx, by, 0xff6b3d, 0.35, 1.8, 0.25);
       for (let i = -1; i <= 1; i += 2) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.18, 190, e.dmg, 6, 0xff9248);
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.18, 180, bDmg, 6, 0xff9248);
       }
     } else if (pat === 'thunder_nova') {
       this.spawnShockwave(e.x, e.y, 0xf5c84c, 0.35, 1.85, 0.26);
       for (let i = -2; i <= 2; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.2, 205, e.dmg, 6, 0xf5c84c);
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.2, 190, bDmg, 6, 0xf5c84c);
       }
       if (this.enemies.length < 40) this.spawnEnemy('bomber');
     } else if (pat === 'lance_rush') {
@@ -2642,33 +2848,33 @@ export class Game {
       e.y += Math.sin(baseAng) * 38;
       this.spawnThrust(e.x, e.y, baseAng, 95, col);
       for (let i = -1; i <= 1; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.14, 225, e.dmg, 6, col);
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.14, 210, bDmg, 6, col);
       }
     } else if (pat === 'whirlwind_nova') {
       this.spawnSpin(e.x, e.y, 1.15, col);
       for (let i = 0; i < 6; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + (i * Math.PI) / 3, 185, e.dmg, 6, col);
+        this.fireEnemyBolt(e.x, e.y, baseAng + (i * Math.PI) / 3, 175, bDmg, 6, col);
       }
     } else if (pat === 'demon_slam') {
       this.spawnExplosion(e.x, e.y, 0.65, 2.1, 0xff5f5f, 0.36);
       this.shake = Math.max(this.shake, 8);
       for (let i = -2; i <= 2; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.24, 210, e.dmg, 7, 0xff5f5f);
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.24, 195, bDmg, 7, 0xff5f5f);
       }
     } else if (pat === 'arrow_rain') {
       for (let i = -2; i <= 2; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.15, 230, e.dmg, 5, 0x5ca8ff);
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.15, 215, bDmg, 5, 0x5ca8ff);
       }
     } else if (pat === 'tidal_ring') {
       this.spawnShockwave(e.x, e.y, 0x7cb8ff, 0.4, 2.0, 0.28);
       for (let i = 0; i < 8; i++) {
-        this.fireEnemyBolt(e.x, e.y, (i * Math.PI) / 4 + this.time, 190, e.dmg, 6, 0x7cb8ff);
+        this.fireEnemyBolt(e.x, e.y, (i * Math.PI) / 4 + this.time, 180, bDmg, 6, 0x7cb8ff);
       }
     } else {
       // imperial_storm (Cao Ren)
       this.spawnExplosion(e.x, e.y, 0.55, 1.9, 0x6b9fff, 0.32);
       for (let i = 0; i < 8; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + (i * Math.PI) / 4, 215, e.dmg, 6, 0x6b9fff);
+        this.fireEnemyBolt(e.x, e.y, baseAng + (i * Math.PI) / 4, 195, bDmg, 6, 0x6b9fff);
       }
       if (this.enemies.length < 40) this.spawnEnemy('shield');
     }
@@ -3599,6 +3805,17 @@ export class Game {
     this.campaignMapContainer.addChild(deployBtn);
   }
 
+  triggerMaxLevelAwakening(titleText, color = 0xf5c84c) {
+    if (!this.player) return;
+    const p = this.player;
+    this.sfx.play('evolve');
+    this.shake = Math.max(this.shake, 12);
+    this.spawnLevelUpVfx(p.x, p.y);
+    this.spawnExplosion(p.x, p.y, 0.65, 2.35, color, 0.36);
+    this.spawnShockwave(p.x, p.y, 0xf5c84c, 0.45, 2.8, 0.3);
+    this.showFloatText(p.x, p.y - 32, `MAX LV AWAKENED: ${titleText.toUpperCase()}!`, 0xffe066);
+  }
+
   describeWeaponUpgrade(w, base) {
     const nextLvl = w.level + 1;
     const isProj = base.type === 'projectile' || base.type === 'magic_bolt';
@@ -3607,8 +3824,8 @@ export class Game {
       ? (isOrbit ? '+1 Rotating Blade/Shield, +15% DMG' : (isProj ? '+1 Projectile, +15% DMG' : '+2 Targets/Reach, +15% DMG'))
       : '+15% DMG, +8% Orbit/Area, -5% CD';
     if (nextLvl === 8) {
-      const passName = PASSIVES[base.pass]?.name || base.pass;
-      return `${bonus} • Max Lv (Evo w/ ${passName})`;
+      const evoSpec = EVOLUTIONS[base.evo];
+      return `${bonus} • AWAKENS ${evoSpec ? evoSpec.name.toUpperCase() : 'ULTIMATE'} SPECIAL!`;
     }
     return bonus;
   }
@@ -3626,8 +3843,17 @@ export class Game {
           name: `${base.name} Lv${nextLvl}`,
           tag: nextLvl === 8 ? 'MAX LV 8' : `LV ${nextLvl}/8`,
           desc: this.describeWeaponUpgrade(w, base),
-          color: base.color,
-          apply: () => { w.level++; this._loadoutDirty = true; },
+          color: nextLvl === 8 ? 0xf5c84c : base.color,
+          apply: () => {
+            w.level++;
+            if (w.level >= 8) {
+              w.evo = true;
+              w.evoId = base.evo;
+              const evoSpec = EVOLUTIONS[base.evo];
+              this.triggerMaxLevelAwakening(evoSpec ? evoSpec.name : base.name, base.color);
+            }
+            this._loadoutDirty = true;
+          },
         });
       }
     }
@@ -3659,10 +3885,18 @@ export class Game {
         pool.push({
           kind:'pass', id, icon:id,
           name: `${p.name} Lv${nextLvl}`,
-          tag: `PASSIVE ${nextLvl}/${p.max}`,
-          desc: pairedWeapon ? `${p.desc} • Evolves ${pairedWeapon.name}` : p.desc,
-          color: p.color,
-          apply: () => { this.passives[id] = nextLvl; this.applyPassive(id); },
+          tag: nextLvl === p.max ? 'MAX SKILL ★' : `PASSIVE ${nextLvl}/${p.max}`,
+          desc: nextLvl === p.max
+            ? `${p.desc} • AWAKENS MASTERED ${p.name.toUpperCase()} NOVA!`
+            : (pairedWeapon ? `${p.desc} • Evolves ${pairedWeapon.name}` : p.desc),
+          color: nextLvl === p.max ? 0xf5c84c : p.color,
+          apply: () => {
+            this.passives[id] = nextLvl;
+            this.applyPassive(id);
+            if (nextLvl >= p.max) {
+              this.triggerMaxLevelAwakening(`${p.name} Mastery`, p.color);
+            }
+          },
         });
       }
     }
@@ -3676,10 +3910,19 @@ export class Game {
         pool.push({
           kind: 'pet', id, icon: id,
           name: lvl === 0 ? `Summon: ${spec.name}` : `${spec.name} Lv${nextLvl}`,
-          tag: lvl === 0 ? 'SUMMON PET' : `PET LV ${nextLvl}/${spec.max}`,
-          desc: lvl === 0 ? `${spec.title} • ${spec.desc}` : `+25% Pet DMG, -8% Pet CD • ${spec.desc}`,
-          color: spec.color,
-          apply: () => { this.summonPet(id); },
+          tag: lvl === 0 ? 'SUMMON PET' : (nextLvl === spec.max ? 'MAX PET ★' : `PET LV ${nextLvl}/${spec.max}`),
+          desc: lvl === 0
+            ? `${spec.title} • ${spec.desc}`
+            : (nextLvl === spec.max
+              ? `+45% Ultimate Pet DMG & Awakened ${spec.name} Special!`
+              : `+25% Pet DMG, -8% Pet CD • ${spec.desc}`),
+          color: nextLvl === spec.max ? 0xf5c84c : spec.color,
+          apply: () => {
+            this.summonPet(id);
+            if (nextLvl >= spec.max) {
+              this.triggerMaxLevelAwakening(`${spec.name} Awakened`, spec.color);
+            }
+          },
         });
       }
     }
