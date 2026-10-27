@@ -2326,8 +2326,8 @@ export class Game {
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(e.x, e.y, x, y) <= blastRadius2) {
-        if (e.isKaiju) {
-          this.showFloatText(e.x, e.y - 28, 'BOMB IMMUNE!', 0x00f5d4);
+        if (e.isKaiju || e.isUfo) {
+          this.showFloatText(e.x, e.y - 28, e.isUfo ? 'UFO IMMUNE!' : 'BOMB IMMUNE!', 0x00f5d4);
           continue;
         }
         this.damageEnemy(e, blastDmg, x, y);
@@ -3313,20 +3313,21 @@ export class Game {
       if (isMax && type === 'magic_bolt') {
         this.spawnSpin(p.x, p.y, area * 1.15, 0xffffff);
       }
+      const isArrow = w.id === 'bow';
       if (targets.length === 0) {
-        for (let i=0;i<count;i++) this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, wd ? wd.color : base.color, wd, false, pierce, isMagic, isMax);
+        for (let i=0;i<count;i++) this.spawnProjectile(p.x, p.y, Math.random()*Math.PI*2, dmg, area, wd ? wd.color : base.color, wd, false, pierce, isMagic, isMax, isArrow);
       } else {
         for (let i = 0; i < count; i++) {
           const t = targets[i % targets.length];
           const spread = i >= targets.length ? (i - targets.length + 1) * 0.12 : 0;
           const ang = angleTo(p.x, p.y, t.x, t.y) + spread;
-          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers' || lvl >= 6, pierce, isMagic, isMax);
+          this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers' || lvl >= 6, pierce, isMagic, isMax, isArrow);
         }
       }
     }
   }
 
-  spawnProjectile(x, y, ang, dmg, area, color, wd, homing=false, pierceOverride=null, isMagic=false, isMaxSpecial=false) {
+  spawnProjectile(x, y, ang, dmg, area, color, wd, homing=false, pierceOverride=null, isMagic=false, isMaxSpecial=false, isArrow=false) {
     const p = this.projPool.acquire();
     p.active = true;
     p.x = x; p.y = y;
@@ -3341,6 +3342,7 @@ export class Game {
     p.homing = homing || (wd && wd.name==='Twin Dragons');
     p.isMagic = isMagic || Boolean(wd);
     p.isMaxSpecial = Boolean(isMaxSpecial || wd);
+    p.isArrow = Boolean(isArrow);
     p.fromEnemy = false;
     p.isBoulder = false;
     p.sprite.texture = this.effectTextures.projectile;
@@ -3387,15 +3389,15 @@ export class Game {
         if (!e.active) continue;
         if (pr.hit.has(e)) continue;
         if (dist2(pr.x, pr.y, e.x, e.y) < (pr.size + e.size) ** 2) {
-          this.damageEnemy(e, pr.dmg, pr.x - pr.vx * 0.05, pr.y - pr.vy * 0.05);
-          if (pr.isMaxSpecial) {
+          this.damageEnemy(e, pr.dmg, pr.x - pr.vx * 0.05, pr.y - pr.vy * 0.05, pr.isArrow);
+          if (pr.isMaxSpecial && (!e.isUfo || pr.isArrow)) {
             // Max-Level Projectile Special: Explosive Elemental Burst + AoE Splash Damage!
             this.spawnExplosion(e.x, e.y, 0.36, 1.35, pr.color, 0.22);
             this.spawnShockwave(e.x, e.y, pr.color, 0.3, 1.3, 0.2);
             const splashDmg = pr.dmg * 0.45;
             for (const ne of list) {
               if (ne !== e && ne.active && dist2(e.x, e.y, ne.x, ne.y) <= 56 * 56) {
-                this.damageEnemy(ne, splashDmg, e.x, e.y);
+                this.damageEnemy(ne, splashDmg, e.x, e.y, false);
               }
             }
           } else if (pr.isMagic) {
@@ -3851,10 +3853,20 @@ export class Game {
     return loss;
   }
 
-  damageEnemy(e, dmg, sx, sy) {
-    // Colossal Kaiju Godzilla Titan has 85% Titan Scales Defence + 0.08s armor tick throttle + 0.045% Max-HP cap
-    // -> requires 2-5 minutes (120s-300s) of sustained player attacks to kill unless Ultraman is summoned!
-    if (e.isKaiju && e.hp > 0) {
+  damageEnemy(e, dmg, sx, sy, isArrow = false) {
+    // Cosmic UFO Saucer is 100% IMMUNE to all weapon damages except Arrows, and Arrows only cause 0.5% damage!
+    if (e.isUfo) {
+      if (!isArrow) {
+        if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
+          this._floatTextThisFrame++;
+          this.showFloatText(e.x, e.y - 12, 'IMMUNE!', 0x38bdf8);
+        }
+        return;
+      }
+      dmg = e.maxHp * 0.005;
+    } else if (e.isKaiju && e.hp > 0) {
+      // Colossal Kaiju Godzilla Titan has 85% Titan Scales Defence + 0.08s armor tick throttle + 0.045% Max-HP cap
+      // -> requires 2-5 minutes (120s-300s) of sustained player attacks to kill unless Ultraman is summoned!
       if ((e._kaijuArmorCd || 0) > 0) return;
       e._kaijuArmorCd = 0.08;
       dmg = Math.min(dmg * 0.15, e.maxHp * 0.00045);
@@ -3872,7 +3884,7 @@ export class Game {
     this.spawnSparkBurst(e.x, e.y, ang, e.color, 1, 135, e.isBoss ? 0.85 : 0.6, 0.5);
     if (this._floatTextThisFrame < 1 && this.textPool.active.length < 6) {
       this._floatTextThisFrame++;
-      this.showFloatText(e.x, e.y - 8, Math.round(dmg).toString(), 0xffffff);
+      this.showFloatText(e.x, e.y - 8, e.isUfo ? '0.5%' : Math.round(dmg).toString(), 0xffffff);
     }
     // 50% HP Boss Warlord Enrage Phase: +14% Speed, +12% DMG, crimson aura, and 2 Halberdier bodyguards!
     if (e.isMapBoss && e.hp > 0 && !e.enraged && e.hp <= e.maxHp * 0.5) {
@@ -4958,10 +4970,10 @@ export class Game {
         s.scaleY = sc;
       }
       // Overhead Health Bar for all on-screen horde enemies, warlord bosses, and Colossal Kaiju Godzilla Titans!
-      if (e.hp > 0 && !e.isBird && Math.abs(e.x - cx) < 360 && Math.abs(e.y - cy) < 500) {
+      if (e.hp > 0 && (!e.isBird || e.isUfo) && Math.abs(e.x - cx) < 360 && Math.abs(e.y - cy) < 500) {
         const ratio = clamp(e.hp / (e.maxHp || 1), 0, 1);
-        const bw = e.isKaiju ? 68 : (e.isBoss ? 36 : 20);
-        const bh = e.isKaiju ? 5 : (e.isBoss ? 4 : 2.5);
+        const bw = e.isKaiju ? 68 : (e.isUfo ? 34 : (e.isBoss ? 36 : 20));
+        const bh = e.isKaiju ? 5 : (e.isUfo ? 3.5 : (e.isBoss ? 4 : 2.5));
         const bx = Math.round(e.x - bw / 2);
         const by = Math.round(e.y - e.size - (e.isKaiju ? 22 : (e.isBoss ? 14 : 9)));
         const barCol = e.isKaiju
