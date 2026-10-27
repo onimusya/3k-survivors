@@ -16,10 +16,13 @@ const PROP_IDS = ['tree', 'pine', 'rock', 'grass', 'mountain', 'banner', 'house'
 const VIGNETTE = new URL('../assets/sprites/ui/vignette.png', import.meta.url).href;
 const ICONS_ATLAS = new URL('../assets/sprites/ui/icons.png', import.meta.url).href;
 const STAGES_ATLAS = new URL('../assets/sprites/ui/stages.png', import.meta.url).href;
+const PETS_ATLAS = new URL('../assets/sprites/pets/pets.png', import.meta.url).href;
+const PET_IDS = ['redhare', 'vermilion', 'white_tiger', 'qilin'];
 const ICON_IDS = [
   'blade', 'spear', 'bow', 'fan', 'halberd', 'daggers',
   'might', 'armor', 'swiftness', 'cooldown', 'area', 'growth', 'heal',
   'sound_on', 'sound_off',
+  'redhare', 'vermilion', 'white_tiger', 'qilin',
 ];
 const EFFECTS = {
   slash: new URL('../assets/sprites/effects/slash.png', import.meta.url).href,
@@ -55,7 +58,10 @@ const ENEMY_FRAME_H = 64;
 const ENEMY_FRAMES = 4;
 const ENEMY_TYPES = [
   'soldier', 'archer', 'cavalry', 'shield', 'assassin',
-  'bomber', 'sorcerer', 'elite', 'boss_huaxiong', 'boss_caoren',
+  'bomber', 'sorcerer',
+  'boss_chengyuanzhi', 'boss_dengmao', 'elite',
+  'boss_huzhen', 'boss_lijue', 'boss_huaxiong',
+  'boss_caimao', 'boss_zhangyun', 'boss_caoren',
 ];
 
 function nearest(texture) {
@@ -159,8 +165,17 @@ export async function loadSpriteAssets() {
     }
     vfx[id] = list;
   }));
+  const petsBase = nearest(await Assets.load(PETS_ATLAS));
+  const pets = {};
+  for (let r = 0; r < PET_IDS.length; r++) {
+    const list = [];
+    for (let c = 0; c < 4; c++) {
+      list.push(frame(petsBase.source, c * 32, r * 32, 32, 32, `pet-${PET_IDS[r]}-${c}`));
+    }
+    pets[PET_IDS[r]] = list;
+  }
 
-  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, stages, effects: effectFrames, vfx, enemyBase };
+  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, stages, effects: effectFrames, vfx, pets, enemyBase };
 }
 
 export const SPRITE_MANIFEST = {

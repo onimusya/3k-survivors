@@ -24,7 +24,7 @@
 <p>Last updated: <span id="lu"></span></p>
 <script>document.getElementById('lu').textContent = new Date().toISOString();</script>
 <div class="cards">
-  <div class="card"><div>Pieces passed</div><div class="v">20 / 20</div></div>
+  <div class="card"><div>Pieces passed</div><div class="v">21 / 21</div></div>
   <div class="card"><div>Current score</div><div class="v">60–61 FPS / 320</div></div>
   <div class="card"><div>Bar (target)</div><div class="v">60 FPS / 300 enemies</div></div>
 </div>
@@ -42,8 +42,9 @@
   <tr><td>Treasure chests</td><td class="state-PASSED">PASSED</td><td>1</td><td>OK</td><td>None</td></tr>
   <tr><td>Buildings (`House`/`Tower`/`Castle`/`Tent`), Weather &amp; Black Bomb</td><td class="state-PASSED">PASSED</td><td>3</td><td>10 Props + 6 Weathers + Bomb</td><td>None</td></tr>
   <tr><td>Campaign maps, levels, bosses &amp; wave HUD</td><td class="state-PASSED">PASSED</td><td>2</td><td>9 Unique Maps + 9 Bosses</td><td>None</td></tr>
-  <tr><td>Campaign Checkpoint Map Screen &amp; 10 Enemy/Boss types</td><td class="state-PASSED">PASSED</td><td>2</td><td>Illustrated 3×3 Map + 10 Types</td><td>None</td></tr>
-  <tr><td>Heroes &amp; Enemies (`Universal LPC`, 64×64 sheets)</td><td class="state-PASSED">PASSED</td><td>2</td><td>6 Heroes + 10 Enemies</td><td>None</td></tr>
+  <tr><td>Campaign Checkpoint Map Screen &amp; 16 Enemy/Boss types</td><td class="state-PASSED">PASSED</td><td>3</td><td>Illustrated 3×3 Map + 9 Bosses</td><td>None</td></tr>
+  <tr><td>Heroes, 9 Bosses &amp; Summon Pet System (`Red Hare`/`Vermilion`/`Tiger`/`Qilin`)</td><td class="state-PASSED">PASSED</td><td>3</td><td>6 Heroes + 9 Bosses + 4 Pets</td><td>None</td></tr>
+  <tr><td>Summon Pet System (4 mythic companions, Lv 1–5)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Orbit + Auto-Attack + HUD</td><td>None</td></tr>
   <tr><td>Pre-game starting perks (3 choices)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Vanguard/Aegis/Windfoot</td><td>None</td></tr>
   <tr><td>HUD + mobile controls</td><td class="state-PASSED">PASSED</td><td>3</td><td>12-slot loadout</td><td>None</td></tr>
   <tr><td>Game-Over summary modal</td><td class="state-PASSED">PASSED</td><td>2</td><td>Portrait + Arsenal</td><td>None</td></tr>
@@ -71,6 +72,7 @@
   <div>[2026-10-27] Built scripts/generate_lpc_sprites.py to composite official Universal LPC Spritesheet Character Generator layers (body, head, expression, legion/plate/leather armor, tabards/frocks, helmets/hoods, capes, shields, and weapons with Three Kingdoms details) into 64×64 4-direction hero sheets (assets/sprites/heroes/*.png) and 10 enemy/boss sheets (assets/sprites/enemies/atlas.png), verified at 60–61 FPS with 306–311 active enemies</div>
   <div>[2026-10-27] Integrated @elevenlabs/elevenlabs-js (scripts/generate_elevenlabs_sfx.mjs, vite.config.js /api/sfx/generate, src/audio.js) and generated 12 Three Kingdoms combat &amp; reward sound effects (slash, thrust, spin, shoot, hit, hurt, bomb, heal, gem, chest, levelup, evolve) via ElevenLabs textToSoundEffects.convert</div>
   <div>[2026-10-27] Added 4 Three Kingdoms building types (house, watchtower, castle, tent with solid obstacle collision) in assets/sprites/terrain/props.png and implemented a 56-particle batched Weather System (clear, rain, thunderstorm with lightning, sandstorm, firestorm embers, winter snow) across all 9 stages</div>
+  <div>[2026-10-27] Expanded Boss roster to 9 unique Universal LPC Bosses (Cheng Yuanzhi, Deng Mao, Zhang Jiao, Hu Zhen, Li Jue, Hua Xiong, Cai Mao, Zhang Yun, Cao Ren) with 9 distinct boss attack patterns, and added the 4-companion Summon Pet System (Red Hare, Vermilion Bird, White Tiger, Jade Qilin in assets/sprites/pets/pets.png) with starting companion summon, Lv 1–5 upgrade cards, and HUD slots</div>
 </div>
 </body>
 </html>

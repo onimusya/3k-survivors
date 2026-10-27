@@ -2,7 +2,7 @@
 
 ## 1. Current Milestone Summary
 - **Milestone:** Phase 2 — Combat Math, Pre-Game Perks & Vampire Survivors HUD/Modal Parity
-- **Pieces Passed:** **20 / 20**
+- **Pieces Passed:** **21 / 21**
 - **Measured Performance:** **60–61 FPS** sustained across 6-second stress windows with **301–381 active enemies** at `1.0×` native render resolution (`2.0×` HiDPI text resolution)
 - **Responsive Viewports Verified:** `390×844` (Mobile Portrait), `844×390` (Mobile Landscape), and `1280×800` (Tablet/Desktop)
 - **Live HTML Dashboard:** [`../progress.html`](../progress.html)
@@ -32,7 +32,8 @@
 | 17 | Multi-res sharp rendering & `scenario-pixel-vfx` sheets | `PASSED` | 2 | `1.0x Res + 7 VFX Sheets` | `scripts/generate_vfx.mjs`, `src/sprites.js`, `src/game.js` (`vfxFrames`, `updateParticles`) |
 | 18 | Buildings (`House`/`Tower`/`Castle`/`Tent`), Weather & Bomb VFX | `PASSED` | 3 | `10 Props + 6 Weathers` | `src/game.js` (`setupProps`, `setupWeather`, `setWeather`, `updateWeather`) |
 | 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
-| 20 | Campaign Checkpoint Map Screen & 10 Enemy/Boss types | `PASSED` | 2 | `Illustrated 3×3 Map + 10 Types` | `src/game.js` (`showCampaignMapModal`, `deployToCheckpoint`), `scripts/generate_sprites.py` |
+| 20 | Campaign Checkpoint Map Screen & 16 Enemy/Boss types | `PASSED` | 3 | `Illustrated 3×3 Map + 9 Bosses` | `src/game.js` (`showCampaignMapModal`, `enemyShoot`), `scripts/generate_lpc_sprites.py` |
+| 21 | Summon Pet System (4 mythic companions, Lv 1–5) | `PASSED` | 1 | `Red Hare / Vermilion / Tiger / Qilin` | `src/data.js` (`PETS`), `src/game.js` (`summonPet`, `updatePets`, `renderPets`), `scripts/generate_sprites.py` |
 
 ---
 
@@ -101,3 +102,6 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
 - **`[2026-10-27]` Three Kingdoms Buildings & Dynamic Stage Weather System:**
   - Expanded `assets/sprites/terrain/props.png` (`scripts/generate_sprites.py`) from 6 to 10 props by adding 4 pixel-art building types: **Village House** (`house`, `r=24`), **Archer Watchtower** (`watchtower`, `r=22`), **Fortress Castle Keep** (`castle`, `r=28`), and **War Pavilion Tent** (`tent`, `r=21`), all with solid circular obstacle collision in `setupProps()`.
   - Added `WEATHER_TYPES` (`clear`, `rain`, `storm`, `sandstorm`, `embers`, `snow`) in `src/data.js` and built a 56-particle batched `weatherLayer` (`setupWeather`, `setWeather`, `updateWeather`) in `src/game.js` with periodic lightning flashes during thunderstorms, sustaining **60–61 FPS** with 310+ active enemies.
+- **`[2026-10-27]` 9 Unique Stage Bosses & 4-Companion Summon Pet System:**
+  - Expanded `scripts/generate_lpc_sprites.py` and `assets/sprites/enemies/atlas.png` (`256×1024`, 16 rows) so all 9 stages (`1-1` through `3-3`) feature their own unique Universal LPC Boss sprite (**Cheng Yuanzhi**, **Deng Mao**, **Zhang Jiao**, **Hu Zhen**, **Li Jue**, **Hua Xiong**, **Cai Mao**, **Zhang Yun**, **Cao Ren**) and custom boss attack pattern (`cleave`, `bomb_barrage`, `thunder_nova`, `lance_rush`, `whirlwind_nova`, `demon_slam`, `arrow_rain`, `tidal_ring`, `imperial_storm`) in `enemyShoot()`.
+  - Added `PETS` in `src/data.js` and `assets/sprites/pets/pets.png` (`4×4` `32×32` frames) for **Red Hare** (trampling charge + explosion), **Vermilion Bird** (homing phoenix fireballs), **White Tiger** (frost-claw pounce slash), and **Jade Qilin** (celestial lightning + periodic `+HP` heal), complete with starting companion summons, Lv 1–5 Level-Up cards, and HUD loadout slots.

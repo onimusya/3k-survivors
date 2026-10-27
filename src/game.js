@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, PETS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -30,6 +30,8 @@ export class Game {
     this.world.addChild(this.enemyLayer);
     this.playerLayer = new Container();
     this.world.addChild(this.playerLayer);
+    this.petLayer = new Container();
+    this.world.addChild(this.petLayer);
     this.projLayer = new Container();
     this.gemLayer = new Container();
     this.itemLayer = new Container();
@@ -77,6 +79,7 @@ export class Game {
     this.currentWave = 1;
     this.stageBoss = null;
     this.weapons = []; // {id, level, ...}
+    this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
     this.passives = {}; // id -> level
     this.xp = 0;
     this.level = 1;
@@ -183,6 +186,7 @@ export class Game {
     this.propTextures = this.assets.props;
     this.stageTextures = this.assets.stages;
     this.vfxFrames = this.assets.vfx;
+    this.petTextures = this.assets.pets;
 
     this.appEl = document.getElementById('app');
     if (this.appEl) {
@@ -675,6 +679,11 @@ export class Game {
       this.releaseParticle(pt);
     }
     this.particles.length = 0;
+    for (const pt of this.pets) {
+      if (pt.sprite) pt.sprite.destroy();
+      if (pt.shadow) pt.shadow.destroy();
+    }
+    this.pets.length = 0;
 
     this.time = 0;
     this.itemTimer = 14;
@@ -719,6 +728,15 @@ export class Game {
     this._loadoutDirty = true;
     this.camX = 0; this.camY = 0;
     this.setupProps();
+    const heroPetMap = {
+      guanyu: 'redhare',
+      lubu: 'redhare',
+      zhangfei: 'white_tiger',
+      sunshangxiang: 'white_tiger',
+      zhaoyun: 'vermilion',
+      zhugeliang: 'qilin',
+    };
+    this.summonPet(heroPetMap[this.hero.id] || 'redhare');
     this.spawnItem('heart', -110, -75);
     this.spawnItem('bomb', 120, -65);
   }
@@ -1158,20 +1176,23 @@ export class Game {
       }
     }
 
-    const passKeys = Object.keys(this.passives).filter((k) => this.passives[k] > 0);
+    const rightItems = [
+      ...this.pets.map((pt) => ({ id: pt.id, color: pt.spec.color, level: pt.level })),
+      ...Object.keys(this.passives)
+        .filter((k) => this.passives[k] > 0)
+        .map((k) => ({ id: k, color: PASSIVES[k].color, level: this.passives[k] })),
+    ];
     const passStartX = startX + 6 * step - (step - slotSize) + groupGap;
     for (let i = 0; i < 6; i++) {
       const sx = passStartX + i * step;
       const item = this.hudSlotItems[6 + i];
-      const pid = passKeys[i];
-      if (pid) {
-        const pdef = PASSIVES[pid];
-        const plvl = this.passives[pid];
+      const entry = rightItems[i];
+      if (entry) {
         bg.rect(sx, slotY, slotSize, slotSize)
           .fill({ color:0x131d28, alpha:0.96 })
-          .stroke({ color:pdef.color, width:1.5, alpha:0.95 });
-        if (this.iconTextures?.[pid]) {
-          item.icon.texture = this.iconTextures[pid];
+          .stroke({ color:entry.color, width:1.5, alpha:0.95 });
+        if (this.iconTextures?.[entry.id]) {
+          item.icon.texture = this.iconTextures[entry.id];
           item.icon.x = sx + 3;
           item.icon.y = slotY + 2;
           item.icon.visible = true;
@@ -1180,7 +1201,7 @@ export class Game {
         }
         bg.rect(sx + slotSize - 10, slotY + slotSize - 10, 10, 10)
           .fill({ color:0x05080d, alpha:0.95 });
-        const lbl = `${plvl}`;
+        const lbl = `${entry.level}`;
         if (item.badge.text !== lbl) item.badge.text = lbl;
         item.badge.tint = 0xffffff;
         item.badge.x = sx + slotSize - 5;
@@ -1379,6 +1400,7 @@ export class Game {
     // weapons auto attack
     this.handleWeapons(dt);
     if (p.attackTimer > 0) p.attackTimer = Math.max(0, p.attackTimer - dt);
+    this.updatePets(dt);
 
     // projectiles
     this.updateProjectiles(dt);
@@ -1407,6 +1429,7 @@ export class Game {
 
     // render
     this.renderPlayer();
+    this.renderPets();
     this.renderEnemies();
     this.renderProjectiles();
     this.renderGems();
@@ -1714,6 +1737,7 @@ export class Game {
     e.isBoss = true;
     e.isMapBoss = true;
     e.bossName = b.name;
+    e.bossPattern = b.pattern || 'thunder_nova';
     e.hitFlash = 0; e.knock = 0; e.kx = 0; e.ky = 0;
     this.enemies.push(e);
     return e;
@@ -1727,6 +1751,151 @@ export class Game {
         w.cdTimer = stats.cd;
         this.fireWeapon(w, stats);
       }
+    }
+  }
+
+  summonPet(id) {
+    const spec = PETS[id];
+    if (!spec) return null;
+    const existing = this.pets.find((pt) => pt.id === id);
+    if (existing) {
+      existing.level = Math.min(spec.max || 5, existing.level + 1);
+      this._loadoutDirty = true;
+      if (this.player) {
+        this.spawnLevelUpVfx(existing.x, existing.y);
+        this.showFloatText(existing.x, existing.y - 16, `${spec.name.toUpperCase()} LV${existing.level}!`, spec.color);
+      }
+      return existing;
+    }
+    const shadow = new Graphics();
+    shadow.ellipse(0, 10, 10, 4).fill({ color: 0x000000, alpha: 0.35 });
+    this.petLayer.addChild(shadow);
+    const texList = this.petTextures?.[id] || [this.effectTextures.impact];
+    const sprite = new Sprite(texList[0]);
+    sprite.anchor.set(0.5, 0.6);
+    sprite.scale.set(1.25);
+    this.petLayer.addChild(sprite);
+    const initAng = (this.pets.length * Math.PI) / 2;
+    const px = (this.player?.x || 0) + Math.cos(initAng) * 44;
+    const py = (this.player?.y || 0) + Math.sin(initAng) * 34;
+    const pet = {
+      id,
+      level: 1,
+      spec,
+      x: px,
+      y: py,
+      lungeX: 0,
+      lungeY: 0,
+      cdTimer: 0.5,
+      healTimer: 7.0,
+      frame: 0,
+      sprite,
+      shadow,
+    };
+    this.pets.push(pet);
+    this._loadoutDirty = true;
+    return pet;
+  }
+
+  updatePets(dt) {
+    if (!this.pets.length || !this.player) return;
+    const p = this.player;
+    const count = this.pets.length;
+    for (let i = 0; i < count; i++) {
+      const pt = this.pets[i];
+      const spec = pt.spec;
+      const orbitAng = this.time * 2.0 + (i * Math.PI * 2) / count;
+      const targetX = p.x + Math.cos(orbitAng) * 44 + pt.lungeX;
+      const targetY = p.y + Math.sin(orbitAng) * 34 + pt.lungeY;
+      pt.x += (targetX - pt.x) * Math.min(1, dt * 10);
+      pt.y += (targetY - pt.y) * Math.min(1, dt * 10);
+      pt.lungeX *= Math.pow(0.04, dt);
+      pt.lungeY *= Math.pow(0.04, dt);
+
+      if (pt.id === 'qilin') {
+        pt.healTimer -= dt;
+        if (pt.healTimer <= 0) {
+          pt.healTimer = 7.5;
+          if (p.hp < p.maxHp) {
+            const healAmt = 4 + pt.level * 2;
+            p.hp = Math.min(p.maxHp, p.hp + healAmt);
+            this.spawnHealVfx(p.x, p.y);
+            this.showFloatText(p.x, p.y - 18, `+${healAmt} QILIN`, 0x6bffb0);
+          }
+        }
+      }
+
+      pt.cdTimer -= dt;
+      if (pt.cdTimer <= 0) {
+        const cdScale = Math.pow(0.92, pt.level - 1) * (p.cdMul || 1);
+        pt.cdTimer = Math.max(0.45, spec.cd * cdScale);
+        const dmg = spec.dmg * (1 + (pt.level - 1) * 0.25) * (p.dmgMul || 1);
+        const ne = this.nearestEnemy(pt.x, pt.y);
+        if (!ne || dist2(pt.x, pt.y, ne.x, ne.y) > spec.range * spec.range) continue;
+        const ang = angleTo(pt.x, pt.y, ne.x, ne.y);
+
+        if (pt.id === 'redhare') {
+          pt.lungeX = Math.cos(ang) * 46;
+          pt.lungeY = Math.sin(ang) * 46;
+          this.spawnExplosion(ne.x, ne.y, 0.45, 1.35, 0xff6b52, 0.28);
+          this.spawnSparkBurst(ne.x, ne.y, ang, 0xffd166, 4, 160, 0.75, 0.8);
+          const r2 = 68 * 68;
+          for (const e of this.enemies) {
+            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= r2) {
+              this.damageEnemy(e, dmg, pt.x, pt.y);
+            }
+          }
+        } else if (pt.id === 'vermilion') {
+          const shots = 1 + Math.floor(pt.level / 3);
+          for (let s = 0; s < shots; s++) {
+            const sa = ang + (s - (shots - 1) / 2) * 0.22;
+            this.spawnProjectile(pt.x, pt.y, sa, dmg, 1.15, 0xffae42, null, true, 2, true);
+          }
+          this.spawnSparkBurst(pt.x, pt.y, ang, 0xffae42, 2, 130, 0.65, 0.5);
+        } else if (pt.id === 'white_tiger') {
+          pt.lungeX = Math.cos(ang) * 52;
+          pt.lungeY = Math.sin(ang) * 52;
+          this.spawnSlash(ne.x, ne.y, 0x7ce8ff, 0.95, ang);
+          let hits = 0;
+          const maxHits = 2 + pt.level;
+          for (const e of this.enemies) {
+            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= 64 * 64) {
+              this.damageEnemy(e, dmg, pt.x, pt.y);
+              if (++hits >= maxHits) break;
+            }
+          }
+        } else if (pt.id === 'qilin') {
+          this.spawnLevelUpVfx(ne.x, ne.y);
+          this.spawnShockwave(ne.x, ne.y, 0x6bffb0, 0.3, 1.35, 0.22);
+          let hits = 0;
+          const maxHits = 2 + pt.level;
+          for (const e of this.enemies) {
+            if (e.active && dist2(e.x, e.y, ne.x, ne.y) <= 80 * 80) {
+              this.damageEnemy(e, dmg, pt.x, pt.y);
+              if (++hits >= maxHits) break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  renderPets() {
+    const frame = Math.floor(this.animTime * 8) % 4;
+    for (let i = 0; i < this.pets.length; i++) {
+      const pt = this.pets[i];
+      const texList = this.petTextures?.[pt.id];
+      if (texList && pt.frame !== frame) {
+        pt.frame = frame;
+        pt.sprite.texture = texList[frame];
+      }
+      const bob = Math.sin(this.animTime * 7 + i * 1.5) * 2.5;
+      pt.shadow.x = Math.round(pt.x);
+      pt.shadow.y = Math.round(pt.y);
+      pt.sprite.x = Math.round(pt.x);
+      pt.sprite.y = Math.round(pt.y + bob);
+      const sc = 1.2 + (pt.level - 1) * 0.06;
+      pt.sprite.scale.set(pt.x < (this.player?.x || 0) ? sc : -sc, sc);
     }
   }
 
@@ -1926,29 +2095,97 @@ export class Game {
   enemyShoot(e) {
     const p = this.player;
     const baseAng = angleTo(e.x, e.y, p.x, p.y);
-    const isSorcerer = e.type === 'sorcerer';
-    const shots = e.isMapBoss ? 3 : (isSorcerer ? 2 : 1);
-    const spread = e.isMapBoss ? 0.24 : 0.18;
-    const col = e.isMapBoss ? (e.color || 0xff5f5f) : (isSorcerer ? 0xc77dff : 0xffaa5f);
-    const spd = e.isMapBoss ? 205 : (isSorcerer ? 165 : 180);
-    for (let i = 0; i < shots; i++) {
-      const ang = baseAng + (i - (shots - 1) / 2) * spread;
-      const pr = this.projPool.acquire();
-      pr.active = true;
-      pr.x = e.x; pr.y = e.y;
-      pr.vx = Math.cos(ang) * spd;
-      pr.vy = Math.sin(ang) * spd;
-      pr.dmg = e.dmg;
-      pr.life = 2.5;
-      pr.pierce = 1;
-      pr.size = e.isMapBoss ? 6 : 5;
-      pr.color = col;
-      pr.homing = false;
-      pr.fromEnemy = true;
-      pr.sprite.visible = true;
-      pr.sprite.tint = col;
-      this.projectiles.push(pr);
+    if (!e.isMapBoss) {
+      const isSorcerer = e.type === 'sorcerer';
+      const shots = isSorcerer ? 2 : 1;
+      const spread = 0.18;
+      const col = isSorcerer ? 0xc77dff : 0xffaa5f;
+      const spd = isSorcerer ? 165 : 180;
+      for (let i = 0; i < shots; i++) {
+        const ang = baseAng + (i - (shots - 1) / 2) * spread;
+        this.fireEnemyBolt(e.x, e.y, ang, spd, e.dmg, 5, col);
+      }
+      return;
     }
+
+    // 9 Distinct Stage & Map Boss Attack Patterns!
+    const pat = e.bossPattern || 'thunder_nova';
+    const col = e.color || 0xff5f5f;
+    if (pat === 'cleave') {
+      e.x += Math.cos(baseAng) * 26;
+      e.y += Math.sin(baseAng) * 26;
+      this.spawnSlash(e.x, e.y, col, 1.2, baseAng);
+      for (let i = -1; i <= 1; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.22, 195, e.dmg, 6, col);
+      }
+    } else if (pat === 'bomb_barrage') {
+      const bx = e.x + Math.cos(baseAng) * 95;
+      const by = e.y + Math.sin(baseAng) * 95;
+      this.spawnExplosion(bx, by, 0.5, 1.75, 0xff9248, 0.34);
+      this.spawnShockwave(bx, by, 0xff6b3d, 0.35, 1.8, 0.25);
+      for (let i = -1; i <= 1; i += 2) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.18, 190, e.dmg, 6, 0xff9248);
+      }
+    } else if (pat === 'thunder_nova') {
+      this.spawnShockwave(e.x, e.y, 0xf5c84c, 0.35, 1.85, 0.26);
+      for (let i = -2; i <= 2; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.2, 205, e.dmg, 6, 0xf5c84c);
+      }
+      if (this.enemies.length < 40) this.spawnEnemy('bomber');
+    } else if (pat === 'lance_rush') {
+      e.x += Math.cos(baseAng) * 38;
+      e.y += Math.sin(baseAng) * 38;
+      this.spawnThrust(e.x, e.y, baseAng, 95, col);
+      for (let i = -1; i <= 1; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.14, 225, e.dmg, 6, col);
+      }
+    } else if (pat === 'whirlwind_nova') {
+      this.spawnSpin(e.x, e.y, 1.15, col);
+      for (let i = 0; i < 6; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + (i * Math.PI) / 3, 185, e.dmg, 6, col);
+      }
+    } else if (pat === 'demon_slam') {
+      this.spawnExplosion(e.x, e.y, 0.65, 2.1, 0xff5f5f, 0.36);
+      this.shake = Math.max(this.shake, 8);
+      for (let i = -2; i <= 2; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.24, 210, e.dmg, 7, 0xff5f5f);
+      }
+    } else if (pat === 'arrow_rain') {
+      for (let i = -2; i <= 2; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.15, 230, e.dmg, 5, 0x5ca8ff);
+      }
+    } else if (pat === 'tidal_ring') {
+      this.spawnShockwave(e.x, e.y, 0x7cb8ff, 0.4, 2.0, 0.28);
+      for (let i = 0; i < 8; i++) {
+        this.fireEnemyBolt(e.x, e.y, (i * Math.PI) / 4 + this.time, 190, e.dmg, 6, 0x7cb8ff);
+      }
+    } else {
+      // imperial_storm (Cao Ren)
+      this.spawnExplosion(e.x, e.y, 0.55, 1.9, 0x6b9fff, 0.32);
+      for (let i = 0; i < 8; i++) {
+        this.fireEnemyBolt(e.x, e.y, baseAng + (i * Math.PI) / 4, 215, e.dmg, 6, 0x6b9fff);
+      }
+      if (this.enemies.length < 40) this.spawnEnemy('shield');
+    }
+  }
+
+  fireEnemyBolt(x, y, ang, spd, dmg, size, col) {
+    if (this.projectiles.length >= 36) return;
+    const pr = this.projPool.acquire();
+    pr.active = true;
+    pr.x = x; pr.y = y;
+    pr.vx = Math.cos(ang) * spd;
+    pr.vy = Math.sin(ang) * spd;
+    pr.dmg = dmg;
+    pr.life = 2.5;
+    pr.pierce = 1;
+    pr.size = size;
+    pr.color = col;
+    pr.homing = false;
+    pr.fromEnemy = true;
+    pr.sprite.visible = true;
+    pr.sprite.tint = col;
+    this.projectiles.push(pr);
   }
 
   // override projectile collision for enemy bullets
@@ -2729,6 +2966,23 @@ export class Game {
         });
       }
     }
+    // summon pets & pet upgrades
+    for (const id in PETS) {
+      const spec = PETS[id];
+      const existing = this.pets.find((pt) => pt.id === id);
+      const lvl = existing ? existing.level : 0;
+      if (lvl < spec.max) {
+        const nextLvl = lvl + 1;
+        pool.push({
+          kind: 'pet', id, icon: id,
+          name: lvl === 0 ? `Summon: ${spec.name}` : `${spec.name} Lv${nextLvl}`,
+          tag: lvl === 0 ? 'SUMMON PET' : `PET LV ${nextLvl}/${spec.max}`,
+          desc: lvl === 0 ? `${spec.title} • ${spec.desc}` : `+25% Pet DMG, -8% Pet CD • ${spec.desc}`,
+          color: spec.color,
+          apply: () => { this.summonPet(id); },
+        });
+      }
+    }
     // shuffle
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -3141,7 +3395,8 @@ export class Game {
       this._lastHudText = heroText;
       this.hudText.text = heroText;
     }
-    const perkText = this.perk ? `★ PERK: ${this.perk.short}` : '';
+    const petTag = this.pets.length ? ` · PET: ${this.pets[0].spec.name.split(' ')[0].toUpperCase()} LV${this.pets[0].level}${this.pets.length > 1 ? `+${this.pets.length - 1}` : ''}` : '';
+    const perkText = this.perk ? `★ ${this.perk.short}${petTag}` : petTag;
     if (perkText !== this._lastHudPerk) {
       this._lastHudPerk = perkText;
       this.hudPerk.text = perkText;

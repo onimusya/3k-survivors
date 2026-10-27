@@ -72,6 +72,29 @@ export const PASSIVES = {
   growth: { name:'Growth', color:0xffff6b, stat:'xpMul', val:0.1, max:5, desc:'+10% XP' },
 };
 
+export const PETS = {
+  redhare: {
+    id: 'redhare', name: 'Red Hare', title: 'Flame Warhorse',
+    color: 0xff6b52, dmg: 22, cd: 1.5, range: 165, max: 5,
+    desc: 'Charges through nearby foes dealing trampling AoE damage',
+  },
+  vermilion: {
+    id: 'vermilion', name: 'Vermilion Bird', title: 'Fire Phoenix',
+    color: 0xffae42, dmg: 18, cd: 1.3, range: 280, max: 5,
+    desc: 'Fires explosive phoenix fireballs at nearby enemies',
+  },
+  white_tiger: {
+    id: 'white_tiger', name: 'White Tiger', title: 'Frost Fang',
+    color: 0x7ce8ff, dmg: 26, cd: 1.15, range: 175, max: 5,
+    desc: 'Pounces on priority foes with rapid frost-claw slashes',
+  },
+  qilin: {
+    id: 'qilin', name: 'Jade Qilin', title: 'Celestial Stag',
+    color: 0x6bffb0, dmg: 20, cd: 1.4, range: 240, max: 5,
+    desc: 'Strikes foes with celestial lightning & heals +4 HP periodically',
+  },
+};
+
 export const ENEMY_TYPES = {
   soldier: { name:'Militia Spearman', color:0x7a8a9a, hp:8, speed:60, dmg:6, size:14, xp:1, weight:50 },
   archer: { name:'Crossbow Scout', color:0x5a8a62, hp:6, speed:52, dmg:8, size:13, xp:2, weight:20, ranged:true },
@@ -80,9 +103,15 @@ export const ENEMY_TYPES = {
   assassin: { name:'Shadow Nightblade', color:0xc83e5b, hp:10, speed:128, dmg:11, size:13, xp:3, weight:15 },
   bomber: { name:'Firebrand Zealot', color:0xe8682c, hp:12, speed:86, dmg:15, size:14, xp:3, weight:14, explosive:true },
   sorcerer: { name:'Taoist Mystic', color:0x9b62d8, hp:14, speed:48, dmg:12, size:14, xp:4, weight:14, ranged:true },
-  elite: { name:'Zhang Jiao', color:0xd4a017, hp:85, speed:72, dmg:18, size:22, xp:20, weight:0, boss:true },
-  boss_huaxiong: { name:'Hua Xiong', color:0xff5f5f, hp:120, speed:80, dmg:24, size:24, xp:30, weight:0, boss:true },
-  boss_caoren: { name:'Cao Ren', color:0x6b9fff, hp:160, speed:86, dmg:30, size:25, xp:40, weight:0, boss:true },
+  boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:14, size:22, xp:22, weight:0, boss:true },
+  boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:17, size:22, xp:25, weight:0, boss:true },
+  elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:20, size:23, xp:30, weight:0, boss:true },
+  boss_huzhen: { name:'Hu Zhen', color:0xe66756, hp:135, speed:78, dmg:22, size:23, xp:32, weight:0, boss:true },
+  boss_lijue: { name:'Li Jue', color:0xff784f, hp:150, speed:82, dmg:25, size:24, xp:35, weight:0, boss:true },
+  boss_huaxiong: { name:'Hua Xiong', color:0xff5f5f, hp:170, speed:84, dmg:28, size:24, xp:40, weight:0, boss:true },
+  boss_caimao: { name:'Cai Mao', color:0x5ca8ff, hp:185, speed:84, dmg:30, size:24, xp:42, weight:0, boss:true },
+  boss_zhangyun: { name:'Zhang Yun', color:0x7cb8ff, hp:205, speed:88, dmg:33, size:25, xp:45, weight:0, boss:true },
+  boss_caoren: { name:'Cao Ren', color:0x6b9fff, hp:230, speed:90, dmg:36, size:25, xp:50, weight:0, boss:true },
 };
 
 export const LEVEL_XP = (lvl) => Math.floor(20 * Math.pow(1.15, lvl - 1));
@@ -112,7 +141,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#263820', layoutPattern: 'glade', weather: 'clear',
         propOrder: ['house', 'tree', 'grass', 'house', 'rock', 'tree', 'banner', 'house', 'grass', 'watchtower', 'grass', 'tree'],
         enemies: ['soldier', 'soldier', 'archer'],
-        levelBoss: { name: 'Cheng Yuanzhi', title: 'Rebel Vanguard', spriteType: 'elite', hp: 130, dmg: 14, speed: 68, color: 0xe2b04a, scale: 1.55 },
+        levelBoss: { name: 'Cheng Yuanzhi', title: 'Rebel Vanguard', spriteType: 'boss_chengyuanzhi', pattern: 'cleave', hp: 130, dmg: 14, speed: 68, color: 0xe2b04a, scale: 1.55 },
       },
       {
         level: 2, name: 'Granary Siege', waves: 3, waveDuration: 20,
@@ -120,7 +149,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#3d311a', layoutPattern: 'fortress', weather: 'rain',
         propOrder: ['house', 'watchtower', 'tent', 'banner', 'rock', 'house', 'watchtower', 'grass', 'tent', 'rock', 'tree', 'banner'],
         enemies: ['soldier', 'shield', 'archer', 'bomber'],
-        levelBoss: { name: 'Deng Mao', title: 'Siege Captain', spriteType: 'elite', hp: 175, dmg: 17, speed: 72, color: 0xe8833a, scale: 1.65 },
+        levelBoss: { name: 'Deng Mao', title: 'Siege Captain', spriteType: 'boss_dengmao', pattern: 'bomb_barrage', hp: 175, dmg: 17, speed: 72, color: 0xe8833a, scale: 1.65 },
       },
       {
         level: 3, name: 'Altar of Heaven', waves: 3, waveDuration: 20,
@@ -128,7 +157,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#362244', layoutPattern: 'ring', weather: 'storm',
         propOrder: ['castle', 'watchtower', 'banner', 'pine', 'tent', 'watchtower', 'castle', 'rock', 'banner', 'pine', 'mountain', 'tent'],
         enemies: ['shield', 'bomber', 'sorcerer', 'cavalry'],
-        levelBoss: { name: 'Zhang Jiao', title: 'Heaven General', spriteType: 'elite', hp: 220, dmg: 20, speed: 75, color: 0xf5c84c, scale: 1.75 },
+        levelBoss: { name: 'Zhang Jiao', title: 'Heaven General', spriteType: 'elite', pattern: 'thunder_nova', hp: 220, dmg: 20, speed: 75, color: 0xf5c84c, scale: 1.75 },
       },
     ],
   },
@@ -147,7 +176,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#3e2418', layoutPattern: 'corridor', weather: 'sandstorm',
         propOrder: ['castle', 'watchtower', 'rock', 'banner', 'mountain', 'tent', 'watchtower', 'rock', 'castle', 'banner', 'pine', 'rock'],
         enemies: ['shield', 'archer', 'cavalry', 'soldier'],
-        levelBoss: { name: 'Hu Zhen', title: 'Gate Commander', spriteType: 'boss_huaxiong', hp: 280, dmg: 22, speed: 78, color: 0xe66756, scale: 1.65 },
+        levelBoss: { name: 'Hu Zhen', title: 'Gate Commander', spriteType: 'boss_huzhen', pattern: 'lance_rush', hp: 280, dmg: 22, speed: 78, color: 0xe66756, scale: 1.65 },
       },
       {
         level: 2, name: 'Iron Ramparts', waves: 3, waveDuration: 22,
@@ -155,7 +184,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#461e1a', layoutPattern: 'fortress', weather: 'embers',
         propOrder: ['castle', 'watchtower', 'tent', 'rock', 'castle', 'banner', 'watchtower', 'mountain', 'tent', 'banner', 'rock', 'castle'],
         enemies: ['shield', 'assassin', 'bomber', 'cavalry'],
-        levelBoss: { name: 'Li Jue', title: 'Iron Enforcer', spriteType: 'boss_huaxiong', hp: 350, dmg: 25, speed: 82, color: 0xff784f, scale: 1.75 },
+        levelBoss: { name: 'Li Jue', title: 'Iron Enforcer', spriteType: 'boss_lijue', pattern: 'whirlwind_nova', hp: 350, dmg: 25, speed: 82, color: 0xff784f, scale: 1.75 },
       },
       {
         level: 3, name: 'Warlord Bastion', waves: 3, waveDuration: 22,
@@ -163,7 +192,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#52161a', layoutPattern: 'ring', weather: 'storm',
         propOrder: ['castle', 'watchtower', 'banner', 'tent', 'castle', 'mountain', 'watchtower', 'banner', 'castle', 'tent', 'mountain', 'rock'],
         enemies: ['shield', 'assassin', 'sorcerer', 'cavalry', 'bomber'],
-        levelBoss: { name: 'Hua Xiong', title: 'Demon Vanguard', spriteType: 'boss_huaxiong', hp: 420, dmg: 28, speed: 84, color: 0xff5f5f, scale: 1.85 },
+        levelBoss: { name: 'Hua Xiong', title: 'Demon Vanguard', spriteType: 'boss_huaxiong', pattern: 'demon_slam', hp: 420, dmg: 28, speed: 84, color: 0xff5f5f, scale: 1.85 },
       },
     ],
   },
@@ -182,7 +211,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#183442', layoutPattern: 'glade', weather: 'snow',
         propOrder: ['house', 'watchtower', 'pine', 'rock', 'house', 'grass', 'watchtower', 'pine', 'tent', 'banner', 'grass', 'rock'],
         enemies: ['archer', 'assassin', 'sorcerer', 'soldier'],
-        levelBoss: { name: 'Cai Mao', title: 'Fleet Admiral', spriteType: 'boss_caoren', hp: 480, dmg: 30, speed: 84, color: 0x5ca8ff, scale: 1.75 },
+        levelBoss: { name: 'Cai Mao', title: 'Fleet Admiral', spriteType: 'boss_caimao', pattern: 'arrow_rain', hp: 480, dmg: 30, speed: 84, color: 0x5ca8ff, scale: 1.75 },
       },
       {
         level: 2, name: 'Chained Armada', waves: 3, waveDuration: 24,
@@ -190,7 +219,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#1c2848', layoutPattern: 'corridor', weather: 'rain',
         propOrder: ['watchtower', 'tent', 'banner', 'rock', 'castle', 'watchtower', 'banner', 'tent', 'pine', 'watchtower', 'rock', 'banner'],
         enemies: ['shield', 'bomber', 'sorcerer', 'assassin'],
-        levelBoss: { name: 'Zhang Yun', title: 'Naval Vanguard', spriteType: 'boss_caoren', hp: 580, dmg: 33, speed: 88, color: 0x7cb8ff, scale: 1.85 },
+        levelBoss: { name: 'Zhang Yun', title: 'Naval Vanguard', spriteType: 'boss_zhangyun', pattern: 'tidal_ring', hp: 580, dmg: 33, speed: 88, color: 0x7cb8ff, scale: 1.85 },
       },
       {
         level: 3, name: 'Crimson Flagship', waves: 3, waveDuration: 24,
@@ -198,7 +227,7 @@ export const CAMPAIGN_MAPS = [
         bgColor: '#341a46', layoutPattern: 'ring', weather: 'embers',
         propOrder: ['castle', 'watchtower', 'tent', 'banner', 'castle', 'watchtower', 'mountain', 'banner', 'castle', 'tent', 'watchtower', 'banner'],
         enemies: ['shield', 'assassin', 'bomber', 'sorcerer', 'cavalry'],
-        levelBoss: { name: 'Cao Ren', title: 'Grand Commander', spriteType: 'boss_caoren', hp: 680, dmg: 36, speed: 90, color: 0x6b9fff, scale: 1.95 },
+        levelBoss: { name: 'Cao Ren', title: 'Grand Commander', spriteType: 'boss_caoren', pattern: 'imperial_storm', hp: 680, dmg: 36, speed: 90, color: 0x6b9fff, scale: 1.95 },
       },
     ],
   },

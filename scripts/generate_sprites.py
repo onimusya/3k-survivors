@@ -628,6 +628,7 @@ def make_effects():
         "blade", "spear", "bow", "fan", "halberd", "daggers",
         "might", "armor", "swiftness", "cooldown", "area", "growth", "heal",
         "sound_on", "sound_off",
+        "redhare", "vermilion", "white_tiger", "qilin",
     )
     icons = Image.new("RGBA", (16 * len(icon_ids), 16), (0, 0, 0, 0))
     for idx, kind in enumerate(icon_ids):
@@ -677,6 +678,20 @@ def make_effects():
             polygon(cd, [(2, 6), (5, 6), (9, 3), (9, 13), (5, 10), (2, 10)], (154, 166, 180, 255))
             line(cd, [(11, 5), (15, 11)], (255, 107, 107, 255), width=2)
             line(cd, [(15, 5), (11, 11)], (255, 107, 107, 255), width=2)
+        elif kind == "redhare":
+            polygon(cd, [(3, 12), (5, 5), (10, 3), (13, 6), (11, 10), (13, 13)], (238, 72, 54, 255))
+            line(cd, [(4, 5), (8, 2)], (255, 214, 92, 255), width=2)
+        elif kind == "vermilion":
+            polygon(cd, [(2, 9), (8, 3), (14, 9), (10, 13), (6, 13)], (255, 118, 52, 255))
+            polygon(cd, [(5, 8), (8, 4), (11, 8), (8, 12)], (255, 224, 96, 255))
+        elif kind == "white_tiger":
+            ellipse(cd, (3, 3, 13, 13), (235, 242, 252, 255))
+            cd.rectangle((5, 6, 7, 8), fill=(72, 212, 255, 255))
+            cd.rectangle((9, 6, 11, 8), fill=(72, 212, 255, 255))
+        elif kind == "qilin":
+            polygon(cd, [(4, 13), (6, 6), (11, 5), (13, 12)], (82, 224, 152, 255))
+            line(cd, [(7, 5), (5, 2)], (255, 218, 92, 255), width=2)
+            line(cd, [(10, 5), (12, 2)], (255, 218, 92, 255), width=2)
         icons.paste(cell, (idx * 16, 0))
     save(icons, "ui/icons.png")
     stages = Image.new("RGBA", (56 * 9, 32), (0, 0, 0, 0))
@@ -737,6 +752,57 @@ def make_effects():
             sd.rectangle((18, 9, 38, 23), outline=acc_col, width=1)
         stages.paste(sc, (s_idx * 56, 0))
     save(stages, "ui/stages.png")
+    pets_sheet = Image.new("RGBA", (32 * 4, 32 * 4), (0, 0, 0, 0))
+    pet_ids = ("redhare", "vermilion", "white_tiger", "qilin")
+    for r_idx, pid in enumerate(pet_ids):
+        for f_idx in range(4):
+            pcell = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            pd = ImageDraw.Draw(pcell)
+            bob = (0, -2, 0, 1)[f_idx]
+            step = (-2, 0, 2, 0)[f_idx]
+            ellipse(pd, (6, 25, 26, 30), (10, 14, 18, 115), outline=None)
+            if pid == "redhare":
+                # Crimson Warhorse Spirit with golden mane & fiery hooves
+                for lx in (9 + step, 13 - step, 19 + step, 23 - step):
+                    rect(pd, (lx, 19 + bob, lx + 3, 27), (168, 38, 34, 255))
+                    rect(pd, (lx, 25, lx + 3, 28), (255, 214, 82, 255))
+                ellipse(pd, (7, 12 + bob, 24, 22 + bob), (218, 52, 42, 255))
+                rect(pd, (12, 12 + bob, 19, 17 + bob), (245, 196, 72, 255))
+                polygon(pd, [(19, 14 + bob), (23, 6 + bob), (28, 9 + bob), (25, 16 + bob)], (228, 58, 46, 255))
+                polygon(pd, [(17, 11 + bob), (22, 4 + bob), (24, 8 + bob), (19, 13 + bob)], (255, 216, 88, 255))
+                polygon(pd, [(7, 14 + bob), (2, 18 - bob), (5, 22 - bob), (9, 17 + bob)], (255, 168, 62, 255))
+            elif pid == "vermilion":
+                # Vermilion Fire Phoenix with flapping wings
+                wing_y = (6, 12, 7, 14)[f_idx]
+                polygon(pd, [(16, 14 + bob), (2, wing_y), (5, 20 + bob), (14, 18 + bob)], (238, 74, 38, 255))
+                polygon(pd, [(16, 14 + bob), (30, wing_y), (27, 20 + bob), (18, 18 + bob)], (238, 74, 38, 255))
+                polygon(pd, [(16, 15 + bob), (6, wing_y + 3), (9, 19 + bob)], (255, 210, 82, 255))
+                polygon(pd, [(16, 15 + bob), (26, wing_y + 3), (23, 19 + bob)], (255, 210, 82, 255))
+                ellipse(pd, (12, 9 + bob, 20, 21 + bob), (255, 118, 48, 255))
+                polygon(pd, [(14, 5 + bob), (16, 1 + bob), (18, 5 + bob)], (255, 232, 98, 255))
+                polygon(pd, [(13, 20 + bob), (10, 28), (16, 25), (22, 28), (19, 20 + bob)], (255, 184, 68, 255))
+            elif pid == "white_tiger":
+                # Frost-fang White Tiger guardian
+                for lx in (8 + step, 13 - step, 19 + step, 24 - step):
+                    rect(pd, (lx, 19 + bob, lx + 3, 27), (225, 234, 245, 255))
+                ellipse(pd, (6, 12 + bob, 24, 22 + bob), (242, 248, 255, 255))
+                for sx in (10, 14, 18):
+                    line(pd, [(sx, 13 + bob), (sx - 1, 20 + bob)], (42, 52, 68, 255), width=2)
+                ellipse(pd, (18, 8 + bob, 28, 18 + bob), (245, 250, 255, 255))
+                pd.rectangle((22, 11 + bob, 24, 13 + bob), fill=(72, 224, 255, 255))
+                pd.rectangle((25, 11 + bob, 27, 13 + bob), fill=(72, 224, 255, 255))
+            elif pid == "qilin":
+                # Jade Celestial Qilin with golden antlers & aura
+                for lx in (9 + step, 13 - step, 19 + step, 23 - step):
+                    rect(pd, (lx, 19 + bob, lx + 3, 27), (58, 178, 118, 255))
+                    rect(pd, (lx, 25, lx + 3, 28), (245, 208, 86, 255))
+                ellipse(pd, (7, 12 + bob, 24, 22 + bob), (76, 214, 142, 255))
+                ellipse(pd, (11, 14 + bob, 20, 20 + bob), (158, 248, 196, 255))
+                polygon(pd, [(19, 14 + bob), (22, 7 + bob), (28, 9 + bob), (25, 16 + bob)], (82, 224, 152, 255))
+                line(pd, [(21, 7 + bob), (18, 2 + bob), (23, 3 + bob)], (255, 222, 92, 255), width=2)
+                line(pd, [(24, 7 + bob), (27, 2 + bob)], (255, 222, 92, 255), width=2)
+            pets_sheet.paste(pcell, (f_idx * 32, r_idx * 32))
+    save(pets_sheet, "pets/pets.png")
 
 HEROES = {
     "guanyu": dict(cloth=(43, 139, 68, 255), accent=(208, 53, 43, 255), trim=(244, 203, 77, 255), hair=(28, 24, 27, 255), beard=(28, 24, 27, 255), helmet=True, plume=True, blade=True),
