@@ -388,10 +388,10 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
         weaponStyle: WEAPON_STYLES[(cIdx + lIdx) % WEAPON_STYLES.length],
         levelBoss: {
           ...bSpec,
-          hp: Math.round((560 + order * 85) * (lIdx === 4 ? 1.45 : 1.0)),
-          dmg: Math.round(18 + order * 1.8),
-          speed: Math.min(102, 72 + Math.floor(order * 0.65)),
-          scale: lIdx === 4 ? 1.9 : 1.7,
+          hp: Math.round((210 + order * 26) * (lIdx === 4 ? 1.25 : 1.0)),
+          dmg: Math.round(12 + order * 0.9),
+          speed: Math.min(88, 66 + Math.floor(order * 0.45)),
+          scale: lIdx === 4 ? 1.85 : 1.65,
         },
       };
     }),

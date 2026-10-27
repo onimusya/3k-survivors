@@ -2087,7 +2087,7 @@ export class Game {
     e.sprite.scaleY = sc;
     e.phase = (this.enemySerial++ * 0.61803398875) % 1;
     e.baseTint = 0xffffff;
-    e.hp = b.hp * (stage.hpMul || 1) * 1.35;
+    e.hp = b.hp * (stage.hpMul || 1);
     e.maxHp = e.hp;
     e.speed = b.speed;
     e.dmg = b.dmg * (stage.dmgMul || 1);
@@ -2099,8 +2099,8 @@ export class Game {
     e.isCatapult = false;
     e.isBird = false;
     e.countsForWave = true;
-    e.knockResist = 0.82;
-    e.shootCd = 0.95;
+    e.knockResist = 0.72;
+    e.shootCd = 1.45;
     e.isBoss = true;
     e.isMapBoss = true;
     e.enraged = false;
@@ -2466,7 +2466,7 @@ export class Game {
           e.shootCd -= dt;
           if (e.shootCd <= 0) {
             e.shootCd = e.isMapBoss
-              ? (e.enraged ? 0.95 : 1.35)
+              ? (e.enraged ? 1.25 : 1.65)
               : (e.isCatapult ? 2.1 + e.phase * 0.6 : 1.85 + e.phase * 0.7);
             const maxRange = e.isCatapult ? 420 : 350;
             if (d < maxRange && this.projectiles.length < 36) this.enemyShoot(e);
@@ -2738,9 +2738,9 @@ export class Game {
   }
 
   damageEnemy(e, dmg, sx, sy) {
-    // Stage & Campaign Bosses have 35% Warlord Armor Mitigation + 15% Max-HP single-hit cap!
+    // Stage & Campaign Bosses have 15% Warlord Armor Mitigation + 30% Max-HP single-hit cap
     if (e.isMapBoss) {
-      dmg = Math.min(dmg * 0.65, e.maxHp * 0.15);
+      dmg = Math.min(dmg * 0.85, e.maxHp * 0.30);
     }
     e.hp -= dmg;
     e.hitFlash = 0.12;
@@ -2754,23 +2754,23 @@ export class Game {
       this._floatTextThisFrame++;
       this.showFloatText(e.x, e.y - 8, Math.round(dmg).toString(), 0xffffff);
     }
-    // 50% HP Boss Warlord Enrage Phase: +28% Speed, +25% DMG, crimson aura, and 3 Imperial Halberdier bodyguards!
+    // 50% HP Boss Warlord Enrage Phase: +14% Speed, +12% DMG, crimson aura, and 2 Halberdier bodyguards!
     if (e.isMapBoss && e.hp > 0 && !e.enraged && e.hp <= e.maxHp * 0.5) {
       e.enraged = true;
-      e.speed *= 1.28;
-      e.dmg *= 1.25;
-      e.baseScale *= 1.12;
+      e.speed *= 1.14;
+      e.dmg *= 1.12;
+      e.baseScale *= 1.1;
       e.baseTint = 0xff9e9e;
-      e.shootCd = Math.min(e.shootCd || 0.5, 0.35);
+      e.shootCd = Math.min(e.shootCd || 0.7, 0.55);
       this.sfx.play('explosion');
-      this.shake = Math.max(this.shake, 14);
-      this.spawnExplosion(e.x, e.y, 0.68, 2.2, 0xff4d29, 0.38);
-      this.spawnShockwave(e.x, e.y, 0xff3b3b, 0.45, 2.3, 0.3);
+      this.shake = Math.max(this.shake, 12);
+      this.spawnExplosion(e.x, e.y, 0.65, 2.0, 0xff4d29, 0.36);
+      this.spawnShockwave(e.x, e.y, 0xff3b3b, 0.42, 2.1, 0.28);
       this.showFloatText(e.x, e.y - 26, `${(e.bossName || 'BOSS').toUpperCase()} ENRAGED!`, 0xff3b3b);
-      for (let g = 0; g < 3; g++) {
+      for (let g = 0; g < 2; g++) {
         const guard = this.spawnEnemy('halberdier');
-        guard.x = e.x + Math.cos((g * Math.PI * 2) / 3) * 54;
-        guard.y = e.y + Math.sin((g * Math.PI * 2) / 3) * 54;
+        guard.x = e.x + (g === 0 ? -48 : 48);
+        guard.y = e.y + 18;
         this.waveTotalEnemies++;
         this.waveSpawnedCount++;
       }
@@ -3871,8 +3871,9 @@ export class Game {
 
   renderEnemies() {
     const g = this.enemyLayer;
-    let drewBossBar = false;
-    if (this._hadBossBar) g.clear();
+    g.clear();
+    const cx = this.camX || 0;
+    const cy = this.camY || 0;
     for (const e of this.enemies) {
       if (!e.active) continue;
       const s = e.sprite;
@@ -3896,15 +3897,20 @@ export class Game {
         s.scaleX = sc * dirSign;
         s.scaleY = sc;
       }
-      if (e.isBoss && e.hp < e.maxHp) {
-        if (!drewBossBar && !this._hadBossBar) g.clear();
-        drewBossBar = true;
-        const w = e.size * 2;
-        g.rect(Math.round(e.x - e.size), Math.round(e.y - e.size - 10), w, 3).fill(0x330000);
-        g.rect(Math.round(e.x - e.size), Math.round(e.y - e.size - 10), Math.round(w * (e.hp/e.maxHp)), 3).fill(0xff3333);
+      // Overhead Health Bar for all on-screen horde enemies & bosses
+      if (e.hp > 0 && !e.isBird && Math.abs(e.x - cx) < 340 && Math.abs(e.y - cy) < 480) {
+        const ratio = clamp(e.hp / (e.maxHp || 1), 0, 1);
+        const bw = e.isBoss ? 36 : 20;
+        const bh = e.isBoss ? 4 : 2.5;
+        const bx = Math.round(e.x - bw / 2);
+        const by = Math.round(e.y - e.size - (e.isBoss ? 14 : 9));
+        const barCol = e.isBoss
+          ? 0xff3b3b
+          : (ratio > 0.55 ? 0x4ade80 : (ratio > 0.25 ? 0xfbbf24 : 0xef4444));
+        g.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x0c0e14);
+        g.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(barCol);
       }
     }
-    this._hadBossBar = drewBossBar;
   }
   renderProjectiles() {
     for (const pr of this.projectiles) {
