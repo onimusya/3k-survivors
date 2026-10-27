@@ -12,6 +12,7 @@ A mobile-first, Three Kingdoms-themed action survival game inspired by *Vampire 
 - **Weapon Progression (Lv 1–8) & Evolutions:** Every weapon level scales damage (`+15%/lv`), area (`+8%/lv`), cooldown (`-5%/lv`), projectile/target count (`+1` at Lv 3, 5, 7), and pierce (`+1` at Lv 4, 7). Reaching **Lv 8** with the weapon's paired passive (`Lv 1+`) unlocks its ultimate evolution via Boss Chests.
 - **Vampire Survivors-Style HUD & Modals:** Safe-area-aware top HUD with a centered **12-slot weapon & passive loadout bar**, pixel-art icon Level-Up cards with stat deltas, and a tactical Game-Over summary card.
 - **Battlefield Decorations & Jet-Black Thunder Bomb Drops:** Endless toroidal map props (`tree`, `pine`, `rock`, `grass`, `mountain`, `banner`) with solid obstacle collision, plus random/periodic **Heart** (`+30 HP` recovery) and **Jet-Black Thunder Bomb** (`250px` AoE blast with 5-fireball explosion VFX, 3 concentric shockwaves, 16 radial sparks, screen flash, and camera shake) item drops.
+- **Multi-Frame Pixel-Art VFX (`scenario-pixel-vfx`):** 7 multi-frame, hard-banded pixel-art VFX sprite sheets (`explosion` 12f, `slash` 8f, `thrust` 8f, `whirlwind` 8f, `hit` 6f, `heal` 10f, `levelup` 12f in `assets/sprites/vfx/`) rendered deterministically via `scripts/generate_vfx.mjs` and animated through pooled `Sprite` instances at 60 FPS.
 - **Game Audio & SFX (`uisfx` + `earshot`):** Combines CC0 arcade UI/reward sound cues from [uisfx.com](https://uisfx.com) with physical blade/spear swish and Bessel-membrane impact `.wav` recipes from [earshot](https://leonxlnx.github.io/earshot-site/), complete with micro-pitch jitter, per-cue throttling, and a persistent `localStorage` Mute Toggle (`M` key or on-screen `SFX` button).
 - **Locked 60 FPS Horde Engine:** Batched `ParticleContainer` enemy rendering, object pooling (`enemyPool`, `projPool`, `gemPool`, `hitPool`, `slashPool`, `textPool`), `SpatialHash` collision queries, and viewport-sized terrain tiling.
 
@@ -42,6 +43,7 @@ npm run preview
 All sprites (`assets/sprites/`) and combat/UI audio (`assets/sfx/`) are deterministically generated:
 ```bash
 python3 scripts/generate_sprites.py
+node scripts/generate_vfx.mjs
 python3 scripts/generate_sfx.py
 ```
 

@@ -29,7 +29,7 @@
 | 14 | Pixel-art sprite & icon pipeline | `PASSED` | 2 | `Deterministic PNGs` | `scripts/generate_sprites.py`, `src/sprites.js` (`loadSpriteAssets`) |
 | 15 | 300+ enemy performance gate | `PASSED` | 6 | `60–61 FPS @ 320` | `src/game.js` (`setupPools`, `hitPool`, `slashPool`, `textPool`) |
 | 16 | Game Audio & SFX (`uisfx` + `earshot`) | `PASSED` | 1 | `14 Cues + Mute Toggle` | `src/audio.js` (`SoundManager`), `scripts/generate_sfx.py`, `assets/sfx/*` |
-| 17 | Multi-res sharp rendering & weapon VFX | `PASSED` | 1 | `1.0x Res + 6 FX Pools` | `src/main.js`, `src/game.js` (`computeLayoutMetrics`, `spawnSlash/Thrust/Spin/Shockwave/SparkBurst`) |
+| 17 | Multi-res sharp rendering & `scenario-pixel-vfx` sheets | `PASSED` | 2 | `1.0x Res + 7 VFX Sheets` | `scripts/generate_vfx.mjs`, `src/sprites.js`, `src/game.js` (`vfxFrames`, `updateParticles`) |
 | 18 | Map decorations & Black Bomb explosion VFX | `PASSED` | 2 | `48 Props + 5-Fireball Bomb` | `src/game.js` (`setupProps`, `spawnExplosion`, `explodeBomb`) |
 | 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
 | 20 | Campaign Checkpoint Map Screen & 10 Enemy/Boss types | `PASSED` | 2 | `Illustrated 3×3 Map + 10 Types` | `src/game.js` (`showCampaignMapModal`, `deployToCheckpoint`), `scripts/generate_sprites.py` |
@@ -89,3 +89,6 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
   - Gave every single one of the 9 levels (`1-1` through `3-3`) a unique map design (`bgColor` with `backgroundBlendMode: 'overlay'`, `layoutPattern` `'glade'`/`'fortress'`/`'corridor'`/`'ring'`, and `propOrder`), progressive minion roster, and a Wave 3 Stage/Map Boss.
   - Added the interactive 3×3 **Campaign Map Checkpoint Screen (`showCampaignMapModal()`, `deployToCheckpoint()`)** whenever a level is cleared, unlocking the next checkpoint and letting the player select and deploy to any unlocked level.
   - Generated 9 custom pixel-art stage map preview dioramas (`assets/sprites/ui/stages.png`, `56×32` per stage) and upgraded `showCampaignMapModal()` + the pre-game `MAP` selector button to display stage terrain previews, boss portraits, region prop icons, and framed minion squad sprite badges across both `390×844` and `844×390` viewports.
+- **`[2026-10-27]` Multi-Frame Animated Pixel VFX Integration (`scenario-pixel-vfx`):**
+  - Created `scripts/generate_vfx.mjs` using the `scenario-pixel-vfx` heat-field renderer to generate 7 multi-frame pixel-art VFX sprite sheets in `assets/sprites/vfx/`: `explosion.png` (12 frames, `64×64`), `slash.png` (8 frames, `64×64`), `thrust.png` (8 frames, `64×48`), `whirlwind.png` (8 frames, `64×64`), `hit.png` (6 frames, `32×32`), `heal.png` (10 frames, `48×48`), and `levelup.png` (12 frames, `64×64`).
+  - Updated `src/sprites.js` and `src/game.js` (`hitPool`, `slashPool`, `thrustPool`, `spinPool`, `explosionPool`, `healPool`, `levelupPool`, `updateParticles`) to step through each VFX sprite sheet frame-by-frame while sustaining **60–61 FPS** with 315–320 active enemies.

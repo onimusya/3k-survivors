@@ -25,7 +25,7 @@
 <script>document.getElementById('lu').textContent = new Date().toISOString();</script>
 <div class="cards">
   <div class="card"><div>Pieces passed</div><div class="v">20 / 20</div></div>
-  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 307</div></div>
+  <div class="card"><div>Current score</div><div class="v">60–61 FPS / 320</div></div>
   <div class="card"><div>Bar (target)</div><div class="v">60 FPS / 300 enemies</div></div>
 </div>
 <table>
@@ -35,7 +35,7 @@
   <tr><td>Player movement + obstacle collision</td><td class="state-PASSED">PASSED</td><td>2</td><td>Tree/Rock/Mountain block</td><td>None</td></tr>
   <tr><td>Enemy hordes + AI</td><td class="state-PASSED">PASSED</td><td>4</td><td>60–61 FPS @316</td><td>None</td></tr>
   <tr><td>Combat / weapons (Lv 1–8 scaling)</td><td class="state-PASSED">PASSED</td><td>2</td><td>+15% DMG / +Proj</td><td>None</td></tr>
-  <tr><td>Weapon attack &amp; hit VFX (6 pools)</td><td class="state-PASSED">PASSED</td><td>1</td><td>Slash/Spear/Spin/Ring/Spark</td><td>None</td></tr>
+  <tr><td>Multi-frame Pixel VFX (`scenario-pixel-vfx`, 7 sheets)</td><td class="state-PASSED">PASSED</td><td>2</td><td>64 frames / 8 FX Pools</td><td>None</td></tr>
   <tr><td>Passive stat math (all 6 passives)</td><td class="state-PASSED">PASSED</td><td>2</td><td>Verified</td><td>None</td></tr>
   <tr><td>XP + leveling</td><td class="state-PASSED">PASSED</td><td>2</td><td>Icon cards + tags</td><td>None</td></tr>
   <tr><td>Weapon evolution</td><td class="state-PASSED">PASSED</td><td>2</td><td>Lv 8 + Passive</td><td>None</td></tr>
@@ -67,6 +67,7 @@
   <div>[2026-10-26] Added 3 Three Kingdoms Campaign Maps (Outskirts, Hulao Pass, Red Cliffs) × 3 Levels each with progressive HP/DMG/Speed/Spawn scaling, Level 3 Map Boss fights (Zhang Jiao, Hua Xiong, Cao Ren) advancing to the next map on defeat, and a 3-segment Wave &amp; Boss Progress Bar in the battle HUD</div>
   <div>[2026-10-26] Updated Bomb pickup to jet-black with multi-fireball explosion VFX (explosionPool + 5 fireballs + 3 shockwaves + 16 sparks), added interactive 3×3 Campaign Map Checkpoint Unlock &amp; Selection Screen upon completing a level, expanded enemy atlas to 10 minion/boss types (soldier, archer, cavalry, shield, assassin, bomber, sorcerer, Zhang Jiao, Hua Xiong, Cao Ren), and gave all 9 levels unique map designs (glade, fortress, corridor, ring)</div>
   <div>[2026-10-27] Added 9 custom pixel-art stage map preview illustrations (assets/sprites/ui/stages.png), overlaid minion &amp; boss sprites on all 9 checkpoint cards, and added a large stage diorama + boss portrait + framed minion squad icon badges to the Campaign Map Selection Screen</div>
+  <div>[2026-10-27] Integrated scenario-pixel-vfx multi-frame pixel-art VFX sprite sheets (scripts/generate_vfx.mjs &amp; assets/sprites/vfx/) with pooled frame-by-frame animation in updateParticles(), verified at 60–61 FPS with 315–320 active enemies</div>
 </div>
 </body>
 </html>

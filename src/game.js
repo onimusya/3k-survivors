@@ -177,6 +177,7 @@ export class Game {
     this.iconTextures = this.assets.icons;
     this.propTextures = this.assets.props;
     this.stageTextures = this.assets.stages;
+    this.vfxFrames = this.assets.vfx;
 
     this.appEl = document.getElementById('app');
     if (this.appEl) {
@@ -231,13 +232,15 @@ export class Game {
       this.fxLayer.addChild(sprite);
       return { active:false, sprite };
     }, (item) => { item.active = false; item.sprite.visible = false; item.sprite.rotation = 0; });
-    this.hitPool = makeFxPool(this.effectTextures.impact);
-    this.slashPool = makeFxPool(this.effectTextures.slash);
-    this.thrustPool = makeFxPool(this.effectTextures.spear || this.effectTextures.slash);
-    this.spinPool = makeFxPool(this.effectTextures.whirlwind || this.effectTextures.slash);
+    this.hitPool = makeFxPool(this.vfxFrames?.hit?.[0] || this.effectTextures.impact);
+    this.slashPool = makeFxPool(this.vfxFrames?.slash?.[0] || this.effectTextures.slash);
+    this.thrustPool = makeFxPool(this.vfxFrames?.thrust?.[0] || this.effectTextures.spear || this.effectTextures.slash);
+    this.spinPool = makeFxPool(this.vfxFrames?.whirlwind?.[0] || this.effectTextures.whirlwind || this.effectTextures.slash);
     this.ringPool = makeFxPool(this.effectTextures.shockwave || this.effectTextures.impact);
     this.sparkPool = makeFxPool(this.effectTextures.spark || this.effectTextures.impact);
-    this.explosionPool = makeFxPool(this.effectTextures.explosion || this.effectTextures.impact);
+    this.explosionPool = makeFxPool(this.vfxFrames?.explosion?.[0] || this.effectTextures.explosion || this.effectTextures.impact);
+    this.healPool = makeFxPool(this.vfxFrames?.heal?.[0] || this.effectTextures.heart);
+    this.levelupPool = makeFxPool(this.vfxFrames?.levelup?.[0] || this.effectTextures.impact);
     this.floatTextStyle = new TextStyle({
       fill: 0xffffff,
       fontSize: 13,
@@ -1367,6 +1370,7 @@ export class Game {
     const healAmt = Math.round(this.player.maxHp * (wasBossStage ? 0.5 : 0.35));
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + healAmt);
     this.sfx.play('evolve');
+    this.spawnLevelUpVfx(this.player.x, this.player.y);
     this.spawnShockwave(this.player.x, this.player.y, 0xf5c84c, 0.4, 2.5, 0.3);
 
     this.stageBoss = null;
@@ -1448,8 +1452,8 @@ export class Game {
       const healAmt = 30;
       p.hp = Math.min(p.maxHp, p.hp + healAmt);
       this.sfx.play('heal');
-      this.spawnShockwave(p.x, p.y, 0xff6b8b, 0.35, 1.45, 0.24);
-      this.spawnSparkBurst(p.x, p.y, -Math.PI / 2, 0x6bffb0, 4, 130, 0.75, 1.2);
+      this.spawnHealVfx(p.x, p.y);
+      this.spawnShockwave(p.x, p.y, 0x6bffb0, 0.35, 1.45, 0.24);
       this.showFloatText(p.x, p.y - 14, `+${healAmt} HP`, 0x6bffb0);
     } else if (it.kind === 'bomb') {
       this.explodeBomb(it.x, it.y);
@@ -2050,6 +2054,8 @@ export class Game {
     else if (pt.pooled === 'ring') this.ringPool.release(pt.poolObject);
     else if (pt.pooled === 'spark') this.sparkPool.release(pt.poolObject);
     else if (pt.pooled === 'explosion') this.explosionPool.release(pt.poolObject);
+    else if (pt.pooled === 'heal') this.healPool.release(pt.poolObject);
+    else if (pt.pooled === 'levelup') this.levelupPool.release(pt.poolObject);
     else if (pt.pooled === 'text') this.textPool.release(pt.poolObject);
     else if (pt.g) pt.g.destroy();
   }
@@ -2069,6 +2075,18 @@ export class Game {
         const progress = clamp(1 - pt.life / duration, 0, 1);
         if (pt.isText) {
           pt.g.alpha = Math.max(0, pt.life / duration);
+        } else if (pt.frames) {
+          const fIdx = Math.min(pt.frames.length - 1, Math.floor(progress * pt.frames.length));
+          if (pt.lastFrame !== fIdx) {
+            pt.lastFrame = fIdx;
+            pt.g.texture = pt.frames[fIdx];
+          }
+          pt.g.alpha = pt.startAlpha ?? 1;
+          if (pt.endScaleX !== undefined) {
+            const sx = pt.baseScaleX + (pt.endScaleX - pt.baseScaleX) * progress;
+            const sy = pt.baseScaleY + (pt.endScaleY - pt.baseScaleY) * progress;
+            pt.g.scale.set(sx, sy);
+          }
         } else {
           pt.g.alpha = Math.max(0, (1 - progress) * (pt.startAlpha ?? 1));
           if (pt.endScaleX !== undefined) {
@@ -2095,6 +2113,7 @@ export class Game {
     this.xpNext = LEVEL_XP(this.level);
     this.state = 'levelup';
     this.sfx.play('levelup');
+    if (this.player) this.spawnLevelUpVfx(this.player.x, this.player.y);
     this.showLevelUpUI();
   }
 
@@ -2641,20 +2660,63 @@ export class Game {
     this.particles.push({ g:t, x, y, vx:0, vy:-56, gravity:40, life:0.55, maxLife:0.55, isText:true, pooled:'text', poolObject:entry });
   }
 
-  spawnHitSpark(x, y, color = 0xffffff, scale = 0.42, life = 0.14, vx = 0, vy = 0) {
+  spawnHitSpark(x, y, color = 0xffffff, scale = 0.85, life = 0.22, vx = 0, vy = 0) {
     if (this.hitPool.active.length >= 20) return;
     const spark = this.hitPool.acquire();
     spark.active = true;
+    const frames = this.vfxFrames?.hit;
+    if (frames?.[0]) spark.sprite.texture = frames[0];
     spark.sprite.visible = true;
-    spark.sprite.alpha = 0.95;
+    spark.sprite.alpha = 0.98;
     spark.sprite.tint = color || 0xffffff;
-    spark.sprite.scale.set(scale);
+    const sc = Math.max(0.75, scale * 1.45);
+    spark.sprite.scale.set(sc);
     spark.sprite.x = Math.round(x);
     spark.sprite.y = Math.round(y);
     this.particles.push({
-      g:spark.sprite, x, y, vx, vy, life, maxLife:life,
-      isSlash:true, pooled:'hit', poolObject:spark,
-      baseScaleX:scale, baseScaleY:scale, growthRate:0.45,
+      g: spark.sprite, x, y, vx, vy, life, maxLife: life,
+      frames, lastFrame: 0, startAlpha: 0.98,
+      isSlash: true, pooled: 'hit', poolObject: spark,
+    });
+  }
+
+  spawnHealVfx(x, y) {
+    if (!this.healPool || this.healPool.active.length >= 8) return;
+    const entry = this.healPool.acquire();
+    entry.active = true;
+    const frames = this.vfxFrames?.heal;
+    const s = entry.sprite;
+    if (frames?.[0]) s.texture = frames[0];
+    s.visible = true;
+    s.alpha = 0.96;
+    s.tint = 0xffffff;
+    s.scale.set(1.35);
+    s.x = Math.round(x);
+    s.y = Math.round(y);
+    this.particles.push({
+      g: s, x, y, vx: 0, vy: 0, life: 0.55, maxLife: 0.55,
+      frames, lastFrame: 0, startAlpha: 0.96,
+      pooled: 'heal', poolObject: entry,
+    });
+  }
+
+  spawnLevelUpVfx(x, y) {
+    if (!this.levelupPool || this.levelupPool.active.length >= 6) return;
+    const entry = this.levelupPool.acquire();
+    entry.active = true;
+    const frames = this.vfxFrames?.levelup;
+    const s = entry.sprite;
+    if (frames?.[0]) s.texture = frames[0];
+    s.visible = true;
+    s.alpha = 0.98;
+    s.tint = 0xffffff;
+    s.scale.set(1.5);
+    s.x = Math.round(x);
+    s.y = Math.round(y);
+    this.particles.push({
+      g: s, x, y, vx: 0, vy: 0, life: 0.65, maxLife: 0.65,
+      frames, lastFrame: 0, startAlpha: 0.98,
+      pooled: 'levelup', poolObject: entry,
     });
   }
 
@@ -2677,23 +2739,25 @@ export class Game {
     });
   }
 
-  spawnExplosion(x, y, startScale = 0.65, endScale = 2.6, tint = 0xffffff, life = 0.36, spin = 1.8) {
+  spawnExplosion(x, y, startScale = 0.95, endScale = 2.6, tint = 0xffffff, life = 0.52, spin = 0) {
     if (!this.explosionPool || this.explosionPool.active.length >= 16) return;
     const entry = this.explosionPool.acquire();
     entry.active = true;
+    const frames = this.vfxFrames?.explosion;
     const s = entry.sprite;
+    if (frames?.[0]) s.texture = frames[0];
     s.visible = true;
-    s.alpha = 0.96;
+    s.alpha = 0.98;
     s.tint = tint;
-    s.scale.set(startScale);
-    s.rotation = Math.random() * Math.PI * 2;
+    const sc = Math.max(1.2, endScale * 0.72);
+    s.scale.set(sc);
+    s.rotation = 0;
     s.x = Math.round(x);
     s.y = Math.round(y);
     this.particles.push({
-      g: s, x, y, vx: 0, vy: 0, life, maxLife: life, startAlpha: 0.96, spin,
+      g: s, x, y, vx: 0, vy: 0, life, maxLife: life,
+      frames, lastFrame: 0, startAlpha: 0.98, spin: 0,
       pooled: 'explosion', poolObject: entry,
-      baseScaleX: startScale, baseScaleY: startScale,
-      endScaleX: endScale, endScaleY: endScale,
     });
   }
 
@@ -2723,114 +2787,74 @@ export class Game {
   }
 
   spawnSlash(x, y, color, area, ang = 0) {
-    const cx = x + Math.cos(ang) * 18 * area;
-    const cy = y + Math.sin(ang) * 18 * area;
+    const cx = x + Math.cos(ang) * 22 * area;
+    const cy = y + Math.sin(ang) * 22 * area;
     const entry = this.slashPool.acquire();
     entry.active = true;
+    const frames = this.vfxFrames?.slash;
     const sprite = entry.sprite;
+    if (frames?.[0]) sprite.texture = frames[0];
     sprite.visible = true;
-    sprite.alpha = 1;
+    sprite.alpha = 0.98;
     sprite.tint = color;
-    const sc = 1.45 * area;
+    const sc = 1.55 * area;
     sprite.scale.set(sc);
-    sprite.rotation = ang + Math.PI / 2;
+    sprite.rotation = ang + Math.PI / 4;
     sprite.x = Math.round(cx); sprite.y = Math.round(cy);
     this.particles.push({
-      g:sprite, x:cx, y:cy, vx:Math.cos(ang)*45, vy:Math.sin(ang)*45,
-      life:0.24, maxLife:0.24, isSlash:true, spin:-1.2,
-      pooled:'slash', poolObject:entry,
-      baseScaleX:sc * 0.88, baseScaleY:sc * 0.88,
-      endScaleX:sc * 1.22, endScaleY:sc * 1.22,
+      g: sprite, x: cx, y: cy, vx: Math.cos(ang) * 35, vy: Math.sin(ang) * 35,
+      life: 0.34, maxLife: 0.34, frames, lastFrame: 0, startAlpha: 0.98,
+      isSlash: true, pooled: 'slash', poolObject: entry,
     });
-
-    // Secondary bright echo arc + blade sparks
-    if (this.slashPool.active.length < 12) {
-      const echo = this.slashPool.acquire();
-      echo.active = true;
-      const es = echo.sprite;
-      es.visible = true;
-      es.alpha = 0.75;
-      es.tint = 0xffffff;
-      const esc = 1.15 * area;
-      es.scale.set(esc);
-      es.rotation = ang + Math.PI / 2 - 0.25;
-      es.x = Math.round(cx); es.y = Math.round(cy);
-      this.particles.push({
-        g:es, x:cx, y:cy, vx:Math.cos(ang)*70, vy:Math.sin(ang)*70,
-        life:0.16, maxLife:0.16, startAlpha:0.75, spin:1.6,
-        pooled:'slash', poolObject:echo,
-        baseScaleX:esc, baseScaleY:esc,
-        endScaleX:esc * 1.3, endScaleY:esc * 1.3,
-      });
-    }
     this.spawnSparkBurst(cx, cy, ang, color, 3, 155, 0.72, 0.65);
   }
 
   spawnThrust(x, y, ang, len, color) {
     const entry = this.thrustPool.acquire();
     entry.active = true;
+    const frames = this.vfxFrames?.thrust;
     const sprite = entry.sprite;
+    if (frames?.[0]) sprite.texture = frames[0];
     sprite.visible = true;
-    sprite.alpha = 1;
+    sprite.alpha = 0.98;
     sprite.tint = color;
-    const sx = (len / 56) * 1.05, sy = 1.05;
+    const sx = (len / 54) * 1.15, sy = 1.15;
     sprite.scale.set(sx, sy);
     sprite.rotation = ang;
-    const startX = x + Math.cos(ang) * len * 0.32;
-    const startY = y + Math.sin(ang) * len * 0.32;
+    const startX = x + Math.cos(ang) * len * 0.46;
+    const startY = y + Math.sin(ang) * len * 0.46;
     sprite.x = Math.round(startX);
     sprite.y = Math.round(startY);
     this.particles.push({
-      g:sprite, x:startX, y:startY,
-      vx:Math.cos(ang) * 150, vy:Math.sin(ang) * 150,
-      life:0.22, maxLife:0.22, isSlash:true,
-      pooled:'thrust', poolObject:entry,
-      baseScaleX:sx * 0.85, baseScaleY:sy * 1.1,
-      endScaleX:sx * 1.15, endScaleY:sy * 0.7,
+      g: sprite, x: startX, y: startY,
+      vx: Math.cos(ang) * 90, vy: Math.sin(ang) * 90,
+      life: 0.32, maxLife: 0.32, frames, lastFrame: 0, startAlpha: 0.98,
+      isSlash: true, pooled: 'thrust', poolObject: entry,
     });
-    const tipX = x + Math.cos(ang) * len * 0.78;
-    const tipY = y + Math.sin(ang) * len * 0.78;
-    this.spawnShockwave(tipX, tipY, color, 0.25, 1.1, 0.18);
+    const tipX = x + Math.cos(ang) * len * 0.82;
+    const tipY = y + Math.sin(ang) * len * 0.82;
     this.spawnSparkBurst(tipX, tipY, ang, color, 3, 175, 0.75, 0.45);
   }
 
   spawnSpin(x, y, area, color) {
     const entry = this.spinPool.acquire();
     entry.active = true;
+    const frames = this.vfxFrames?.whirlwind;
     const sprite = entry.sprite;
+    if (frames?.[0]) sprite.texture = frames[0];
     sprite.visible = true;
-    sprite.alpha = 0.95;
+    sprite.alpha = 0.96;
     sprite.tint = color;
-    const sc = 2.0 * area;
+    const sc = 2.15 * area;
     sprite.scale.set(sc);
     sprite.rotation = 0;
     sprite.x = Math.round(x); sprite.y = Math.round(y);
     this.particles.push({
-      g:sprite, x, y, vx:0, vy:0, life:0.32, maxLife:0.32,
-      isSlash:true, spin:8.5, pooled:'spin', poolObject:entry,
-      baseScaleX:sc * 0.8, baseScaleY:sc * 0.8,
-      endScaleX:sc * 1.25, endScaleY:sc * 1.25,
+      g: sprite, x, y, vx: 0, vy: 0, life: 0.42, maxLife: 0.42,
+      frames, lastFrame: 0, startAlpha: 0.96,
+      isSlash: true, spin: 4.5, pooled: 'spin', poolObject: entry,
     });
-    if (this.spinPool.active.length < 8) {
-      const inner = this.spinPool.acquire();
-      inner.active = true;
-      const is = inner.sprite;
-      is.visible = true;
-      is.alpha = 0.75;
-      is.tint = 0xfff0b8;
-      const isc = 1.35 * area;
-      is.scale.set(isc);
-      is.rotation = Math.PI / 4;
-      is.x = Math.round(x); is.y = Math.round(y);
-      this.particles.push({
-        g:is, x, y, vx:0, vy:0, life:0.24, maxLife:0.24,
-        startAlpha:0.75, spin:-6.5, pooled:'spin', poolObject:inner,
-        baseScaleX:isc, baseScaleY:isc,
-        endScaleX:isc * 1.3, endScaleY:isc * 1.3,
-      });
-    }
-    this.spawnShockwave(x, y, color, 0.4, 2.0 * area, 0.26);
-    this.spawnSparkBurst(x, y, this.animTime * 5, color, 4, 150, 0.7, Math.PI / 2);
+    this.spawnSparkBurst(x, y, Math.random() * Math.PI * 2, color, 4, 150, 0.75, Math.PI / 2);
   }
 
   flashScreen() {

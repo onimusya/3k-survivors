@@ -35,6 +35,15 @@ const EFFECTS = {
   explosion: new URL('../assets/sprites/effects/explosion.png', import.meta.url).href,
   projectile: new URL('../assets/sprites/effects/projectile.png', import.meta.url).href,
 };
+const VFX_SHEETS = {
+  explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
+  slash: { url: new URL('../assets/sprites/vfx/slash.png', import.meta.url).href, w: 64, h: 64, frames: 8 },
+  thrust: { url: new URL('../assets/sprites/vfx/thrust.png', import.meta.url).href, w: 64, h: 48, frames: 8 },
+  whirlwind: { url: new URL('../assets/sprites/vfx/whirlwind.png', import.meta.url).href, w: 64, h: 64, frames: 8 },
+  hit: { url: new URL('../assets/sprites/vfx/hit.png', import.meta.url).href, w: 32, h: 32, frames: 6 },
+  heal: { url: new URL('../assets/sprites/vfx/heal.png', import.meta.url).href, w: 48, h: 48, frames: 10 },
+  levelup: { url: new URL('../assets/sprites/vfx/levelup.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
+};
 
 const HERO_FRAME_W = 32;
 const HERO_FRAME_H = 40;
@@ -141,8 +150,17 @@ export async function loadSpriteAssets() {
   await Promise.all(Object.entries(EFFECTS).map(async ([id, url]) => {
     effectFrames[id] = nearest(await Assets.load(url));
   }));
+  const vfx = {};
+  await Promise.all(Object.entries(VFX_SHEETS).map(async ([id, spec]) => {
+    const base = nearest(await Assets.load(spec.url));
+    const list = [];
+    for (let i = 0; i < spec.frames; i++) {
+      list.push(frame(base.source, i * spec.w, 0, spec.w, spec.h, `vfx-${id}-${i}`));
+    }
+    vfx[id] = list;
+  }));
 
-  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, stages, effects: effectFrames, enemyBase };
+  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, stages, effects: effectFrames, vfx, enemyBase };
 }
 
 export const SPRITE_MANIFEST = {
