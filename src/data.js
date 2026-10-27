@@ -1,11 +1,11 @@
 // Three Kingdoms heroes
 export const HEROES = [
-  { id:'guanyu', name:'Guan Yu', color:0x2f8f4e, hp:120, speed:1.0, weapon:'blade', desc:'Green Dragon Crescent Blade' },
-  { id:'zhangfei', name:'Zhang Fei', color:0x8b2f2f, hp:160, speed:0.9, weapon:'spear', desc:'Serpent Spear' },
-  { id:'zhaoyun', name:'Zhao Yun', color:0x3a6ea5, hp:100, speed:1.25, weapon:'bow', desc:'Dragon Bow' },
-  { id:'zhugeliang', name:'Zhuge Liang', color:0x9b6fa5, hp:90, speed:1.05, weapon:'fan', desc:'Feather Fan' },
-  { id:'lubu', name:'Lu Bu', color:0xb83232, hp:140, speed:1.1, weapon:'halberd', desc:'Sky Piercer Halberd' },
-  { id:'sunshangxiang', name:'Sun Shangxiang', color:0xd4a017, hp:95, speed:1.3, weapon:'daggers', desc:'Twin Ring Blades' },
+  { id:'guanyu', name:'Guan Yu', color:0x2f8f4e, hp:165, armor:3, dmgBonus:0.32, speed:1.0, weapon:'blade', desc:'Green Dragon Crescent Blade' },
+  { id:'zhangfei', name:'Zhang Fei', color:0x8b2f2f, hp:210, armor:4, dmgBonus:0.35, speed:0.9, weapon:'spear', desc:'Serpent Spear' },
+  { id:'zhaoyun', name:'Zhao Yun', color:0x3a6ea5, hp:145, armor:3, dmgBonus:0.30, speed:1.25, weapon:'bow', desc:'Dragon Bow' },
+  { id:'zhugeliang', name:'Zhuge Liang', color:0x9b6fa5, hp:135, armor:3, dmgBonus:0.32, speed:1.05, weapon:'fan', desc:'Feather Fan' },
+  { id:'lubu', name:'Lu Bu', color:0xb83232, hp:190, armor:3, dmgBonus:0.40, speed:1.1, weapon:'halberd', desc:'Sky Piercer Halberd' },
+  { id:'sunshangxiang', name:'Sun Shangxiang', color:0xd4a017, hp:140, armor:3, dmgBonus:0.32, speed:1.3, weapon:'daggers', desc:'Twin Ring Blades' },
 ];
 
 export const STARTING_PERKS = [
@@ -46,14 +46,14 @@ export const STARTING_PERKS = [
 ];
 
 export const WEAPONS = {
-  blade: { name:'Green Dragon Blade', color:0x5fd38d, dmg:18, cd:0.9, area:1.0, type:'melee_arc', evo:'dragonslayer', pass:'might', desc:'Wide crescent slash' },
-  spear: { name:'Serpent Spear', color:0xd35f5f, dmg:22, cd:1.1, area:1.0, type:'thrust', evo:'ironpike', pass:'armor', desc:'Forward piercing thrust' },
-  bow: { name:'Dragon Bow', color:0x5f9dd3, dmg:14, cd:0.55, area:1.0, type:'projectile', evo:'stormbow', pass:'swiftness', desc:'Rapid aimed arrows' },
-  fan: { name:'Feather Fan', color:0xb38fd3, dmg:12, cd:0.7, area:1.0, type:'magic_bolt', evo:'galefan', pass:'cooldown', desc:'Arcane wind bolts' },
-  halberd: { name:'Sky Piercer', color:0xd38f5f, dmg:26, cd:1.3, area:1.2, type:'spin', evo:'skyhalberd', pass:'area', desc:'360° sweeping cleave' },
-  daggers: { name:'Twin Blades', color:0xd4c017, dmg:11, cd:0.4, area:1.0, type:'projectile', evo:'twindragons', pass:'growth', desc:'Dual homing daggers' },
-  flying_blades: { name:'Rotating Flying Blades', color:0x38bdf8, dmg:15, cd:0.45, area:1.0, type:'orbit', evo:'celestial_buzzsaw', pass:'swiftness', desc:'Spinning blades orbit you, slicing foes & blocking bolts' },
-  bagua_shields: { name:'Eight-Trigram Shields', color:0xfbbf24, dmg:17, cd:0.5, area:1.05, type:'orbit', evo:'imperial_aegis_ring', pass:'armor', desc:'Orbiting Bagua shields bash foes & deflect projectiles' },
+  blade: { name:'Green Dragon Blade', color:0x5fd38d, dmg:23, cd:0.9, area:1.0, type:'melee_arc', evo:'dragonslayer', pass:'might', desc:'Wide crescent slash' },
+  spear: { name:'Serpent Spear', color:0xd35f5f, dmg:28, cd:1.1, area:1.0, type:'thrust', evo:'ironpike', pass:'armor', desc:'Forward piercing thrust' },
+  bow: { name:'Dragon Bow', color:0x5f9dd3, dmg:18, cd:0.55, area:1.0, type:'projectile', evo:'stormbow', pass:'swiftness', desc:'Rapid aimed arrows' },
+  fan: { name:'Feather Fan', color:0xb38fd3, dmg:16, cd:0.7, area:1.0, type:'magic_bolt', evo:'galefan', pass:'cooldown', desc:'Arcane wind bolts' },
+  halberd: { name:'Sky Piercer', color:0xd38f5f, dmg:32, cd:1.3, area:1.2, type:'spin', evo:'skyhalberd', pass:'area', desc:'360° sweeping cleave' },
+  daggers: { name:'Twin Blades', color:0xd4c017, dmg:15, cd:0.4, area:1.0, type:'projectile', evo:'twindragons', pass:'growth', desc:'Dual homing daggers' },
+  flying_blades: { name:'Rotating Flying Blades', color:0x38bdf8, dmg:19, cd:0.45, area:1.0, type:'orbit', evo:'celestial_buzzsaw', pass:'swiftness', desc:'Spinning blades orbit you, slicing foes & blocking bolts' },
+  bagua_shields: { name:'Eight-Trigram Shields', color:0xfbbf24, dmg:22, cd:0.5, area:1.05, type:'orbit', evo:'imperial_aegis_ring', pass:'armor', desc:'Orbiting Bagua shields bash foes & deflect projectiles' },
 };
 
 export const EVOLUTIONS = {
@@ -109,7 +109,7 @@ export const ENEMY_TYPES = {
   sorcerer: { name:'Taoist Mystic', color:0x9b62d8, hp:14, speed:48, dmg:12, size:14, xp:4, weight:14, ranged:true },
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
   catapult:   { name:'Siege Catapult',     color:0xd97706, hp:36, speed:26, dmg:9,  size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
-  firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:14, speed:240, dmg:13, size:14, xp:5, weight:0, isBird:true },
+  firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:12, speed:240, dmg:5,  size:14, xp:5, weight:0, isBird:true },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },
   elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:9, size:23, xp:30, weight:0, boss:true },

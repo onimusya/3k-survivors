@@ -1117,8 +1117,10 @@ export class Game {
     const ps = this.passives;
     const pk = this.perk || {};
     const sSpec = SEASONS[this.activeSeason] || SEASONS.spring;
-    this.player.dmgMul = (1 + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    const heroArmor = this.hero?.armor ?? 3;
+    const heroDmgBonus = this.hero?.dmgBonus ?? 0.3;
+    this.player.dmgMul = (1 + heroDmgBonus + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
     this.player.speedMul = (1 + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
     this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0));
     this.player.areaMul = (1 + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
@@ -2922,12 +2924,13 @@ export class Game {
     const baseAng = angleTo(x, y, p.x, p.y);
     const bullets = this.mapIndex === 0 ? 3 : 5;
     const spread = 0.22;
+    const boltDmg = Math.max(2, Math.round(dmg * 0.55));
     this.spawnSparkBurst(x, y, baseAng, 0xffd166, 2, 130, 0.65, 0.55);
     for (let i = 0; i < bullets; i++) {
       const ang = baseAng + (i - (bullets - 1) / 2) * spread;
       const col = i % 2 === 0 ? 0xff5f5f : 0xffd166;
-      const spd = 230 + (i % 2) * 20;
-      this.fireEnemyBolt(x, y, ang, spd, dmg, 5, col, false, 2.2);
+      const spd = 220 + (i % 2) * 18;
+      this.fireEnemyBolt(x, y, ang, spd, boltDmg, 5, col, false, 2.2);
     }
   }
 
