@@ -31,8 +31,8 @@
 | 16 | Map BGM & Combat SFX (`ElevenLabs Music v2.5` + `SFX`) | `PASSED` | 3 | `3 Map BGMs + 12 SFX + Mute UI` | `scripts/generate_bgm.mjs`, `scripts/generate_elevenlabs_sfx.mjs`, `src/audio.js` |
 | 17 | Multi-res sharp rendering & `scenario-pixel-vfx` sheets | `PASSED` | 2 | `1.0x Res + 7 VFX Sheets` | `scripts/generate_vfx.mjs`, `src/sprites.js`, `src/game.js` (`vfxFrames`, `updateParticles`) |
 | 18 | Four Seasons, Buildings (`House`/`Tower`/`Castle`/`Tent`) & Weather | `PASSED` | 4 | `4×10 Seasonal Props + 6 Weathers` | `src/data.js` (`SEASONS`), `src/game.js` (`setSeason`, `applySeasonPropTints`, `updateWeather`) |
-| 19 | Campaign maps, levels, bosses & wave HUD | `PASSED` | 2 | `9 Map Designs + 9 Bosses` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`updateStageProgression`, `advanceStage`, `spawnMapBoss`) |
-| 20 | Campaign Checkpoint Map Screen & 16 Enemy/Boss types | `PASSED` | 3 | `Illustrated 3×3 Map + 9 Bosses` | `src/game.js` (`showCampaignMapModal`, `enemyShoot`), `scripts/generate_lpc_sprites.py` |
+| 19 | 10 Campaigns × 5 Levels × 5 Waves & Auto-Save | `PASSED` | 3 | `50 Levels + Wave-Clear Upgrades` | `src/data.js` (`CAMPAIGN_MAPS`), `src/game.js` (`startWave`, `onWaveCleared`, `saveCampaignProgress`) |
+| 20 | Campaign Checkpoint Map Screen & 16 Enemy/Boss types | `PASSED` | 4 | `10-Tab Map + Auto-Save` | `src/game.js` (`showCampaignMapModal`, `loadCampaignProgress`), `scripts/generate_lpc_sprites.py` |
 | 21 | Summon Pet System (4 mythic companions, Lv 1–5) | `PASSED` | 1 | `Red Hare / Vermilion / Tiger / Qilin` | `src/data.js` (`PETS`), `src/game.js` (`summonPet`, `updatePets`, `renderPets`), `scripts/generate_sprites.py` |
 
 ---
@@ -108,3 +108,7 @@ Latest 6-second continuous horde benchmark (`window.__spawnEnemies(310)` + activ
 - **`[2026-10-27]` Four Seasons Map System & ElevenLabs Per-Map BGM (`music_v2_5`):**
   - Added `SEASONS` (`spring`, `summer`, `autumn`, `winter`) in `src/data.js` and expanded `assets/sprites/terrain/props.png` to a `480×192` (`10 cols × 4 rows`) seasonal atlas with pink cherry-blossom trees in Spring (`+1.5 HP/s` regen), lush emerald foliage in Summer (`+12% DMG, -8% CD`), fiery crimson/golden maple canopies in Autumn (`+20% XP`), and snow-blanketed trees, houses, watchtowers, castles, and tents in Winter (`-12% Enemy Speed`).
   - Created `scripts/generate_bgm.mjs` (`npm run bgm:elevenlabs`) using `client.music.compose` (`modelId: "music_v2_5"`, `forceInstrumental: true`) to generate 3 campaign map BGM tracks (`assets/bgm/outskirts.mp3`, `assets/bgm/hulao.mp3`, `assets/bgm/redcliffs.mp3`) and wired automatic per-map looping playback and mute/unmute sync into `SoundManager` (`src/audio.js`).
+- **`[2026-10-27]` 10 Campaigns × 5 Levels × 5 Waves, Wave-Clear-Only Upgrades, Kill-All-Enemies Completion & Campaign Checkpoint Auto-Save:**
+  - Expanded `CAMPAIGN_MAPS` in `src/data.js` to **10 Historical Three Kingdoms Campaigns** (`Yellow Turban Outskirts`, `Hulao Pass Fortress`, `Guandu Plains`, `Changban Bridge`, `Red Cliffs Armada`, `Tong Pass Canyon`, `Hefei Castle`, `Fan Castle Flood`, `Yiling Forest Blaze`, `Wuzhang Plains`), each with **5 Levels (`1-1` to `10-5` = 50 Levels total)** and **5 Waves per Level**.
+  - Updated `startWave()`, `onWaveCleared()`, and `pickChoice()` in `src/game.js` so Weapon, Armor/Passive, and Pet upgrades trigger **only when all enemies of a wave are killed**, and Wave 5 spawns the stage Boss and requires killing **all enemies + the Boss** to complete the level.
+  - Implemented `saveCampaignProgress()` and `loadCampaignProgress()` (`localStorage` key `'3k-survivors-campaign-save-v1'`) so completing each stage/campaign automatically persists unlocked checkpoints and campaigns across sessions.

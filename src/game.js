@@ -74,13 +74,21 @@ export class Game {
     this.selectedMapIndex = 0;
     this.mapIndex = 0;
     this.stageIndex = 0;
+    this.unlockedCampaignIndex = 0;
     this.unlockedStageOrder = 0;
     this.selectedCheckpointOrder = 0;
+    this.viewingCampaignIndex = 0;
     this.clearedStages = new Set();
+    this.lastAutoSavedCampaign = null;
     this.stageProgress = 0;
     this.currentWave = 1;
+    this.waveTotalEnemies = 14;
+    this.waveSpawnedCount = 0;
+    this.waveKills = 0;
+    this.pendingNextWave = null;
+    this.finalWaveSpawned = false;
     this.stageBoss = null;
-    this.weapons = []; // {id, level, ...}
+    this.loadCampaignProgress();
     this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
     this.passives = {}; // id -> level
     this.xp = 0;
@@ -105,7 +113,13 @@ export class Game {
     this.setupResize();
     this.setupInput();
 
-    window.__spawnEnemies = (n) => { for (let i=0;i<n;i++) this.spawnEnemy(); };
+    window.__spawnEnemies = (n) => {
+      for (let i = 0; i < n; i++) {
+        this.spawnEnemy();
+        this.waveTotalEnemies = (this.waveTotalEnemies || 0) + 1;
+        this.waveSpawnedCount = (this.waveSpawnedCount || 0) + 1;
+      }
+    };
     window.__game = this;
   }
 
@@ -368,8 +382,9 @@ export class Game {
       .fill({ color:0x16202b, alpha:0.95 })
       .stroke({ color:0xf5c84c, width:1.2, alpha:0.85 });
     mapBtn.addChild(mapBg);
-    if (this.stageTextures?.[curMapIdx * 3]) {
-      const mThumb = new Sprite(this.stageTextures[curMapIdx * 3]);
+    const thumbIdx = (curMapIdx * 2) % 9;
+    if (this.stageTextures?.[thumbIdx]) {
+      const mThumb = new Sprite(this.stageTextures[thumbIdx]);
       mThumb.x = Math.round(3 * s);
       mThumb.y = Math.round(3 * s);
       mThumb.width = Math.round(26 * s);
@@ -377,8 +392,8 @@ export class Game {
       mapBtn.addChild(mThumb);
     }
     const mapTxt = new Text({
-      text: `MAP ${curMapIdx + 1}: ${curMap.short}`,
-      style: new TextStyle({ fill:0xfff3c4, fontSize:Math.round(8.5 * s), fontFamily:'monospace', fontWeight:'bold' }),
+      text: `C${curMapIdx + 1}/${CAMPAIGN_MAPS.length}: ${curMap.short}`,
+      style: new TextStyle({ fill:0xfff3c4, fontSize:Math.round(8 * s), fontFamily:'monospace', fontWeight:'bold' }),
     });
     mapTxt.anchor.set(0, 0.5);
     mapTxt.x = Math.round(33 * s);
@@ -651,13 +666,59 @@ export class Game {
     this.buildMenu();
   }
 
+  loadCampaignProgress() {
+    try {
+      const raw = window.localStorage?.getItem('3k-survivors-campaign-save-v1');
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return false;
+      const maxCampaign = CAMPAIGN_MAPS.length - 1;
+      const maxOrder = CAMPAIGN_MAPS.length * 5 - 1;
+      this.unlockedCampaignIndex = clamp(Number(data.unlockedCampaignIndex) || 0, 0, maxCampaign);
+      this.unlockedStageOrder = clamp(Number(data.unlockedStageOrder) || (this.unlockedCampaignIndex * 5), 0, maxOrder);
+      if (Array.isArray(data.clearedStages)) {
+        this.clearedStages = new Set(data.clearedStages.map((n) => Number(n)).filter((n) => n >= 0 && n <= maxOrder));
+      }
+      this.selectedMapIndex = clamp(Number(data.selectedMapIndex ?? this.unlockedCampaignIndex) || 0, 0, maxCampaign);
+      this.viewingCampaignIndex = this.selectedMapIndex;
+      this.selectedCheckpointOrder = this.unlockedStageOrder;
+      this.lastAutoSavedCampaign = data.lastCompletedCampaign ?? null;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  saveCampaignProgress(completedCampaignIdx = null) {
+    try {
+      if (completedCampaignIdx !== null) {
+        this.lastAutoSavedCampaign = completedCampaignIdx;
+      }
+      const payload = {
+        version: 1,
+        unlockedCampaignIndex: this.unlockedCampaignIndex || 0,
+        unlockedStageOrder: this.unlockedStageOrder || 0,
+        clearedStages: [...(this.clearedStages || [])],
+        selectedMapIndex: this.selectedMapIndex || 0,
+        lastCompletedCampaign: this.lastAutoSavedCampaign,
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage?.setItem('3k-survivors-campaign-save-v1', JSON.stringify(payload));
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+
   cycleMap() {
     this.sfx.unlock();
-    this.selectedMapIndex = ((this.selectedMapIndex || 0) + 1) % CAMPAIGN_MAPS.length;
+    const maxSelectable = Math.max(0, this.unlockedCampaignIndex || 0);
+    this.selectedMapIndex = maxSelectable > 0
+      ? ((this.selectedMapIndex || 0) + 1) % (maxSelectable + 1)
+      : ((this.selectedMapIndex || 0) + 1) % CAMPAIGN_MAPS.length;
     this.sfx.play('select');
     this.buildMenu();
   }
-
   getStageSpec() {
     const map = CAMPAIGN_MAPS[this.mapIndex] || CAMPAIGN_MAPS[0];
     const stage = map.levels[this.stageIndex] || map.levels[0];
@@ -685,7 +746,7 @@ export class Game {
       this.appEl.style.filter = 'none';
     }
     if (this.sfx) {
-      this.sfx.playBgm(map.id);
+      this.sfx.playBgm(map.bgm || map.id);
     }
   }
 
@@ -719,9 +780,10 @@ export class Game {
     this.perk = perk || this.selectedPerk || STARTING_PERKS[0];
     this.mapIndex = mapIndex ?? this.selectedMapIndex ?? 0;
     this.stageIndex = 0;
-    this.unlockedStageOrder = this.mapIndex * 3;
-    this.selectedCheckpointOrder = this.unlockedStageOrder;
-    this.clearedStages = new Set();
+    this.unlockedStageOrder = Math.max(this.unlockedStageOrder || 0, this.mapIndex * 5);
+    this.unlockedCampaignIndex = Math.max(this.unlockedCampaignIndex || 0, this.mapIndex);
+    this.selectedCheckpointOrder = this.mapIndex * 5;
+    this.viewingCampaignIndex = this.mapIndex;
     this.menuContainer.visible = false;
     if (this.campaignMapContainer) this.campaignMapContainer.visible = false;
     if (this.gameOverContainer) this.gameOverContainer.visible = false;
@@ -755,6 +817,7 @@ export class Game {
     this.itemTimer = 14;
     this.stageProgress = 0;
     this.currentWave = 1;
+    this.finalWaveSpawned = false;
     this.stageBoss = null;
     this.kills = 0;
     this.gold = 0;
@@ -805,6 +868,7 @@ export class Game {
     this.summonPet(heroPetMap[this.hero.id] || 'redhare');
     this.spawnItem('heart', -110, -75);
     this.spawnItem('bomb', 120, -65);
+    this.startWave(1);
   }
 
   setupProps() {
@@ -1208,8 +1272,10 @@ export class Game {
     this.hudWaveBg.roundRect(barX, hudTop + 29, barW, 11, 3)
       .fill(0x121824)
       .stroke({ color:0x607084, width:1, alpha:0.8 });
-    this.hudWaveBg.moveTo(Math.round(barX + barW / 3), hudTop + 29).lineTo(Math.round(barX + barW / 3), hudTop + 40).stroke({ color:0x607084, width:1, alpha:0.7 });
-    this.hudWaveBg.moveTo(Math.round(barX + (barW * 2) / 3), hudTop + 29).lineTo(Math.round(barX + (barW * 2) / 3), hudTop + 40).stroke({ color:0x607084, width:1, alpha:0.7 });
+    for (let wTick = 1; wTick < 5; wTick++) {
+      const tx = Math.round(barX + (barW * wTick) / 5);
+      this.hudWaveBg.moveTo(tx, hudTop + 29).lineTo(tx, hudTop + 40).stroke({ color:0x607084, width:1, alpha:0.7 });
+    }
     this.hudWaveText.x = Math.round(W / 2);
     this.hudWaveText.y = Math.round(hudTop + 34.5);
 
@@ -1522,9 +1588,7 @@ export class Game {
     // collisions enemy vs player
     this.handlePlayerCollisions(dt);
 
-    // xp check
-    if (this.xp >= this.xpNext) this.levelUp();
-
+    // Upgrades (weapons, armors/passives, pets) ONLY happen when all enemies of the wave are killed!
     // invuln
     if (p.invuln > 0) p.invuln -= dt;
 
@@ -1541,23 +1605,87 @@ export class Game {
     this.updateHud();
   }
 
+  getActiveEnemyCount() {
+    let count = 0;
+    for (let i = 0; i < this.enemies.length; i++) {
+      if (this.enemies[i].active && this.enemies[i].hp > 0) count++;
+    }
+    return count;
+  }
+
+  startWave(waveNum = 1) {
+    const { map, stage } = this.getStageSpec();
+    this.currentWave = clamp(waveNum, 1, stage.waves);
+    this.waveTotalEnemies = Math.round(10 + this.currentWave * 4 + this.stageIndex * 2);
+    this.waveSpawnedCount = 0;
+    this.waveKills = 0;
+    this.pendingNextWave = null;
+    this.finalWaveSpawned = this.currentWave >= stage.waves;
+    this.spawnTimer = 0.25;
+
+    if (this.finalWaveSpawned) {
+      const bossSpec = stage.levelBoss || map.boss;
+      this.stageBoss = this.spawnMapBoss(map, stage, bossSpec);
+      this.waveTotalEnemies++;
+      this.waveSpawnedCount++;
+      this.sfx.play('hurt');
+      this.shake = 12;
+      if (this.player) {
+        this.showFloatText(this.player.x, this.player.y - 30, `WAVE 5/5 · BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
+      }
+    } else if (this.currentWave > 1 && this.player) {
+      this.sfx.play('select');
+      this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${this.currentWave}/${stage.waves}!`, 0xf5c84c);
+    }
+
+    const initBatch = Math.min(6 + this.currentWave, this.waveTotalEnemies - this.waveSpawnedCount);
+    for (let i = 0; i < initBatch; i++) {
+      this.spawnEnemy();
+      this.waveSpawnedCount++;
+    }
+    this.stageProgress = ((this.currentWave - 1) / stage.waves) * (stage.waves * stage.waveDuration);
+  }
+
+  onWaveCleared() {
+    const { stage } = this.getStageSpec();
+    // Auto-collect any remaining XP gems on the battlefield
+    for (const g of this.gems) {
+      if (g.active) {
+        this.xp += g.val * (this.player?.xpMul || 1);
+        g.active = false;
+        this.gemPool.release(g);
+      }
+    }
+    this.gems.length = 0;
+
+    if (this.currentWave < stage.waves) {
+      // Wave 1..4 cleared -> trigger Weapon / Armor / Pet Upgrade Modal!
+      this.pendingNextWave = this.currentWave + 1;
+      this.levelUp();
+    } else {
+      // Final Wave 5 + Boss cleared -> complete Level & auto-save Campaign Checkpoint!
+      this.advanceStage();
+    }
+  }
+
   handleSpawns(dt) {
     const { map, stage } = this.getStageSpec();
     this.updateStageProgression(dt, map, stage);
 
-    // spawn rate increases with stage spawnMul and time
-    this.spawnTimer = (this.spawnTimer || 0) - dt;
-    if (this.spawnTimer <= 0) {
-      const baseInterval = Math.max(0.05, 0.6 - this.time * 0.004);
-      this.spawnTimer = Math.max(0.04, baseInterval / (stage.spawnMul || 1));
-      const count = 1 + Math.floor(this.time / 60) + (this.currentWave - 1);
-      for (let i = 0; i < count; i++) this.spawnEnemy();
-    }
-    // periodic elite lieutenant every 90s
-    this.bossTimer = (this.bossTimer || 90) - dt;
-    if (this.bossTimer <= 0) {
-      this.bossTimer = 90;
-      this.spawnElite();
+    // Spawn remaining enemies of the current wave's finite horde
+    if (this.waveSpawnedCount < this.waveTotalEnemies) {
+      this.spawnTimer = (this.spawnTimer || 0) - dt;
+      if (this.spawnTimer <= 0) {
+        this.spawnTimer = Math.max(0.12, 0.42 / (stage.spawnMul || 1));
+        const batch = Math.min(
+          2 + Math.floor(this.currentWave / 2),
+          this.waveTotalEnemies - this.waveSpawnedCount,
+        );
+        for (let i = 0; i < batch; i++) {
+          this.spawnEnemy();
+          this.waveSpawnedCount++;
+        }
+      }
     }
     // periodic battlefield item drops (heart / bomb)
     this.itemTimer = (this.itemTimer ?? 14) - dt;
@@ -1574,65 +1702,65 @@ export class Game {
 
   updateStageProgression(dt, map, stage) {
     const totalDuration = stage.waves * stage.waveDuration;
-    if (this.stageBoss) {
-      if (!this.stageBoss.active || this.stageBoss.hp <= 0) {
-        this.stageBoss = null;
-        this.advanceStage();
-      }
-      return;
+    if (this.stageBoss && (!this.stageBoss.active || this.stageBoss.hp <= 0)) {
+      this.stageBoss = null;
     }
+    const activeFoes = this.getActiveEnemyCount();
+    const waveClearRatio = this.waveTotalEnemies > 0
+      ? clamp((this.waveSpawnedCount - activeFoes) / this.waveTotalEnemies, 0, 1)
+      : 0;
+    this.stageProgress = (((this.currentWave - 1) + waveClearRatio) / stage.waves) * totalDuration;
 
-    this.stageProgress += dt;
-    const ratio = clamp(this.stageProgress / totalDuration, 0, 1);
-    const wave = Math.min(stage.waves, 1 + Math.floor(ratio * stage.waves));
-    if (wave > this.currentWave) {
-      this.currentWave = wave;
-      this.sfx.play('select');
-      this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${wave}/${stage.waves}!`, 0xf5c84c);
-      for (let i = 0; i < 6 + wave * 3; i++) this.spawnEnemy();
-    }
-
-    if (this.stageProgress >= totalDuration) {
-      this.stageProgress = totalDuration;
-      const bossSpec = stage.levelBoss || map.boss;
-      this.stageBoss = this.spawnMapBoss(map, stage, bossSpec);
-      this.sfx.play('hurt');
-      this.shake = 12;
-      this.showFloatText(this.player.x, this.player.y - 30, `BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
+    if (this.waveSpawnedCount >= this.waveTotalEnemies && activeFoes === 0 && !this.stageBoss) {
+      this.onWaveCleared();
     }
   }
 
   advanceStage() {
-    const curOrder = this.mapIndex * 3 + this.stageIndex;
+    const levelsPerMap = 5;
+    const totalStages = CAMPAIGN_MAPS.length * levelsPerMap;
+    const curOrder = this.mapIndex * levelsPerMap + this.stageIndex;
     this.clearedStages.add(curOrder);
-    const nextOrder = Math.min(CAMPAIGN_MAPS.length * 3 - 1, curOrder + 1);
+    const completedCampaign = this.stageIndex >= levelsPerMap - 1;
+    const nextOrder = Math.min(totalStages - 1, curOrder + 1);
     this.unlockedStageOrder = Math.max(this.unlockedStageOrder || 0, nextOrder);
+    this.unlockedCampaignIndex = Math.max(
+      this.unlockedCampaignIndex || 0,
+      Math.floor(this.unlockedStageOrder / levelsPerMap),
+    );
     this.selectedCheckpointOrder = nextOrder;
+    this.viewingCampaignIndex = Math.floor(nextOrder / levelsPerMap);
+    this.selectedMapIndex = this.viewingCampaignIndex;
 
-    const wasBossStage = this.stageIndex >= 2;
-    this.gold += wasBossStage ? 50 : 25;
-    const healAmt = Math.round(this.player.maxHp * (wasBossStage ? 0.5 : 0.35));
+    // Auto-save campaign checkpoint progress (especially when completing each campaign!)
+    this.saveCampaignProgress(completedCampaign ? this.mapIndex : null);
+
+    this.gold += completedCampaign ? 60 : 25;
+    const healAmt = Math.round(this.player.maxHp * (completedCampaign ? 0.5 : 0.35));
     this.player.hp = Math.min(this.player.maxHp, this.player.hp + healAmt);
     this.sfx.play('evolve');
     this.spawnLevelUpVfx(this.player.x, this.player.y);
     this.spawnShockwave(this.player.x, this.player.y, 0xf5c84c, 0.4, 2.5, 0.3);
 
     this.stageBoss = null;
+    this.finalWaveSpawned = false;
     this.state = 'campaignmap';
     this.showCampaignMapModal(curOrder, nextOrder);
   }
 
   deployToCheckpoint(stageOrder = this.selectedCheckpointOrder) {
-    const clamped = clamp(stageOrder ?? 0, 0, CAMPAIGN_MAPS.length * 3 - 1);
+    const levelsPerMap = 5;
+    const totalStages = CAMPAIGN_MAPS.length * levelsPerMap;
+    const clamped = clamp(stageOrder ?? 0, 0, totalStages - 1);
     if (clamped > (this.unlockedStageOrder || 0)) return;
     this.sfx.play('start');
-    this.mapIndex = Math.floor(clamped / 3);
-    this.stageIndex = clamped % 3;
+    this.mapIndex = Math.floor(clamped / levelsPerMap);
+    this.stageIndex = clamped % levelsPerMap;
+    this.viewingCampaignIndex = this.mapIndex;
     this.stageProgress = 0;
     this.currentWave = 1;
+    this.finalWaveSpawned = false;
     this.stageBoss = null;
-
-    // Clear leftover non-boss enemies/projectiles for clean stage transition
     for (const e of this.enemies) this.enemyPool.release(e);
     this.enemies.length = 0;
     for (const p of this.projectiles) this.projPool.release(p);
@@ -1652,6 +1780,7 @@ export class Game {
     this._lastWaveQuant = -1;
     const { mapNum, levelNum, stage } = this.getStageSpec();
     this.showFloatText(this.player.x, this.player.y - 28, `STAGE ${mapNum}-${levelNum}: ${stage.name.toUpperCase()}!`, 0x6bffb0);
+    this.startWave(1);
   }
 
   updateProps() {
@@ -2442,9 +2571,12 @@ export class Game {
         }
       }
       e.active = false;
+      this.waveKills = (this.waveKills || 0) + 1;
       if (e.isMapBoss && this.stageBoss === e) {
         this.stageBoss = null;
-        this.advanceStage();
+      }
+      if (this.waveSpawnedCount >= this.waveTotalEnemies && !this.stageBoss && this.getActiveEnemyCount() === 0) {
+        this.onWaveCleared();
       }
     }
   }
@@ -2568,7 +2700,7 @@ export class Game {
   levelUp() {
     this.level++;
     this.player.level = this.level;
-    this.xp -= this.xpNext;
+    this.xp = Math.max(0, this.xp - this.xpNext);
     this.xpNext = LEVEL_XP(this.level);
     this.state = 'levelup';
     this.sfx.play('levelup');
@@ -2596,8 +2728,8 @@ export class Game {
     this.luContainer.addChild(panel);
 
     const title = new Text({
-      text:'LEVEL UP!  CHOOSE UPGRADE',
-      style: new TextStyle({ fill:0xf5c84c, fontSize:14, fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.8 }),
+      text: this.pendingNextWave ? `WAVE ${this.currentWave} CLEARED! · CHOOSE UPGRADE` : 'LEVEL UP!  CHOOSE UPGRADE',
+      style: new TextStyle({ fill:0xf5c84c, fontSize:13, fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.7 }),
     });
     title.anchor.set(0.5);
     title.x = this.W / 2; title.y = panelY + 26;
@@ -2658,7 +2790,7 @@ export class Game {
     const hudOffset = (this.hudTop ?? (H > W ? 34 : 8)) + 88;
     const panelW = Math.min(landscape ? 680 : 366, W - 16);
     const panelH = landscape
-      ? Math.min(368, H - 12)
+      ? Math.min(352, H - 24)
       : Math.min(548, H - hudOffset - 10);
     const panelX = Math.round((W - panelW) / 2);
     const panelY = landscape
@@ -2673,197 +2805,205 @@ export class Game {
       .stroke({ color: 0xf5c84c, width: 2, alpha: 0.95 });
     this.campaignMapContainer.addChild(backdrop);
 
+    const levelsPerMap = 5;
+    const totalStages = CAMPAIGN_MAPS.length * levelsPerMap;
+    const selOrder = clamp(this.selectedCheckpointOrder ?? this.unlockedStageOrder ?? 0, 0, totalStages - 1);
+    const unlockedMax = this.unlockedStageOrder ?? 0;
+    const viewMapIdx = clamp(this.viewingCampaignIndex ?? Math.floor(selOrder / levelsPerMap), 0, CAMPAIGN_MAPS.length - 1);
+    const viewMap = CAMPAIGN_MAPS[viewMapIdx] || CAMPAIGN_MAPS[0];
+
     const title = new Text({
-      text: 'STAGE CLEARED! · CAMPAIGN MAP',
-      style: new TextStyle({ fill: 0xf5c84c, fontSize: landscape ? 12.5 : 13.5, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.8 }),
+      text: 'STAGE CLEARED! · CAMPAIGN CHECKPOINT MAP',
+      style: new TextStyle({ fill: 0xf5c84c, fontSize: landscape ? 12 : 12.5, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.6 }),
     });
     title.anchor.set(0.5);
     title.x = Math.round(W / 2);
-    title.y = panelY + (landscape ? 14 : 17);
+    title.y = panelY + (landscape ? 13 : 16);
     this.campaignMapContainer.addChild(title);
 
+    const savedTag = this.lastAutoSavedCampaign !== null
+      ? `✓ CAMPAIGN ${this.lastAutoSavedCampaign + 1} AUTO-SAVED`
+      : '✓ CHECKPOINT AUTO-SAVED';
     const sub = new Text({
-      text: 'NEXT CHECKPOINT UNLOCKED · SELECT STAGE TO CONTINUE',
-      style: new TextStyle({ fill: 0x9ec5e8, fontSize: landscape ? 8.5 : 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+      text: `${savedTag} · 10 CAMPAIGNS × 5 LEVELS × 5 WAVES`,
+      style: new TextStyle({ fill: 0x6bffb0, fontSize: landscape ? 8 : 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     sub.anchor.set(0.5);
     sub.x = Math.round(W / 2);
-    sub.y = panelY + (landscape ? 28 : 32);
+    sub.y = panelY + (landscape ? 26 : 30);
     this.campaignMapContainer.addChild(sub);
 
-    const selOrder = clamp(this.selectedCheckpointOrder ?? this.unlockedStageOrder ?? 0, 0, 8);
-    const unlockedMax = this.unlockedStageOrder ?? 0;
-
-    const bottomBlockH = landscape ? 98 : 114;
-    const rowStartY = panelY + (landscape ? 38 : 44);
-    const rowH = Math.floor((panelH - (landscape ? 42 : 48) - bottomBlockH) / 3);
     const innerW = panelW - 24;
-    const nodeGap = 8;
-    const nodeW = Math.floor((innerW - nodeGap * 2) / 3);
-    const nodeH = Math.max(48, rowH - (landscape ? 15 : 18));
-    const regionPropKeys = ['tree', 'mountain', 'banner'];
-
-    CAMPAIGN_MAPS.forEach((m, mIdx) => {
-      const ry = rowStartY + mIdx * rowH;
-      const propKey = regionPropKeys[mIdx] || 'tree';
-      if (this.propTextures?.[propKey]) {
-        const rp = new Sprite(this.propTextures[propKey]);
-        rp.scale.set(0.28);
-        rp.x = panelX + 12;
-        rp.y = ry - 2;
-        this.campaignMapContainer.addChild(rp);
-      }
-      const mapLabel = new Text({
-        text: `MAP ${mIdx + 1}: ${m.name.toUpperCase()}`,
-        style: new TextStyle({ fill: 0xe6dec8, fontSize: landscape ? 8.5 : 9.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+    // 1. 10 Campaign Selector Tabs (C1 .. C10)
+    const tabGap = 3;
+    const tabW = Math.floor((innerW - tabGap * (CAMPAIGN_MAPS.length - 1)) / CAMPAIGN_MAPS.length);
+    const tabH = landscape ? 20 : 22;
+    const tabY = panelY + (landscape ? 35 : 40);
+    CAMPAIGN_MAPS.forEach((cm, cIdx) => {
+      const cStartOrder = cIdx * levelsPerMap;
+      const cUnlocked = cStartOrder <= unlockedMax;
+      const cAllCleared = cm.levels.every((_, l) => this.clearedStages?.has(cStartOrder + l));
+      const cActive = cIdx === viewMapIdx;
+      const tab = new Container();
+      tab.x = panelX + 12 + cIdx * (tabW + tabGap);
+      tab.y = tabY;
+      const tg = new Graphics();
+      const tBorder = cActive ? 0xf5c84c : (cAllCleared ? 0x6bffb0 : (cUnlocked ? 0x6b9fff : 0x34414e));
+      const tFill = cActive ? 0x293b52 : (cUnlocked ? 0x162230 : 0x0b1017);
+      tg.roundRect(0, 0, tabW, tabH, 4)
+        .fill({ color: tFill, alpha: 0.96 })
+        .stroke({ color: tBorder, width: cActive ? 1.8 : 1 });
+      tab.addChild(tg);
+      const tt = new Text({
+        text: `C${cIdx + 1}`,
+        style: new TextStyle({ fill: cActive ? 0xfff3c4 : (cUnlocked ? 0xffffff : 0x64748b), fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
       });
-      mapLabel.x = panelX + 28;
-      mapLabel.y = ry;
-      this.campaignMapContainer.addChild(mapLabel);
+      tt.anchor.set(0.5);
+      tt.x = Math.round(tabW / 2);
+      tt.y = Math.round(tabH / 2);
+      tab.addChild(tt);
+      tab.eventMode = 'static';
+      tab.cursor = 'pointer';
+      tab.on('pointertap', () => {
+        this.sfx.play('select');
+        this.viewingCampaignIndex = cIdx;
+        if (cUnlocked) {
+          // Select highest unlocked stage in this campaign
+          let targetOrder = cStartOrder;
+          for (let l = 0; l < levelsPerMap; l++) {
+            if (cStartOrder + l <= unlockedMax) targetOrder = cStartOrder + l;
+          }
+          this.selectedCheckpointOrder = targetOrder;
+        }
+        this.showCampaignMapModal();
+      });
+      this.campaignMapContainer.addChild(tab);
+    });
 
-      const routeLine = new Graphics();
-      const lineY = ry + (landscape ? 12 : 14) + Math.round(nodeH / 2);
-      routeLine.moveTo(panelX + 12 + nodeW * 0.5, lineY)
-        .lineTo(panelX + 12 + nodeW * 2.5 + nodeGap * 2, lineY)
-        .stroke({ color: 0x45586c, width: 2, alpha: 0.85 });
-      this.campaignMapContainer.addChild(routeLine);
+    // 2. Active Campaign Header Banner
+    const hdrY = tabY + tabH + (landscape ? 4 : 6);
+    const propKeys = ['tree', 'mountain', 'watchtower', 'pine', 'banner', 'castle', 'house', 'tent', 'tree', 'castle'];
+    const pKey = propKeys[viewMapIdx % propKeys.length];
+    const sPropMap = this.propTextures?.[this.activeSeason] || this.propTextures;
+    if (sPropMap?.[pKey]) {
+      const rp = new Sprite(sPropMap[pKey]);
+      rp.scale.set(0.28);
+      rp.x = panelX + 12;
+      rp.y = hdrY - 2;
+      this.campaignMapContainer.addChild(rp);
+    }
+    const mapLabel = new Text({
+      text: `CAMPAIGN ${viewMapIdx + 1}/10: ${viewMap.name.toUpperCase()} (5 LEVELS × 5 WAVES)`,
+      style: new TextStyle({ fill: 0xe6dec8, fontSize: landscape ? 8.5 : 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    mapLabel.x = panelX + 28;
+    mapLabel.y = hdrY;
+    this.campaignMapContainer.addChild(mapLabel);
 
-      m.levels.forEach((lv, lIdx) => {
-        const order = mIdx * 3 + lIdx;
+    // 3. 5 Illustrated Level Checkpoint Cards (X-1 through X-5) for the viewed Campaign
+    const listStartY = hdrY + (landscape ? 14 : 16);
+    const bottomBlockH = landscape ? 98 : 110;
+    const availListH = panelH - (listStartY - panelY) - bottomBlockH - 6;
+
+    if (!landscape) {
+      // Portrait: 5 full-width horizontal illustrated Level Cards stacked vertically
+      const rowGap = 5;
+      const cardH = Math.max(46, Math.floor((availListH - rowGap * 4) / 5));
+      const cardW = innerW;
+
+      viewMap.levels.forEach((lv, lIdx) => {
+        const order = viewMapIdx * levelsPerMap + lIdx;
         const isUnlocked = order <= unlockedMax;
         const isCleared = this.clearedStages?.has(order);
         const isSelected = order === selOrder;
-        const nx = panelX + 12 + lIdx * (nodeW + nodeGap);
-        const ny = ry + (landscape ? 12 : 14);
+        const cy = listStartY + lIdx * (cardH + rowGap);
 
         const node = new Container();
-        node.x = nx;
-        node.y = ny;
+        node.x = panelX + 12;
+        node.y = cy;
         const g = new Graphics();
-        const borderCol = isSelected
-          ? 0xf5c84c
-          : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
-        const fillCol = isSelected
-          ? 0x202f42
-          : (isUnlocked ? 0x15202e : 0x0c1118);
-        g.roundRect(0, 0, nodeW, nodeH, 5)
+        const borderCol = isSelected ? 0xf5c84c : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
+        const fillCol = isSelected ? 0x202f42 : (isUnlocked ? 0x15202e : 0x0c1118);
+        g.roundRect(0, 0, cardW, cardH, 5)
           .fill({ color: fillCol, alpha: 0.96 })
           .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
         node.addChild(g);
 
+        // Left: Stage Diorama Thumbnail + Minion & Boss Sprites
+        const thumbW = 68, thumbH = cardH - 8;
+        const thumbIdx = order % (this.stageTextures?.length || 9);
+        if (this.stageTextures?.[thumbIdx]) {
+          const thumb = new Sprite(this.stageTextures[thumbIdx]);
+          thumb.x = 4;
+          thumb.y = 4;
+          thumb.width = thumbW;
+          thumb.height = thumbH;
+          thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
+          node.addChild(thumb);
+        }
+        const thumbFrame = new Graphics();
+        thumbFrame.rect(4, 4, thumbW, thumbH)
+          .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1 });
+        node.addChild(thumbFrame);
+
+        const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
+        if (this.enemyTextures?.[firstFoe]?.[0]) {
+          const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
+          foeSp.anchor.set(0.5, 0.6);
+          foeSp.scale.set(0.46);
+          foeSp.x = 20;
+          foeSp.y = 4 + Math.round(thumbH / 2) + 2;
+          foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+          node.addChild(foeSp);
+        }
+        const bossSpec = lv.levelBoss || viewMap.boss;
+        const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
+        if (this.enemyTextures?.[bossKey]?.[0]) {
+          const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
+          bossSp.anchor.set(0.5, 0.6);
+          bossSp.scale.set(0.54);
+          bossSp.x = 4 + thumbW - 16;
+          bossSp.y = 4 + Math.round(thumbH / 2) + 2;
+          bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+          node.addChild(bossSp);
+        }
+
+        // Middle: Stage Title & Boss + 5 Waves info
+        const nm = new Text({
+          text: `STAGE ${viewMapIdx + 1}-${lIdx + 1}: ${lv.name.toUpperCase()}`,
+          style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        nm.x = 80;
+        nm.y = 6;
+        node.addChild(nm);
+
+        const bs = new Text({
+          text: `${lv.waves} WAVES · BOSS: ${bossSpec.name.toUpperCase()}`,
+          style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 8, fontFamily: 'monospace' }),
+        });
+        bs.x = 80;
+        bs.y = 20;
+        node.addChild(bs);
+
+        const envTxt = new Text({
+          text: `${(lv.season || 'spring').toUpperCase()} · ${(lv.weather || 'clear').toUpperCase()} · ${lv.layoutPattern.toUpperCase()}`,
+          style: new TextStyle({ fill: isUnlocked ? 0x9ec5e8 : 0x475569, fontSize: 7.5, fontFamily: 'monospace' }),
+        });
+        envTxt.x = 80;
+        envTxt.y = 33;
+        node.addChild(envTxt);
+
+        // Right: Status Badge
         const statusTag = isCleared ? '✓ CLEARED' : (isUnlocked ? '★ UNLOCKED' : 'LOCKED');
         const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
         const st = new Text({
-          text: `${mIdx + 1}-${lIdx + 1} ${statusTag}`,
+          text: statusTag,
           style: new TextStyle({ fill: tagCol, fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }),
         });
-        st.x = 5;
-        st.y = 3;
+        st.anchor.set(1, 0);
+        st.x = cardW - 6;
+        st.y = 6;
         node.addChild(st);
-
-        const bossSpec = lv.levelBoss || m.boss;
-        const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
-
-        if (!landscape && nodeH >= 78) {
-          // Portrait card layout: Full-width Stage Map Preview Banner in the middle of the card
-          const thumbW = nodeW - 10;
-          const thumbH = Math.max(30, nodeH - 46);
-          const thumbY = 16;
-          if (this.stageTextures?.[order]) {
-            const thumb = new Sprite(this.stageTextures[order]);
-            thumb.x = 5;
-            thumb.y = thumbY;
-            thumb.width = thumbW;
-            thumb.height = thumbH;
-            thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
-            node.addChild(thumb);
-          }
-          const thumbFrame = new Graphics();
-          thumbFrame.rect(5, thumbY, thumbW, thumbH)
-            .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1, alpha: 0.9 });
-          node.addChild(thumbFrame);
-
-          // Stage enemy sample sprite on left + Boss sprite on right inside the map preview
-          const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
-          if (this.enemyTextures?.[firstFoe]?.[0]) {
-            const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
-            foeSp.anchor.set(0.5, 0.6);
-            foeSp.scale.set(0.52);
-            foeSp.x = 20;
-            foeSp.y = thumbY + Math.round(thumbH / 2) + 1;
-            foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-            node.addChild(foeSp);
-          }
-          if (this.enemyTextures?.[bossKey]?.[0]) {
-            const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
-            bossSp.anchor.set(0.5, 0.6);
-            bossSp.scale.set(0.58);
-            bossSp.x = nodeW - 22;
-            bossSp.y = thumbY + Math.round(thumbH / 2) + 1;
-            bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-            node.addChild(bossSp);
-          }
-
-          const nm = new Text({
-            text: lv.name,
-            style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
-          });
-          nm.x = 5;
-          nm.y = thumbY + thumbH + 3;
-          node.addChild(nm);
-
-          const bs = new Text({
-            text: `Boss: ${bossSpec.name}`,
-            style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7.5, fontFamily: 'monospace' }),
-          });
-          bs.x = 5;
-          bs.y = nodeH - 12;
-          node.addChild(bs);
-        } else {
-          // Landscape card layout: Stage Map Preview on left, text + Boss sprite on right
-          const thumbW = 62;
-          const thumbH = Math.max(28, nodeH - 20);
-          const thumbY = 15;
-          if (this.stageTextures?.[order]) {
-            const thumb = new Sprite(this.stageTextures[order]);
-            thumb.x = 5;
-            thumb.y = thumbY;
-            thumb.width = thumbW;
-            thumb.height = thumbH;
-            thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
-            node.addChild(thumb);
-          }
-          const thumbFrame = new Graphics();
-          thumbFrame.rect(5, thumbY, thumbW, thumbH)
-            .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1, alpha: 0.9 });
-          node.addChild(thumbFrame);
-
-          if (this.enemyTextures?.[bossKey]?.[0]) {
-            const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
-            bossSp.anchor.set(0.5, 0.6);
-            bossSp.scale.set(0.58);
-            bossSp.x = 5 + thumbW - 14;
-            bossSp.y = thumbY + Math.round(thumbH / 2) + 1;
-            bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
-            node.addChild(bossSp);
-          }
-
-          const nm = new Text({
-            text: lv.name,
-            style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
-          });
-          nm.x = 73;
-          nm.y = 17;
-          node.addChild(nm);
-
-          const bs = new Text({
-            text: `Boss: ${bossSpec.name}`,
-            style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7.5, fontFamily: 'monospace' }),
-          });
-          bs.x = 73;
-          bs.y = 31;
-          node.addChild(bs);
-        }
 
         if (isUnlocked) {
           node.eventMode = 'static';
@@ -2876,10 +3016,116 @@ export class Game {
         }
         this.campaignMapContainer.addChild(node);
       });
-    });
+    } else {
+      // Landscape: 5 horizontal columns for Levels X-1 .. X-5
+      const colGap = 6;
+      const cardW = Math.floor((innerW - colGap * 4) / 5);
+      const cardH = Math.max(76, availListH);
+      const routeLine = new Graphics();
+      const lineY = listStartY + Math.round(cardH / 2);
+      routeLine.moveTo(panelX + 12 + cardW * 0.5, lineY)
+        .lineTo(panelX + 12 + innerW - cardW * 0.5, lineY)
+        .stroke({ color: 0x45586c, width: 2, alpha: 0.85 });
+      this.campaignMapContainer.addChild(routeLine);
 
-    const selMapIdx = Math.floor(selOrder / 3);
-    const selLvIdx = selOrder % 3;
+      viewMap.levels.forEach((lv, lIdx) => {
+        const order = viewMapIdx * levelsPerMap + lIdx;
+        const isUnlocked = order <= unlockedMax;
+        const isCleared = this.clearedStages?.has(order);
+        const isSelected = order === selOrder;
+        const cx = panelX + 12 + lIdx * (cardW + colGap);
+
+        const node = new Container();
+        node.x = cx;
+        node.y = listStartY;
+        const g = new Graphics();
+        const borderCol = isSelected ? 0xf5c84c : (isCleared ? 0x6bffb0 : (isUnlocked ? 0x6b9fff : 0x34414e));
+        const fillCol = isSelected ? 0x202f42 : (isUnlocked ? 0x15202e : 0x0c1118);
+        g.roundRect(0, 0, cardW, cardH, 5)
+          .fill({ color: fillCol, alpha: 0.96 })
+          .stroke({ color: borderCol, width: isSelected ? 2.2 : 1.3 });
+        node.addChild(g);
+
+        const statusTag = isCleared ? '✓ CLEARED' : (isUnlocked ? '★ UNLOCKED' : 'LOCKED');
+        const tagCol = isCleared ? 0x6bffb0 : (isUnlocked ? 0xf5c84c : 0x687685);
+        const st = new Text({
+          text: `${viewMapIdx + 1}-${lIdx + 1} ${statusTag}`,
+          style: new TextStyle({ fill: tagCol, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        st.x = 5;
+        st.y = 4;
+        node.addChild(st);
+
+        const thumbW = cardW - 10, thumbH = Math.max(38, cardH - 52);
+        const thumbY = 17;
+        const thumbIdx = order % (this.stageTextures?.length || 9);
+        if (this.stageTextures?.[thumbIdx]) {
+          const thumb = new Sprite(this.stageTextures[thumbIdx]);
+          thumb.x = 5;
+          thumb.y = thumbY;
+          thumb.width = thumbW;
+          thumb.height = thumbH;
+          thumb.tint = isUnlocked ? 0xffffff : 0x45505e;
+          node.addChild(thumb);
+        }
+        const thumbFrame = new Graphics();
+        thumbFrame.rect(5, thumbY, thumbW, thumbH)
+          .stroke({ color: isSelected ? 0xf5c84c : 0x3b4d63, width: 1 });
+        node.addChild(thumbFrame);
+
+        const firstFoe = (lv.enemies && lv.enemies[0]) || 'soldier';
+        if (this.enemyTextures?.[firstFoe]?.[0]) {
+          const foeSp = new Sprite(this.enemyTextures[firstFoe][0]);
+          foeSp.anchor.set(0.5, 0.6);
+          foeSp.scale.set(0.5);
+          foeSp.x = 22;
+          foeSp.y = thumbY + Math.round(thumbH / 2) + 2;
+          foeSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+          node.addChild(foeSp);
+        }
+        const bossSpec = lv.levelBoss || viewMap.boss;
+        const bossKey = bossSpec.spriteType && this.enemyTextures?.[bossSpec.spriteType] ? bossSpec.spriteType : 'elite';
+        if (this.enemyTextures?.[bossKey]?.[0]) {
+          const bossSp = new Sprite(this.enemyTextures[bossKey][0]);
+          bossSp.anchor.set(0.5, 0.6);
+          bossSp.scale.set(0.56);
+          bossSp.x = cardW - 22;
+          bossSp.y = thumbY + Math.round(thumbH / 2) + 2;
+          bossSp.tint = isUnlocked ? 0xffffff : 0x2a333d;
+          node.addChild(bossSp);
+        }
+
+        const nm = new Text({
+          text: lv.name,
+          style: new TextStyle({ fill: isUnlocked ? 0xffffff : 0x687685, fontSize: 7.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        nm.x = 5;
+        nm.y = thumbY + thumbH + 4;
+        node.addChild(nm);
+
+        const bs = new Text({
+          text: `5W · Boss: ${bossSpec.name}`,
+          style: new TextStyle({ fill: isUnlocked ? 0xff9e80 : 0x525e6b, fontSize: 7, fontFamily: 'monospace' }),
+        });
+        bs.x = 5;
+        bs.y = cardH - 13;
+        node.addChild(bs);
+
+        if (isUnlocked) {
+          node.eventMode = 'static';
+          node.cursor = 'pointer';
+          node.on('pointertap', () => {
+            this.sfx.play('select');
+            this.selectedCheckpointOrder = order;
+            this.showCampaignMapModal();
+          });
+        }
+        this.campaignMapContainer.addChild(node);
+      });
+    }
+
+    const selMapIdx = Math.floor(selOrder / levelsPerMap);
+    const selLvIdx = selOrder % levelsPerMap;
     const selMap = CAMPAIGN_MAPS[selMapIdx] || CAMPAIGN_MAPS[0];
     const selLv = selMap.levels[selLvIdx] || selMap.levels[0];
     const selBoss = selLv.levelBoss || selMap.boss;
@@ -2896,8 +3142,9 @@ export class Game {
     // Selected Stage Large Diorama Thumbnail + Boss Portrait on the left of the Briefing Box
     const pvW = landscape ? 74 : 74;
     const pvH = infoH - 10;
-    if (this.stageTextures?.[selOrder]) {
-      const pv = new Sprite(this.stageTextures[selOrder]);
+    const selThumbIdx = selOrder % (this.stageTextures?.length || 9);
+    if (this.stageTextures?.[selThumbIdx]) {
+      const pv = new Sprite(this.stageTextures[selThumbIdx]);
       pv.x = panelX + 17;
       pv.y = infoY + 5;
       pv.width = pvW;
@@ -2928,9 +3175,13 @@ export class Game {
     const selWeather = WEATHER_TYPES[selLv.weather || 'clear'] || WEATHER_TYPES.clear;
     const selSeason = SEASONS[selLv.season || 'spring'] || SEASONS.spring;
     const infoTitle = new Text({
-      text: `STAGE ${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${selSeason.short} · ${selWeather.short})`,
+      text: `C${selMapIdx + 1}-${selLvIdx + 1}: ${selLv.name.toUpperCase()} (${selSeason.short}/${selWeather.short})`,
       style: new TextStyle({ fill: 0xfff3c4, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
     });
+    const maxInfoW = panelX + panelW - 16 - textLeft;
+    if (infoTitle.width > maxInfoW) {
+      infoTitle.scale.set(maxInfoW / infoTitle.width);
+    }
     infoTitle.x = textLeft;
     infoTitle.y = infoY + 4;
     this.campaignMapContainer.addChild(infoTitle);
@@ -3119,10 +3370,15 @@ export class Game {
     ch.apply();
     if (this._loadoutDirty) this.renderHudSlots();
     if (this.luContainer) {
-      this.luContainer.destroy({ children:true });
+      this.luContainer.destroy({ children: true });
       this.luContainer = null;
     }
     this.state = 'playing';
+    if (this.pendingNextWave) {
+      const nextW = this.pendingNextWave;
+      this.pendingNextWave = null;
+      this.startWave(nextW);
+    }
   }
 
   showFloatText(x, y, text, color) {
@@ -3486,10 +3742,17 @@ export class Game {
     const pct = Math.round(waveRatio * 100);
     const curWeather = WEATHER_TYPES[this.activeWeather] || WEATHER_TYPES.clear;
     const curSeason = SEASONS[this.activeSeason] || SEASONS.spring;
-    const bossName = (this.stageBoss?.bossName || map.boss.name).toUpperCase();
-    const waveLabel = bossActive
-      ? `BOSS: ${bossName} · HP ${Math.ceil(this.stageBoss.hp)}/${Math.ceil(this.stageBoss.maxHp)}`
-      : `MAP ${mapNum}-${levelNum} · ${curSeason.short}/${curWeather.short} · WAVE ${this.currentWave}/${stage.waves} (${pct}%)`;
+    const bossName = (this.stageBoss?.bossName || (stage.levelBoss || map.boss).name).toUpperCase();
+    const activeFoes = this.getActiveEnemyCount();
+    const remainingWaveFoes = Math.max(0, (this.waveTotalEnemies - this.waveSpawnedCount) + activeFoes);
+    let waveLabel;
+    if (this.finalWaveSpawned) {
+      waveLabel = bossActive
+        ? `WAVE 5/5 · BOSS: ${bossName} (${Math.ceil(this.stageBoss.hp)}/${Math.ceil(this.stageBoss.maxHp)}) · FOES: ${remainingWaveFoes}`
+        : `WAVE 5/5 · BOSS SLAIN! KILL ALL FOES (${remainingWaveFoes} LEFT)`;
+    } else {
+      waveLabel = `C${mapNum}-${levelNum} · ${curSeason.short}/${curWeather.short} · WAVE ${this.currentWave}/${stage.waves} · FOES: ${remainingWaveFoes}`;
+    }
     if (waveLabel !== this._lastHudWaveText) {
       this._lastHudWaveText = waveLabel;
       this.hudWaveText.text = waveLabel;
