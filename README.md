@@ -1,5 +1,7 @@
 # 3K Survivors
 
+![3K Survivors Cover Banner](./public/cover.png)
+
 A mobile-first, Three Kingdoms-themed action survival game inspired by *Vampire Survivors*, built with **PixiJS 8** and **Vite**. Designed to sustain **60 FPS with 300+ active enemies** at mobile viewports (`390×844` portrait and `844×390` landscape) with zero external art dependencies.
 
 ---
