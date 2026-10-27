@@ -694,35 +694,6 @@ def make_effects():
     d.rectangle((9, 5, 12, 7), fill=(254, 249, 195, 255))
     save(golden_egg, "effects/golden_egg.png")
 
-    ultraman = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    d = ImageDraw.Draw(ultraman)
-    # Ultraman Giant of Light: silver & crimson battle suit, golden oval eyes, head crest, cyan Color Timer & Specium Ray pose
-    d.ellipse((12, 52, 52, 61), fill=(12, 18, 26, 140))
-    # Legs & crimson boots
-    d.rounded_rectangle((20, 38, 29, 57), radius=3, fill=(226, 232, 240, 255), outline=OUTLINE)
-    d.rounded_rectangle((35, 38, 44, 57), radius=3, fill=(226, 232, 240, 255), outline=OUTLINE)
-    d.rectangle((20, 48, 29, 57), fill=(220, 38, 38, 255), outline=OUTLINE)
-    d.rectangle((35, 48, 44, 57), fill=(220, 38, 38, 255), outline=OUTLINE)
-    # Silver muscular torso + iconic crimson chest/shoulder patterns
-    d.rounded_rectangle((17, 19, 47, 43), radius=5, fill=(226, 232, 240, 255), outline=OUTLINE)
-    d.polygon([(18, 20), (32, 29), (46, 20), (46, 27), (32, 36), (18, 27)], fill=(220, 38, 38, 255), outline=OUTLINE)
-    d.polygon([(20, 36), (32, 42), (44, 36), (44, 42), (20, 42)], fill=(220, 38, 38, 255), outline=OUTLINE)
-    # Blinking Cyan Color Timer core on chest
-    d.ellipse((29, 25, 35, 31), fill=(0, 245, 212, 255), outline=OUTLINE)
-    d.rectangle((31, 26, 33, 28), fill=(255, 255, 255, 255))
-    # Crossed Specium Ray (+) arms & glowing cyan-white energy discharge
-    d.rounded_rectangle((10, 22, 21, 34), radius=3, fill=(226, 232, 240, 255), outline=OUTLINE)
-    d.rounded_rectangle((43, 20, 55, 34), radius=3, fill=(226, 232, 240, 255), outline=OUTLINE)
-    d.rectangle((46, 14, 52, 31), fill=(241, 245, 249, 255), outline=OUTLINE)
-    d.rectangle((34, 24, 53, 29), fill=(241, 245, 249, 255), outline=OUTLINE)
-    d.ellipse((47, 12, 61, 28), fill=(56, 189, 248, 220), outline=(224, 242, 254, 255))
-    # Sculpted Silver Helmet, Central Fin & Glowing Golden Compound Eyes
-    d.ellipse((21, 5, 43, 23), fill=(241, 245, 249, 255), outline=OUTLINE)
-    d.polygon([(30, 1), (32, 0), (34, 1), (33, 15), (31, 15)], fill=(203, 213, 225, 255), outline=OUTLINE)
-    d.ellipse((24, 11, 30, 16), fill=(254, 240, 138, 255), outline=OUTLINE)
-    d.ellipse((34, 11, 40, 16), fill=(254, 240, 138, 255), outline=OUTLINE)
-    save(ultraman, "effects/ultraman.png")
-
     explosion = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(explosion)
     for bx, by, br, col in (

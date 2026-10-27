@@ -1673,14 +1673,20 @@ export class Game {
     if (this.currentWave >= minBirdWave) {
       this.spawnBirdFlock(isEarlyCampaign ? 3 : (3 + Math.floor(this.currentWave / 2)));
     }
-    // Rare Colossal Kaiju Godzilla Titan emergence (20% chance on Waves 3..5, or Wave 4+ in Campaign 1)
-    const kaijuWaveMin = isEarlyCampaign ? 4 : 3;
-    if (this.currentWave >= kaijuWaveMin && !this.enemies.some((e) => e.active && e.isKaiju) && Math.random() < 0.2) {
+    if (this.currentWave === 1) {
+      this._kaijuSpawnedThisStage = false;
+    }
+    // Rare Colossal Kaiju Godzilla Titan emergence (7% chance on Waves 4..5, max 1 per stage)
+    if (this.currentWave >= 4 && !this._kaijuSpawnedThisStage && !this.enemies.some((e) => e.active && e.isKaiju) && Math.random() < 0.07) {
+      this._kaijuSpawnedThisStage = true;
       this.spawnKaijuBoss();
       this.waveTotalEnemies++;
       this.waveSpawnedCount++;
     }
-
+    // Rarest Moment: Cosmic UFO Flying Saucer (3% chance on Wave 3+)
+    if (this.currentWave >= 3 && !this.enemies.some((e) => e.active && e.isUfo) && Math.random() < 0.03) {
+      this.spawnRareUfo();
+    }
     const initBatch = Math.min(
       (isEarlyCampaign ? 4 : 7) + this.currentWave * (isEarlyCampaign ? 1 : 2),
       this.waveTotalEnemies - this.waveSpawnedCount,
@@ -1746,6 +1752,14 @@ export class Game {
         ? Math.max(9.0, 15.0 - this.currentWave * 1.1)
         : Math.max(5.5, 12.5 - this.currentWave * 1.3);
       this.spawnBirdFlock(isEarlyCampaign ? 3 : (3 + Math.floor(this.currentWave / 2)));
+    }
+    // Rarest-moment Cosmic UFO Anomaly check
+    this.ufoTimer = (this.ufoTimer ?? 42.0) - dt;
+    if (this.ufoTimer <= 0 && this.getActiveEnemyCount() > 0) {
+      this.ufoTimer = 45.0;
+      if (Math.random() < 0.12 && !this.enemies.some((e) => e.active && e.isUfo)) {
+        this.spawnRareUfo();
+      }
     }
     // periodic battlefield item drops (heart / bomb)
     this.itemTimer = (this.itemTimer ?? 14) - dt;
@@ -2239,7 +2253,8 @@ export class Game {
     e.knockResist = 0.96;
     e.shootCd = 1.6;
     e.stompTimer = 1.4;
-    e.eggTimer = 5.5;
+    e.eggTimer = 15.0;
+    e._droppedGoldenEgg = false;
     e.isBoss = true;
     e.isMapBoss = false;
     e.enraged = false;
@@ -2254,12 +2269,79 @@ export class Game {
     this.flashScreen(0x00f5d4, 0.28);
     this.spawnShockwave(x, y, 0x00f5d4, 0.6, 3.2, 0.38);
     this.showFloatText(this.player.x, this.player.y - 42, '⚠ RARE KAIJU GODZILLA EMERGED!', 0x00f5d4);
-    // Immediately drop a Golden Egg near the player when Kaiju Godzilla appears!
-    const eggAng = ang + Math.PI + (Math.random() - 0.5) * 0.8;
+    // Rare Golden Egg drop roll on Kaiju emergence (18% chance, max 1 per Kaiju encounter!)
+    if (Math.random() < 0.18) {
+      this.dropGoldenEggNearPlayer(e);
+    }
+    return e;
+  }
+
+  dropGoldenEggNearPlayer(kaijuEntity = null) {
+    if (!this.player) return null;
+    if (kaijuEntity) kaijuEntity._droppedGoldenEgg = true;
+    const eggAng = Math.random() * Math.PI * 2;
     const eggX = this.player.x + Math.cos(eggAng) * 105;
     const eggY = this.player.y + Math.sin(eggAng) * 105;
-    this.spawnItem('golden_egg', eggX, eggY);
-    this.showFloatText(eggX, eggY - 18, '★ GOLDEN EGG! PICK UP FOR ULTRAMAN!', 0xfde047);
+    const it = this.spawnItem('golden_egg', eggX, eggY);
+    this.showFloatText(eggX, eggY - 18, '★ RARE GOLDEN EGG! PICK UP FOR ULTRAMAN!', 0xfde047);
+    return it;
+  }
+
+  spawnRareUfo() {
+    if (!this.player) return null;
+    const { stage } = this.getStageSpec();
+    const d = ENEMY_TYPES.ufo || ENEMY_TYPES.firebird;
+    const p = this.player;
+    const fromLeft = Math.random() < 0.5;
+    const baseAng = (fromLeft ? 0 : Math.PI) + (Math.random() - 0.5) * 0.25;
+    const vx = Math.cos(baseAng) * d.speed;
+    const vy = Math.sin(baseAng) * d.speed;
+    const startDist = 360;
+    const e = this.enemyPool.acquire();
+    e.active = true;
+    e.type = 'ufo';
+    e.x = p.x - Math.cos(baseAng) * startDist;
+    e.y = p.y - Math.sin(baseAng) * startDist - 35;
+    const frames = this.enemyTextures.ufo || this.enemyTextures.firebird;
+    e.sprite.texture = frames[0];
+    e.baseTint = 0xffffff;
+    e.sprite.tint = 0xffffff;
+    e.sprite.alpha = 1;
+    const sc = 1.65;
+    e.baseScale = sc;
+    e.sprite.scaleX = sc;
+    e.sprite.scaleY = sc;
+    e.phase = (this.enemySerial++ * 0.61803398875) % 1;
+    e.hp = d.hp * (stage.hpMul || 1);
+    e.maxHp = e.hp;
+    e.speed = d.speed;
+    e.dmg = 0;
+    e.size = d.size;
+    e.xp = d.xp;
+    e.color = d.color;
+    e.ranged = false;
+    e.explosive = true;
+    e.isCatapult = false;
+    e.isBird = true;
+    e.isUfo = true;
+    e.isKaiju = false;
+    e.countsForWave = false;
+    e.flyVx = vx;
+    e.flyVy = vy;
+    e.bombTimer = 0.55;
+    e.bombsLeft = 4;
+    e.knockResist = 0.95;
+    e.isBoss = false;
+    e.isMapBoss = false;
+    e.enraged = false;
+    e.hitFlash = 0;
+    e.knock = 0;
+    e.kx = 0;
+    e.ky = 0;
+    this.enemies.push(e);
+    this.sfx.play('select');
+    this.flashScreen(0x38bdf8, 0.22);
+    this.showFloatText(p.x, p.y - 44, '⚠ RAREST ANOMALY: UFO SAUCER OVERHEAD!', 0x38bdf8);
     return e;
   }
 
@@ -2331,6 +2413,12 @@ export class Game {
     u.shadow.y = Math.round(u.y);
     u.sprite.x = Math.round(u.x);
     u.sprite.y = Math.round(u.y + bob);
+    // Animate across the 4 SD Ultra Battle Ultraman frames (Frame 3 = Specium/Wide-Shot L-Arm pose during beam fire!)
+    const uFrames = this.effectTextures.ultramanFrames;
+    if (uFrames && uFrames.length === 4) {
+      const uFrameIdx = u.cdTimer > 0.32 ? 3 : (Math.floor(this.animTime * 6) % 3);
+      u.sprite.texture = uFrames[uFrameIdx];
+    }
     const facingLeft = target ? target.x < u.x : false;
     u.sprite.scale.set(facingLeft ? -2.85 : 2.85, 2.85);
 
@@ -2357,15 +2445,16 @@ export class Game {
       this.spawnExplosion(target.x, target.y, 0.7, 2.35, 0x38bdf8, 0.32);
       this.spawnShockwave(target.x, target.y, 0xfde047, 0.45, 2.2, 0.26);
       this.spawnSparkBurst(target.x, target.y, ang, 0x7dd3fc, 6, 185, 0.9, 0.8);
-      // Anti-Kaiju Specium Ray Damage (deals heavy direct damage to Kaiju + AoE around target!)
+      // Anti-Kaiju Specium Ray Damage (1 hit damages 30%-50% of Kaiju/Titan health!)
       const rayDmg = 135 * (p.dmgMul || 1);
       for (const e of this.enemies) {
         if (!e.active) continue;
         if (dist2(e.x, e.y, target.x, target.y) <= 115 * 115) {
           if (e.isKaiju) {
-            // Ultraman's Specium Ray pierces Kaiju scales directly!
-            e.hp -= Math.min(rayDmg, e.maxHp * 0.24);
-            e.hitFlash = 0.14;
+            const pct = 0.30 + Math.random() * 0.20;
+            e.hp -= Math.round(e.maxHp * pct);
+            e.hitFlash = 0.16;
+            this.showFloatText(e.x, e.y - 28, `SPECIUM RAY -${Math.round(pct * 100)}% HP!`, 0x38bdf8);
             if (e.hp <= 0) this.damageEnemy(e, 10, u.x, u.y);
           } else {
             this.damageEnemy(e, rayDmg, u.x, u.y);
@@ -2954,7 +3043,9 @@ export class Game {
       pr.y += pr.vy * dt;
       pr.life -= dt;
       if (pr.life <= 0) {
-        if (pr.isBoulder) {
+        if (pr.isUfoLightning) {
+          this.detonateUfoLightning(pr.x, pr.y);
+        } else if (pr.isBoulder) {
           this.detonateEnemyBoulder(pr.x, pr.y, pr.dmg);
         }
         this.projPool.release(pr);
@@ -3015,8 +3106,12 @@ export class Game {
         e.bombTimer = (e.bombTimer ?? 0.5) - dt;
         if (e.bombTimer <= 0 && (e.bombsLeft ?? 0) > 0) {
           e.bombsLeft--;
-          e.bombTimer = 0.58;
-          this.fireBirdBulletRain(e.x, e.y, e.dmg);
+          e.bombTimer = e.isUfo ? 0.85 : 0.58;
+          if (e.isUfo) {
+            this.fireUfoLightningStrike(e.x, e.y);
+          } else {
+            this.fireBirdBulletRain(e.x, e.y, e.dmg);
+          }
         }
         if (dist2(e.x, e.y, p.x, p.y) > 560 * 560) {
           e.active = false;
@@ -3029,27 +3124,24 @@ export class Game {
           e.x += (dx / d) * e.speed * dt;
           e.y += (dy / d) * e.speed * dt;
         }
-        // Colossal Kaiju Godzilla Titan: Continuous Seismic Stomp Area Damage (AoE) & Periodic Golden Egg Drops!
+        // Colossal Kaiju Godzilla Titan: Continuous Seismic Stomp Area Damage (30%-50% HP on hit) & Rare Golden Egg Drop!
         if (e.isKaiju) {
           e.stompTimer = (e.stompTimer ?? 1.8) - dt;
           if (e.stompTimer <= 0) {
-            e.stompTimer = 1.9;
+            e.stompTimer = 2.1;
             this.shake = Math.max(this.shake, 9);
             this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.65, 2.9, 0.34);
             this.spawnExplosion(e.x, e.y, 0.65, 2.2, 0x00f5d4, 0.3);
             if (d <= 120) {
-              this.damagePlayer(Math.max(2, Math.round(e.dmg * 0.85)));
+              this.damagePlayerPercent(0.30, 0.50, 'KAIJU STOMP');
             }
           }
-          e.eggTimer = (e.eggTimer ?? 6.5) - dt;
+          e.eggTimer = (e.eggTimer ?? 15.0) - dt;
           if (e.eggTimer <= 0) {
-            e.eggTimer = 7.5;
-            if (!this.items.some((it) => it.active && it.kind === 'golden_egg') && !this.ultraman) {
-              const eggAng = Math.random() * Math.PI * 2;
-              const ex = p.x + Math.cos(eggAng) * 105;
-              const ey = p.y + Math.sin(eggAng) * 105;
-              this.spawnItem('golden_egg', ex, ey);
-              this.showFloatText(ex, ey - 16, '★ GOLDEN EGG! SUMMON ULTRAMAN!', 0xfde047);
+            e.eggTimer = 15.0;
+            // Rare 15% roll, max 1 Golden Egg per Kaiju encounter!
+            if (!e._droppedGoldenEgg && !this.items.some((it) => it.active && it.kind === 'golden_egg') && !this.ultraman && Math.random() < 0.15) {
+              this.dropGoldenEggNearPlayer(e);
             }
           }
         }
@@ -3091,22 +3183,22 @@ export class Game {
       return;
     }
     if (e.isKaiju) {
-      // Colossal Kaiju Godzilla Atomic Breath Beam + 3-Zone Area Damage (AoE) Ground Explosions!
+      // Colossal Kaiju Godzilla Atomic Breath Beam + 3-Zone Area Damage (1 hit damages 30%-50% of Player HP)!
       this.sfx.play('bomb');
       this.shake = Math.max(this.shake, 11);
       this.spawnThrust(e.x, e.y, baseAng, 195, 0x00f5d4);
-      const aoeDmg = Math.max(2, Math.round(e.dmg * 0.8));
       for (const distStep of [85, 155, 225]) {
         const gx = e.x + Math.cos(baseAng) * distStep;
         const gy = e.y + Math.sin(baseAng) * distStep;
         this.spawnExplosion(gx, gy, 0.55, 1.95, 0x00f5d4, 0.34);
         this.spawnShockwave(gx, gy, 0x7dd3fc, 0.4, 1.9, 0.26);
         if (dist2(gx, gy, p.x, p.y) <= 68 * 68) {
-          this.damagePlayer(aoeDmg);
+          this.damagePlayerPercent(0.30, 0.50, 'KAIJU ATOMIC BREATH');
         }
       }
       for (let i = -2; i <= 2; i++) {
-        this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.16, 205, aoeDmg, 7, 0x00f5d4);
+        const pr = this.fireEnemyBolt(e.x, e.y, baseAng + i * 0.16, 205, e.dmg, 7, 0x00f5d4);
+        if (pr) pr.isKaijuBolt = true;
       }
       return;
     }
@@ -3208,6 +3300,8 @@ export class Game {
     pr.homing = false;
     pr.fromEnemy = true;
     pr.isBoulder = isBoulder;
+    pr.isKaijuBolt = false;
+    pr.isUfoLightning = false;
     pr.sprite.texture = isBoulder ? this.effectTextures.bomb : this.effectTextures.projectile;
     pr.sprite.visible = true;
     pr.sprite.tint = isBoulder ? 0xffffff : col;
@@ -3255,23 +3349,80 @@ export class Game {
     }
   }
 
+  fireUfoLightningStrike(x, y) {
+    if (!this.player) return null;
+    const p = this.player;
+    const targetX = p.x + (Math.random() - 0.5) * 44;
+    const targetY = p.y + (Math.random() - 0.5) * 44;
+    const fallTime = 0.48;
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+    const spd = dist / fallTime;
+    // High-visibility Cosmic Target Ring on ground before lightning strikes!
+    this.spawnShockwave(targetX, targetY, 0x38bdf8, 0.75, 0.25, fallTime);
+    const pr = this.fireEnemyBolt(x, y, Math.atan2(dy, dx), spd, 0, 8, 0x38bdf8, false, fallTime);
+    if (pr) {
+      pr.isUfoLightning = true;
+      pr.sprite.scale.set(1.45);
+    }
+    return pr;
+  }
+
+  detonateUfoLightning(x, y) {
+    this.sfx.play('bomb');
+    this.shake = Math.max(this.shake, 16);
+    this.flashScreen(0x7dd3fc, 0.28);
+    this.spawnLevelUpVfx(x, y);
+    this.spawnExplosion(x, y, 0.68, 2.25, 0x38bdf8, 0.34);
+    this.spawnShockwave(x, y, 0xa855f7, 0.45, 2.35, 0.28);
+    this.spawnSparkBurst(x, y, 0, 0x7dd3fc, 10, 210, 0.95, Math.PI);
+    // 1. Once player is hit by UFO Lightning, player loses 80% of Max Health!
+    if (this.player && dist2(x, y, this.player.x, this.player.y) <= 46 * 46) {
+      this.damagePlayerPercent(0.80, 0.80, '⚡ UFO LIGHTNING');
+    }
+    // 2. If Kaiju/Godzilla/Titan is hit by UFO Lightning, 1 hit damages 30%-50% of its Max Health!
+    for (const e of this.enemies) {
+      if (!e.active) continue;
+      if (dist2(x, y, e.x, e.y) <= (52 + e.size) ** 2) {
+        if (e.isKaiju || e.isBoss) {
+          const pct = 0.30 + Math.random() * 0.20;
+          e.hp -= Math.round(e.maxHp * pct);
+          e.hitFlash = 0.16;
+          this.showFloatText(e.x, e.y - 26, `⚡ LIGHTNING -${Math.round(pct * 100)}% HP!`, 0x38bdf8);
+          if (e.hp <= 0) this.damageEnemy(e, 10, x, y);
+        } else {
+          this.damageEnemy(e, 120, x, y);
+        }
+      }
+    }
+  }
+
   // override projectile collision for enemy bullets
   // handled in updateProjectiles already uses dmg; need to check fromEnemy flag for player hit
   handlePlayerCollisions(dt) {
     const p = this.player;
     // enemy bullets hit player
     for (const pr of this.projectiles) {
-      if (!pr.active || !pr.fromEnemy) continue;
+      if (!pr.active || !pr.fromEnemy || pr.isUfoLightning) continue;
       if (dist2(pr.x, pr.y, p.x, p.y) < (pr.size + 12) ** 2) {
-        this.damagePlayer(pr.dmg);
+        if (pr.isKaijuBolt) {
+          this.damagePlayerPercent(0.30, 0.50, 'KAIJU BOLT');
+        } else {
+          this.damagePlayer(pr.dmg);
+        }
         pr.life = 0;
       }
     }
-    // enemy body collision
+    // enemy body collision (Kaiju/Godzilla/Titan 1 hit damages 30%-50% of Player Max HP!)
     for (const e of this.enemies) {
-      if (!e.active) continue;
+      if (!e.active || e.isUfo) continue;
       if (dist2(e.x, e.y, p.x, p.y) < (e.size + 12) ** 2) {
-        this.damagePlayer(e.dmg * dt * 2); // per second
+        if (e.isKaiju) {
+          this.damagePlayerPercent(0.30, 0.50, 'KAIJU SLAM');
+        } else {
+          this.damagePlayer(e.dmg * dt * 2); // per second
+        }
       }
     }
     // gems pickup
@@ -3352,6 +3503,24 @@ export class Game {
       p.hp = 0;
       this.gameOver();
     }
+  }
+
+  damagePlayerPercent(minPct = 0.30, maxPct = 0.50, label = 'CRITICAL HIT') {
+    const p = this.player;
+    if (!p || p.invuln > 0) return 0;
+    const pct = minPct + Math.random() * Math.max(0, maxPct - minPct);
+    const loss = Math.max(1, Math.round(p.maxHp * pct));
+    p.hp -= loss;
+    p.invuln = 0.65;
+    this.shake = 16;
+    this.sfx.play('hurt');
+    this.flashScreen(0xff0000, 0.32);
+    this.showFloatText(p.x, p.y - 24, `${label}: -${Math.round(pct * 100)}% HP (-${loss})!`, 0xff4d4d);
+    if (p.hp <= 0) {
+      p.hp = 0;
+      this.gameOver();
+    }
+    return loss;
   }
 
   damageEnemy(e, dmg, sx, sy) {

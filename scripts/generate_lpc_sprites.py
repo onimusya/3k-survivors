@@ -30,6 +30,8 @@ PALETTES = {
         "olive": ["#271920", "#762a23", "#a25c3d", "#c67d53", "#e4a672", "#f3cfa6"],
         "taupe": ["#271920", "#662823", "#8b4c39", "#a9694f", "#cfa17d", "#e6c6aa"],
         "bronze": ["#20141b", "#59221d", "#7c3f29", "#9e5b3b", "#c38258", "#deb189"],
+        "kaiju_obsidian": ["#0a0e14", "#16202e", "#243447", "#344b63", "#486682", "#6589ab"],
+        "ultra_silver": ["#1b2230", "#475569", "#8494ab", "#bcc7d6", "#e2e8f0", "#ffffff"],
     },
     "metal": {
         "base": ["#1d131e", "#4d4a5d", "#726b7e", "#867e7f", "#c4b59f", "#ffffff"],
@@ -41,6 +43,7 @@ PALETTES = {
         "bronze": ["#241822", "#522b18", "#784222", "#a15c2f", "#cc8349", "#edb479"],
         "jade": ["#13261c", "#1f4d34", "#2e784d", "#45a86b", "#75db99", "#c8ffdc"],
         "crimson_metal": ["#240e14", "#521820", "#82242c", "#b5353a", "#e65c55", "#ff9e8a"],
+        "atomic_cyan": ["#06283d", "#025985", "#0088b8", "#00b8d9", "#00f5d4", "#d6fff9"],
     },
     "cloth": {
         "base": ["#281820", "#4d4a5d", "#958080", "#c4b59f", "#e5e6c7", "#ffffff"],
@@ -106,6 +109,10 @@ def recolor_image(img, material, target_palette):
     lookup = {}
     for s, d in zip(src_cols, dst_cols):
         lookup[s] = d
+    # Also map Universal LPC green reptile/lizard base ramp so head/heads/lizard & body/tail/lizard recolor cleanly!
+    lizard_base = [hex_to_rgb(c) for c in ["#15281e", "#1c562c", "#32833b", "#5ab552", "#9de64e", "#e5ff87"]]
+    for s, d in zip(lizard_base, dst_cols):
+        lookup[s] = d
 
     out = img.copy()
     px = out.load()
@@ -120,11 +127,16 @@ def recolor_image(img, material, target_palette):
                 nr, ng, nb = lookup[key]
                 px[x, y] = (nr, ng, nb, a)
             else:
-                # Check within tolerance 2 (matching LPC WebGL shader 0.004 * 255)
                 for (sr, sg, sb), (nr, ng, nb) in lookup.items():
-                    if abs(r - sr) <= 2 and abs(g - sg) <= 2 and abs(b - sb) <= 2:
+                    if abs(r - sr) <= 6 and abs(g - sg) <= 6 and abs(b - sb) <= 6:
                         px[x, y] = (nr, ng, nb, a)
                         break
+                else:
+                    if target_palette == "kaiju_obsidian" and g > r + 12 and g > b + 8:
+                        lum = (r + g + b) // 3
+                        idx = min(5, max(0, lum // 42))
+                        nr, ng, nb = dst_cols[idx]
+                        px[x, y] = (nr, ng, nb, a)
     return out
 
 
@@ -279,43 +291,69 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
             d.polygon([(qx, qy + 7), (qx - 3, qy), (qx, qy - 2), (qx + 3, qy)], fill=(255, 218, 88, 255), outline=(188, 42, 38, 255))
 
     elif char_id == "kaiju":
-        # Colossal Godzilla Kaiju Titan: obsidian reptilian behemoth with glowing atomic-cyan dorsal plates & roaring jaws
-        OUTLINE = (14, 16, 22, 255)
-        step = (-2, 0, 2, 0)[f_idx % 4]
-        # Massive ground shadow
-        d.ellipse((6, 48, 58, 61), fill=(8, 12, 16, 155))
-        # Whipping armored Kaiju tail on left + glowing cyan tail-spikes
-        tail_y = 42 + step
-        d.polygon([(22, 36 + bob), (6, tail_y - 4), (4, tail_y + 5), (14, 48 + bob), (24, 46 + bob)], fill=(38, 46, 56, 255), outline=OUTLINE)
-        for tx, ty in ((9, tail_y - 6), (14, 37 + bob), (19, 32 + bob)):
-            d.polygon([(tx, ty), (tx - 3, ty - 6), (tx + 3, ty - 2)], fill=(0, 245, 212, 255), outline=(14, 52, 68, 255))
-        # Glowing Atomic-Cyan Jagged Dorsal Plates along back/shoulders
-        for sx, sy, sh in ((20, 18, 8), (44, 18, 8), (24, 11, 9), (40, 11, 9), (32, 6, 10)):
-            d.polygon([(sx - 4, sy + bob), (sx, sy - sh + bob), (sx + 4, sy + bob)], fill=(0, 245, 212, 255), outline=(18, 64, 82, 255))
-            d.polygon([(sx - 2, sy + bob), (sx, sy - sh + 3 + bob), (sx + 2, sy + bob)], fill=(204, 255, 248, 255))
-        # Stomping pillar legs + 3 white-cyan claws per foot
-        for lx, s_off in ((17, step), (37, -step)):
-            d.rounded_rectangle((lx, 36 + bob + s_off, lx + 11, 55 + s_off), radius=3, fill=(36, 44, 54, 255), outline=OUTLINE)
-            for cx in (lx + 1, lx + 4, lx + 8):
-                d.polygon([(cx, 53 + s_off), (cx - 1, 58 + s_off), (cx + 2, 57 + s_off)], fill=(210, 238, 245, 255), outline=OUTLINE)
-        # Massive obsidian-scaled torso & ridged atomic chest core
-        d.ellipse((15, 16 + bob, 49, 47 + bob), fill=(44, 54, 66, 255), outline=OUTLINE)
-        d.ellipse((21, 21 + bob, 43, 44 + bob), fill=(62, 76, 92, 255), outline=OUTLINE)
-        for ry in range(24, 42, 4):
-            d.line([(23, ry + bob), (41, ry + bob)], fill=(0, 215, 195, 210), width=2)
-        # Muscular clawed arms
-        arm_dy = (-2, 1, 2, -1)[f_idx % 4]
-        d.polygon([(17, 22 + bob), (8, 28 + arm_dy), (10, 35 + arm_dy), (19, 31 + bob)], fill=(48, 58, 70, 255), outline=OUTLINE)
-        d.polygon([(47, 22 + bob), (56, 28 - arm_dy), (54, 35 - arm_dy), (45, 31 + bob)], fill=(48, 58, 70, 255), outline=OUTLINE)
-        # Fierce Kaiju Godzilla head, glowing atomic eyes & roaring fang-lined jaws
-        d.rounded_rectangle((21, 8 + bob, 43, 25 + bob), radius=4, fill=(48, 58, 72, 255), outline=OUTLINE)
-        d.polygon([(24, 18 + bob), (32, 26 + bob), (40, 18 + bob)], fill=(24, 22, 32, 255), outline=OUTLINE)
-        d.ellipse((28, 19 + bob, 36, 24 + bob), fill=(0, 245, 212, 255))
-        for fx in (25, 28, 35, 38):
-            d.polygon([(fx, 18 + bob), (fx + 1, 22 + bob), (fx + 2, 18 + bob)], fill=(245, 250, 255, 255))
-        d.rectangle((24, 12 + bob, 28, 15 + bob), fill=(0, 255, 230, 255))
-        d.rectangle((36, 12 + bob, 40, 15 + bob), fill=(0, 255, 230, 255))
+        # Enhance the Universal LPC Lizard/Muscular Godzilla composite with dorsal atomic-cyan spine plates & sweeping tail behind body
+        step = (-1, 0, 1, 0)[f_idx % 4]
+        bg = Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(bg)
+        # Sweeping obsidian Godzilla tail + cyan dorsal tail fins on the left behind the body
+        bd.polygon([(24, 42 + bob), (7, 38 + step), (5, 45 + step), (15, 51 + bob), (26, 49 + bob)], fill=(28, 40, 56, 255), outline=(10, 14, 20, 255))
+        for tx, ty in ((9, 37 + step), (14, 39 + step), (19, 41 + bob)):
+            bd.polygon([(tx, ty), (tx - 2, ty - 6), (tx + 3, ty - 1)], fill=(0, 245, 212, 255), outline=(12, 48, 64, 255))
+        # Glowing Atomic-Cyan Jagged Dorsal Spine Plates flanking the back/shoulders
+        for sx, sy, sh in ((17, 29, 7), (47, 29, 7), (19, 22, 8), (45, 22, 8), (23, 15, 7), (41, 15, 7)):
+            bd.polygon([(sx - 3, sy + bob), (sx, sy - sh + bob), (sx + 3, sy + bob)], fill=(0, 245, 212, 255), outline=(12, 48, 64, 255))
+            bd.polygon([(sx - 1, sy + bob), (sx, sy - sh + 2 + bob), (sx + 1, sy + bob)], fill=(215, 255, 250, 255))
+        bg.alpha_composite(cell)
+        # Glowing atomic-cyan eyes on the LPC Lizard head & glowing chest core
+        d2 = ImageDraw.Draw(bg)
+        d2.rectangle((28, 22 + bob, 30, 24 + bob), fill=(0, 255, 235, 255))
+        d2.rectangle((34, 22 + bob, 36, 24 + bob), fill=(0, 255, 235, 255))
+        d2.ellipse((29, 34 + bob, 35, 39 + bob), fill=(0, 245, 212, 220))
+        # Upscale the composited LPC Godzilla 1.24x inside the 64x64 cell
+        cropped = bg.crop((4, 6, 60, 62))
+        big = cropped.resize((60, 60), Image.Resampling.NEAREST)
+        cell.paste((0, 0, 0, 0), (0, 0, 64, 64))
+        cell.alpha_composite(big, (2, 2))
 
+    elif char_id == "ultraman":
+        # Enhance the Universal LPC Ultraman composite with golden oval compound eyes, central silver fin, mid-chest cyan Color Timer & Specium Ray (+)
+        d.polygon([(31, 9 + bob), (32, 6 + bob), (33, 9 + bob), (33, 18 + bob), (31, 18 + bob)], fill=(241, 245, 249, 255), outline=(30, 41, 59, 255))
+        d.ellipse((26, 19 + bob, 31, 23 + bob), fill=(254, 240, 138, 255), outline=(30, 41, 59, 255))
+        d.ellipse((33, 19 + bob, 38, 23 + bob), fill=(254, 240, 138, 255), outline=(30, 41, 59, 255))
+        # Blinking Cyan Color Timer core centered on mid-chest
+        d.ellipse((30, 35 + bob, 34, 39 + bob), fill=(0, 245, 212, 255), outline=(15, 23, 42, 255))
+        d.point((32, 37 + bob), fill=(255, 255, 255, 255))
+        # Crossed Specium Ray (+) forearms & energy beam on frames 1 & 3
+        if f_idx in (1, 3):
+            d.rectangle((38, 25 + bob, 42, 36 + bob), fill=(226, 232, 240, 255), outline=(30, 41, 59, 255))
+            d.rectangle((31, 30 + bob, 43, 34 + bob), fill=(226, 232, 240, 255), outline=(30, 41, 59, 255))
+            d.ellipse((42, 24 + bob, 56, 38 + bob), fill=(56, 189, 248, 220), outline=(224, 242, 254, 255))
+            d.ellipse((45, 27 + bob, 53, 35 + bob), fill=(255, 255, 255, 255))
+
+    elif char_id == "ufo":
+        # Cosmic Flying Saucer UFO: metallic chrome-obsidian saucer, glowing cyan dome, rotating neon rim lights & lightning emitter core
+        OUTLINE = (14, 16, 24, 255)
+        hover = (-2, 0, 2, 0)[f_idx % 4]
+        # High-altitude ground shadow
+        d.ellipse((20, 54, 44, 59), fill=(8, 12, 18, 95))
+        # Saucer under-chassis & glowing lightning emitter core
+        d.ellipse((16, 27 + hover, 48, 41 + hover), fill=(45, 55, 72, 255), outline=OUTLINE)
+        d.ellipse((25, 32 + hover, 39, 42 + hover), fill=(0, 245, 212, 245), outline=(14, 116, 144, 255))
+        d.ellipse((28, 34 + hover, 36, 40 + hover), fill=(255, 255, 255, 255))
+        # Main metallic flying saucer disc
+        d.ellipse((6, 20 + hover, 58, 36 + hover), fill=(100, 116, 139, 255), outline=OUTLINE)
+        d.ellipse((10, 21 + hover, 54, 33 + hover), fill=(148, 163, 184, 255))
+        # Translucent glowing alien glass cockpit dome
+        d.ellipse((18, 11 + hover, 46, 27 + hover), fill=(56, 189, 248, 235), outline=OUTLINE)
+        d.ellipse((22, 13 + hover, 36, 21 + hover), fill=(224, 242, 254, 255))
+        # Rotating 6-lamp neon rim lights around saucer perimeter
+        light_cols = [(0, 245, 212, 255), (250, 204, 21, 255), (244, 63, 94, 255), (168, 85, 247, 255)]
+        for lx_i, (lx, ly) in enumerate(((11, 27), (19, 30), (28, 31), (36, 31), (45, 30), (53, 27))):
+            col = light_cols[(lx_i + f_idx) % len(light_cols)]
+            d.ellipse((lx - 2, ly - 2 + hover, lx + 2, ly + 2 + hover), fill=col, outline=OUTLINE)
+        if f_idx in (1, 3):
+            d.line([(32, 41 + hover), (27, 48 + hover), (35, 51 + hover), (30, 58)], fill=(125, 211, 252, 255), width=2)
+            d.line([(32, 41 + hover), (36, 47 + hover), (29, 53 + hover)], fill=(255, 255, 255, 255), width=1)
 def build_character_frames(layers_spec, anim, frame_indices, lpc_rows=(2, 1, 3, 0), char_id="", is_attack=False):
     loaded_layers = []
     for item in layers_spec:
@@ -587,7 +625,18 @@ ENEMY_RECIPES = {
     ],
     "catapult": [],
     "firebird": [],
-    "kaiju": [],
+    "kaiju": [
+        ("shadow/adult/{anim}.png", None, None),
+        ("body/tail/lizard/adult/bg/{anim}.png", "body", "kaiju_obsidian"),
+        ("body/bodies/muscular/{anim}.png", "body", "kaiju_obsidian"),
+        ("legs/armour/plate/male/{anim}.png", "metal", "iron"),
+        ("feet/armour/plate/male/{anim}.png", "metal", "iron"),
+        ("shoulders/legion/male/{anim}.png", "metal", "atomic_cyan"),
+        ("head/heads/lizard/male/{anim}.png", "body", "kaiju_obsidian"),
+        ("head/horns/curled/adult/{anim}.png", "metal", "atomic_cyan"),
+        ("body/tail/lizard/adult/fg/{anim}.png", "body", "kaiju_obsidian"),
+    ],
+    "ufo": [],
     "boss_chengyuanzhi": [
         ("shadow/adult/{anim}.png", None, None),
         ("cape/tattered/bg/{anim}.png", "cloth", "yellow"),
@@ -728,6 +777,19 @@ ENEMY_RECIPES = {
     ],
 }
 
+ULTRAMAN_RECIPE = [
+    ("shadow/adult/{anim}.png", None, None),
+    ("body/bodies/muscular/{anim}.png", "body", "ultra_silver"),
+    ("legs/armour/plate/male/{anim}.png", "metal", "silver"),
+    ("feet/boots/basic/male/{anim}.png", "cloth", "red"),
+    ("torso/armour/legion/male/{anim}.png", "metal", "crimson_metal"),
+    ("torso/jacket/tabard/male/{anim}/red.png", None, None),
+    ("shoulders/legion/male/{anim}.png", "metal", "silver"),
+    ("arms/armour/plate/male/{anim}.png", "metal", "silver"),
+    ("head/heads/human/male/{anim}.png", "body", "ultra_silver"),
+    ("hat/helmet/xeon/adult/{anim}.png", "metal", "silver"),
+]
+
 
 def main():
     (OUT_DIR / "heroes").mkdir(parents=True, exist_ok=True)
@@ -765,6 +827,91 @@ def main():
     atlas.save(atlas_path, format="PNG", optimize=True)
     print(f"Saved combined LPC enemy atlas: {atlas_path.relative_to(ROOT)} ({atlas.size})")
 
+    # 3. Generate lossless 4-frame SD Ultra Battle Ultraseven/Ultraman Sheet (256x64) modeled directly on the reference sheet!
+    (OUT_DIR / "effects").mkdir(parents=True, exist_ok=True)
+    from PIL import ImageDraw
+    u_sheet = Image.new("RGBA", (CELL * 4, CELL), (0, 0, 0, 0))
+    OUTLINE = (18, 14, 18, 255)
+    RED_DARK = (148, 24, 24, 255)
+    RED_MID = (204, 38, 34, 255)
+    RED_HI = (238, 68, 56, 255)
+    SIL_DARK = (116, 126, 142, 255)
+    SIL_MID = (176, 186, 202, 255)
+    SIL_HI = (232, 238, 248, 255)
+    EYE_GOLD = (252, 204, 28, 255)
+    EYE_HI = (255, 246, 158, 255)
+    LAMP_GRN = (74, 242, 142, 255)
+
+    for f_idx in range(4):
+        cell = Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0))
+        d = ImageDraw.Draw(cell)
+        bob = (0, -2, -1, 0)[f_idx]
+        # Ground shadow
+        d.ellipse((14, 52, 50, 60), fill=(8, 12, 18, 135))
+
+        # Chibi crimson boots & legs (stride alternates across frames)
+        l_dy = (0, -3, 0, 1)[f_idx]
+        r_dy = (0, 2, 0, -2)[f_idx]
+        d.rounded_rectangle((18, 43 + bob + l_dy, 29, 56 + l_dy), radius=4, fill=RED_MID, outline=OUTLINE)
+        d.rounded_rectangle((35, 43 + bob + r_dy, 46, 56 + r_dy), radius=4, fill=RED_MID, outline=OUTLINE)
+        d.ellipse((16, 49 + l_dy, 29, 57 + l_dy), fill=RED_HI, outline=OUTLINE)
+        d.ellipse((35, 49 + r_dy, 48, 57 + r_dy), fill=RED_HI, outline=OUTLINE)
+        d.line([(19, 46 + bob + l_dy), (28, 46 + bob + l_dy)], fill=SIL_MID, width=2)
+        d.line([(36, 46 + bob + r_dy), (45, 46 + bob + r_dy)], fill=SIL_MID, width=2)
+
+        # Compact Chibi Crimson Torso + Silver Solar-Panel Shoulder/Chest Protector Armor
+        d.rounded_rectangle((20, 29 + bob, 44, 47 + bob), radius=5, fill=RED_MID, outline=OUTLINE)
+        d.polygon([(22, 39 + bob), (32, 44 + bob), (42, 39 + bob), (42, 43 + bob), (32, 47 + bob), (22, 43 + bob)], fill=SIL_MID, outline=OUTLINE)
+        # Iconic Silver Protector Shoulder/Collar Armor with dark rectangular solar-panel slots
+        d.polygon([(15, 28 + bob), (24, 26 + bob), (32, 33 + bob), (40, 26 + bob), (49, 28 + bob), (46, 36 + bob), (32, 39 + bob), (18, 36 + bob)], fill=SIL_MID, outline=OUTLINE)
+        for sx in (19, 24, 37, 42):
+            d.rectangle((sx, 30 + bob, sx + 3, 33 + bob), fill=(48, 56, 68, 255))
+        # Cyan Color Timer gem on chest center
+        d.ellipse((29, 34 + bob, 35, 40 + bob), fill=(0, 245, 212, 255), outline=OUTLINE)
+
+        # Oversized Chibi Silver-&-Crimson Sculpted Head (SD Ultra Battle proportions: y=6..31)
+        d.ellipse((16, 7 + bob, 48, 32 + bob), fill=SIL_MID, outline=OUTLINE)
+        d.ellipse((19, 9 + bob, 45, 29 + bob), fill=SIL_HI)
+        # Side silver ear-pods
+        d.rounded_rectangle((14, 16 + bob, 18, 24 + bob), radius=2, fill=SIL_MID, outline=OUTLINE)
+        d.rounded_rectangle((46, 16 + bob, 50, 24 + bob), radius=2, fill=SIL_MID, outline=OUTLINE)
+        # Top Eye-Slugger Crest Fin + Emerald Forehead Beam Lamp
+        d.polygon([(29, 8 + bob), (32, 1 + bob), (36, 4 + bob), (35, 14 + bob), (29, 14 + bob)], fill=SIL_HI, outline=OUTLINE)
+        d.ellipse((30, 10 + bob, 34, 14 + bob), fill=LAMP_GRN, outline=OUTLINE)
+        # Large Polygonal Golden-Amber Chibi Compound Eyes (with black borders & bright specular glint)
+        d.polygon([(19, 17 + bob), (24, 14 + bob), (30, 17 + bob), (29, 24 + bob), (21, 24 + bob)], fill=EYE_GOLD, outline=OUTLINE)
+        d.polygon([(45, 17 + bob), (40, 14 + bob), (34, 17 + bob), (35, 24 + bob), (43, 24 + bob)], fill=EYE_GOLD, outline=OUTLINE)
+        d.rectangle((22, 16 + bob, 25, 19 + bob), fill=EYE_HI)
+        d.rectangle((38, 16 + bob, 41, 19 + bob), fill=EYE_HI)
+        # Sculpted silver chin/mouthplate
+        d.rounded_rectangle((28, 25 + bob, 36, 30 + bob), radius=2, fill=SIL_DARK, outline=OUTLINE)
+
+        # 4 Distinct Combat & Beam Arm Poses from the Reference Sheet!
+        if f_idx == 0:
+            # Pose 1: Guard Stance (clenched crimson fists at sides)
+            d.ellipse((9, 31 + bob, 20, 41 + bob), fill=RED_HI, outline=OUTLINE)
+            d.ellipse((44, 30 + bob, 55, 40 + bob), fill=RED_HI, outline=OUTLINE)
+        elif f_idx == 1:
+            # Pose 2: Martial-Arts Forward Punch Lunge (giant foreshortened right fist!)
+            d.ellipse((10, 28 + bob, 19, 37 + bob), fill=RED_MID, outline=OUTLINE)
+            d.ellipse((42, 27 + bob, 58, 43 + bob), fill=RED_HI, outline=OUTLINE)
+            d.ellipse((46, 30 + bob, 55, 39 + bob), fill=(255, 138, 120, 255))
+        elif f_idx == 2:
+            # Pose 3: Emerium Forehead Beam Pose (both hands raised to forehead Beam Lamp + green-cyan beam flash!)
+            d.rounded_rectangle((13, 14 + bob, 22, 28 + bob), radius=3, fill=RED_HI, outline=OUTLINE)
+            d.rounded_rectangle((42, 14 + bob, 51, 28 + bob), radius=3, fill=RED_HI, outline=OUTLINE)
+            d.ellipse((27, 7 + bob, 37, 17 + bob), fill=(110, 255, 178, 235), outline=(255, 255, 255, 255))
+        else:
+            # Pose 4: Specium Ray / Wide-Shot L-Arm Pose (vertical right forearm + horizontal left forearm in '+' / 'L' cross + cyan beam orb!)
+            d.rounded_rectangle((40, 16 + bob, 48, 36 + bob), radius=3, fill=SIL_HI, outline=OUTLINE)
+            d.rounded_rectangle((24, 30 + bob, 47, 37 + bob), radius=3, fill=RED_HI, outline=OUTLINE)
+            d.ellipse((44, 15 + bob, 60, 31 + bob), fill=(56, 189, 248, 235), outline=(224, 242, 254, 255))
+            d.ellipse((48, 19 + bob, 56, 27 + bob), fill=(255, 255, 255, 255))
+
+        u_sheet.paste(cell, (f_idx * CELL, 0))
+    u_path = OUT_DIR / "effects" / "ultraman.png"
+    u_sheet.save(u_path, format="PNG", optimize=True)
+    print(f"Saved SD Ultra Battle Ultraman sheet: {u_path.relative_to(ROOT)} ({u_sheet.size})")
 
 if __name__ == "__main__":
     main()

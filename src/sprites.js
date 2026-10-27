@@ -61,7 +61,7 @@ const ENEMY_FRAME_H = 64;
 const ENEMY_FRAMES = 4;
 const ENEMY_TYPES = [
   'soldier', 'archer', 'cavalry', 'shield', 'assassin',
-  'bomber', 'sorcerer', 'halberdier', 'catapult', 'firebird', 'kaiju',
+  'bomber', 'sorcerer', 'halberdier', 'catapult', 'firebird', 'kaiju', 'ufo',
   'boss_chengyuanzhi', 'boss_dengmao', 'elite',
   'boss_huzhen', 'boss_lijue', 'boss_huaxiong',
   'boss_caimao', 'boss_zhangyun', 'boss_caoren',
@@ -165,7 +165,17 @@ export async function loadSpriteAssets() {
   }
   const effectFrames = {};
   await Promise.all(Object.entries(EFFECTS).map(async ([id, url]) => {
-    effectFrames[id] = nearest(await Assets.load(url));
+    const tex = nearest(await Assets.load(url));
+    if (id === 'ultraman' && tex.width >= 256) {
+      const uFrames = [];
+      for (let c = 0; c < 4; c++) {
+        uFrames.push(frame(tex.source, c * 64, 0, 64, 64, `ultraman-${c}`));
+      }
+      effectFrames.ultramanFrames = uFrames;
+      effectFrames.ultraman = uFrames[0];
+    } else {
+      effectFrames[id] = tex;
+    }
   }));
   const vfx = {};
   await Promise.all(Object.entries(VFX_SHEETS).map(async ([id, spec]) => {
