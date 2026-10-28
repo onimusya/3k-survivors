@@ -405,6 +405,7 @@ export class Game {
     const muteIconKey = this.sfx.enabled ? 'sound_on' : 'sound_off';
     if (this.iconTextures?.[muteIconKey]) {
       const mic = new Sprite(this.iconTextures[muteIconKey]);
+      mic.width = 16; mic.height = 16;
       mic.x = Math.round(5 * s); mic.y = Math.round((muteH - 16) / 2);
       muteBtn.addChild(mic);
     }
@@ -718,6 +719,7 @@ export class Game {
 
       if (this.iconTextures?.[pk.icon]) {
         const ic = new Sprite(this.iconTextures[pk.icon]);
+        ic.width = 16; ic.height = 16;
         ic.x = 8;
         ic.y = Math.round(7 * s);
         pBtn.addChild(ic);
@@ -927,7 +929,8 @@ export class Game {
         this.menuContainer.addChild(slot);
         if (this.iconTextures?.[it.id]) {
           const ic = new Sprite(this.iconTextures[it.id]);
-          ic.scale.set(1.1 * s);
+          ic.width = Math.round(18 * s);
+          ic.height = Math.round(18 * s);
           ic.x = ix + Math.round(3 * s);
           ic.y = iconRowY + Math.round(3 * s);
           this.menuContainer.addChild(ic);
@@ -1175,7 +1178,8 @@ export class Game {
 
       if (this.iconTextures?.[u.icon]) {
         const ic = new Sprite(this.iconTextures[u.icon]);
-        ic.scale.set(1.6);
+        ic.width = 26;
+        ic.height = 26;
         ic.x = 10;
         ic.y = 14;
         row.addChild(ic);
@@ -1549,11 +1553,11 @@ export class Game {
     if (this.appEl) {
       const biomeUrl = SPRITE_MANIFEST.terrains?.[this.activeTerrain] || SPRITE_MANIFEST.terrain;
       this.appEl.style.backgroundImage = `url("${biomeUrl}")`;
-      this.appEl.style.backgroundSize = '128px 128px';
+      this.appEl.style.backgroundSize = '256px 256px';
       this.appEl.style.backgroundColor = this.selectedSeasonMode !== 'auto'
         ? sSpec.bgColor
         : (stage.bgColor || sSpec.bgColor || map.bgColor || '#263820');
-      this.appEl.style.backgroundBlendMode = 'soft-light';
+      this.appEl.style.backgroundBlendMode = 'normal';
       this.appEl.style.filter = 'none';
     }
     if (this.sfx) {
@@ -1568,7 +1572,7 @@ export class Game {
     if (this.appEl) {
       const biomeUrl = SPRITE_MANIFEST.terrains?.[biomeId] || SPRITE_MANIFEST.terrain;
       this.appEl.style.backgroundImage = `url("${biomeUrl}")`;
-      this.appEl.style.backgroundSize = '128px 128px';
+      this.appEl.style.backgroundSize = '256px 256px';
       this.appEl.style.backgroundBlendMode = 'normal';
     }
     this.recomputeStats();
@@ -2238,6 +2242,8 @@ export class Game {
           .stroke({ color:borderCol, width:1.5, alpha:0.95 });
         if (this.iconTextures?.[w.id]) {
           item.icon.texture = this.iconTextures[w.id];
+          item.icon.width = 16;
+          item.icon.height = 16;
           item.icon.x = sx + 3;
           item.icon.y = slotY + 2;
           item.icon.visible = true;
@@ -2278,6 +2284,8 @@ export class Game {
           .stroke({ color:entry.color, width:1.5, alpha:0.95 });
         if (this.iconTextures?.[entry.id]) {
           item.icon.texture = this.iconTextures[entry.id];
+          item.icon.width = 16;
+          item.icon.height = 16;
           item.icon.x = sx + 3;
           item.icon.y = slotY + 2;
           item.icon.visible = true;
@@ -2311,6 +2319,8 @@ export class Game {
       const iconKey = this.sfx.enabled ? 'sound_on' : 'sound_off';
       if (this.iconTextures?.[iconKey]) {
         this.hudMuteIcon.texture = this.iconTextures[iconKey];
+        this.hudMuteIcon.width = 16;
+        this.hudMuteIcon.height = 16;
         this.hudMuteIcon.x = 3;
         this.hudMuteIcon.y = 3;
       }
@@ -3815,6 +3825,16 @@ export class Game {
       const tx = Math.round(p.x + Math.cos(ang) * dist);
       const ty = Math.round(p.y + Math.sin(ang) * dist);
       const delay = 1.05 + i * 0.14;
+      let fallSprite = null;
+      if (kind === 'meteor_shower' || kind === 'volcano') {
+        const tex = kind === 'meteor_shower'
+          ? (this.effectTextures.meteor_boulder || this.effectTextures.bomb)
+          : (this.effectTextures.volcano_geyser || this.effectTextures.explosion);
+        fallSprite = new Sprite(tex);
+        fallSprite.anchor.set(0.5);
+        fallSprite.scale.set(kind === 'meteor_shower' ? 0.85 : 0.78);
+        this.fxLayer.addChild(fallSprite);
+      }
       this.disasterStrikes.push({
         kind,
         spec,
@@ -3825,6 +3845,7 @@ export class Game {
         radius: spec.radius,
         timer: delay,
         maxTimer: delay,
+        sprite: fallSprite,
       });
     }
     return spec;
@@ -3906,12 +3927,17 @@ export class Game {
         if (st.kind === 'meteor_shower' || st.kind === 'volcano' || st.kind === 'hailstorm') {
           const curX = st.sourceX + (st.x - st.sourceX) * progress;
           const curY = st.sourceY + (st.y - st.sourceY) * progress - Math.sin(progress * Math.PI) * (st.kind === 'volcano' ? 95 : 0);
-          const tailX = curX - (st.x - st.sourceX) * 0.18;
-          const tailY = curY - (st.y - st.sourceY) * 0.18;
-          g.moveTo(tailX, tailY).lineTo(curX, curY).stroke({ color: st.spec.color, width: st.kind === 'meteor_shower' ? 8 : 5, alpha: 0.75 });
-          g.circle(curX, curY, st.kind === 'meteor_shower' ? 13 : 9)
-            .fill({ color: st.kind === 'hailstorm' ? 0xe0f2fe : 0xfef08a })
-            .stroke({ color: st.spec.color, width: 2.5 });
+          if (st.sprite) {
+            st.sprite.x = Math.round(curX);
+            st.sprite.y = Math.round(curY);
+          } else {
+            const tailX = curX - (st.x - st.sourceX) * 0.18;
+            const tailY = curY - (st.y - st.sourceY) * 0.18;
+            g.moveTo(tailX, tailY).lineTo(curX, curY).stroke({ color: st.spec.color, width: 5, alpha: 0.75 });
+            g.circle(curX, curY, 9)
+              .fill({ color: 0xe0f2fe })
+              .stroke({ color: st.spec.color, width: 2.5 });
+          }
         } else if (st.kind === 'earthquake') {
           g.moveTo(st.x - st.radius, st.y - 12)
             .lineTo(st.x - 10, st.y + 8)
@@ -3928,6 +3954,10 @@ export class Game {
       }
 
       if (st.timer <= 0) {
+        if (st.sprite) {
+          st.sprite.destroy();
+          st.sprite = null;
+        }
         this.sfx.play(st.kind === 'hailstorm' ? 'hit' : 'bomb');
         this.shake = Math.max(this.shake, st.kind === 'meteor_shower' ? 18 : 12);
         const vfxMap = {
@@ -4908,10 +4938,10 @@ export class Game {
       const baseAng = ne ? angleTo(p.x, p.y, ne.x, ne.y) : 0;
       for (let i = 0; i < oxCount; i++) {
         const a = baseAng + (i - (oxCount - 1) / 2) * 0.35;
-        const sp = new Sprite(this.enemyTextures?.catapult?.[0] || this.effectTextures.chest);
+        const sp = new Sprite(this.effectTextures?.wooden_ox_sprite || this.enemyTextures?.catapult?.[0] || this.effectTextures.chest);
         sp.anchor.set(0.5, 0.6);
-        sp.scale.set(isMax ? 1.15 : 0.95);
-        sp.tint = isMax ? 0xfde047 : 0xfacc15;
+        sp.scale.set(isMax ? 0.92 : 0.78);
+        sp.tint = 0xffffff;
         sp.x = Math.round(p.x);
         sp.y = Math.round(p.y);
         this.propLayer.addChild(sp);
@@ -5911,7 +5941,8 @@ export class Game {
       const iconKey = ch.icon || ch.id || 'heal';
       if (this.iconTextures?.[iconKey]) {
         const icon = new Sprite(this.iconTextures[iconKey]);
-        icon.scale.set(2);
+        icon.width = 32;
+        icon.height = 32;
         icon.x = 16; icon.y = 16;
         btn.addChild(icon);
       }
@@ -7003,6 +7034,8 @@ export class Game {
       this.goContainer.addChild(slot);
       if (this.iconTextures?.[w.id]) {
         const ic = new Sprite(this.iconTextures[w.id]);
+        ic.width = 16;
+        ic.height = 16;
         ic.x = wx + 4; ic.y = wy + 4;
         this.goContainer.addChild(ic);
       }

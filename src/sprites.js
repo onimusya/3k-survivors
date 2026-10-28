@@ -60,6 +60,11 @@ const EFFECTS = {
   ultraman: new URL('../assets/sprites/effects/ultraman.png', import.meta.url).href,
   saddle: new URL('../assets/sprites/effects/saddle.png', import.meta.url).href,
   barrel: new URL('../assets/sprites/effects/barrel.png', import.meta.url).href,
+  meteor_boulder: new URL('../assets/sprites/effects/meteor_boulder.png', import.meta.url).href,
+  volcano_geyser: new URL('../assets/sprites/effects/volcano_geyser.png', import.meta.url).href,
+  meteor_crater: new URL('../assets/sprites/effects/meteor_crater.png', import.meta.url).href,
+  fire_cyclone: new URL('../assets/sprites/effects/fire_cyclone.png', import.meta.url).href,
+  wooden_ox_sprite: new URL('../assets/sprites/effects/wooden_ox_sprite.png', import.meta.url).href,
 };
 const VFX_SHEETS = {
   explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
@@ -184,9 +189,10 @@ export async function loadSpriteAssets() {
   }
   const vignette = nearest(await Assets.load(VIGNETTE));
   const iconsBase = nearest(await Assets.load(ICONS_ATLAS));
+  const iconSize = iconsBase.height || 32;
   const icons = {};
   for (let i = 0; i < ICON_IDS.length; i++) {
-    icons[ICON_IDS[i]] = frame(iconsBase.source, i * 16, 0, 16, 16, `icon-${ICON_IDS[i]}`);
+    icons[ICON_IDS[i]] = frame(iconsBase.source, i * iconSize, 0, iconSize, iconSize, `icon-${ICON_IDS[i]}`);
   }
   const stagesBase = nearest(await Assets.load(STAGES_ATLAS));
   const stages = [];
