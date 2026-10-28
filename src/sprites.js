@@ -40,6 +40,8 @@ const EFFECTS = {
   projectile: new URL('../assets/sprites/effects/projectile.png', import.meta.url).href,
   golden_egg: new URL('../assets/sprites/effects/golden_egg.png', import.meta.url).href,
   ultraman: new URL('../assets/sprites/effects/ultraman.png', import.meta.url).href,
+  saddle: new URL('../assets/sprites/effects/saddle.png', import.meta.url).href,
+  barrel: new URL('../assets/sprites/effects/barrel.png', import.meta.url).href,
 };
 const VFX_SHEETS = {
   explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
@@ -61,7 +63,7 @@ const ENEMY_FRAME_H = 64;
 const ENEMY_FRAMES = 4;
 const ENEMY_TYPES = [
   'soldier', 'archer', 'cavalry', 'shield', 'assassin',
-  'bomber', 'sorcerer', 'halberdier', 'catapult', 'firebird', 'kaiju', 'ufo',
+  'bomber', 'sorcerer', 'halberdier', 'catapult', 'firebird', 'kaiju', 'ufo', 'ghidorah',
   'boss_chengyuanzhi', 'boss_dengmao', 'elite',
   'boss_huzhen', 'boss_lijue', 'boss_huaxiong',
   'boss_caimao', 'boss_zhangyun', 'boss_caoren',

@@ -694,6 +694,28 @@ def make_effects():
     d.rectangle((9, 5, 12, 7), fill=(254, 249, 195, 255))
     save(golden_egg, "effects/golden_egg.png")
 
+    saddle = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+    d = ImageDraw.Draw(saddle)
+    # Golden War-Horse Saddle & Stirrup pickup icon (mounts Red Hare / War Elephant for 20s!)
+    ellipse(d, (2, 18, 22, 23), (10, 14, 18, 120), outline=None)
+    polygon(d, [(4, 9), (8, 5), (12, 10), (16, 5), (20, 9), (19, 17), (5, 17)], (185, 28, 28, 255), outline=OUTLINE)
+    polygon(d, [(6, 10), (9, 7), (12, 11), (15, 7), (18, 10), (17, 15), (7, 15)], (239, 68, 68, 255), outline=None)
+    rect(d, (9, 11, 15, 16), (250, 204, 21, 255), outline=OUTLINE)
+    line(d, [(12, 16), (12, 21)], (250, 204, 21, 255), width=2)
+    ellipse(d, (9, 19, 15, 23), (254, 240, 138, 255), outline=OUTLINE)
+    save(saddle, "effects/saddle.png")
+
+    barrel = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+    d = ImageDraw.Draw(barrel)
+    # Explosive Red-Iron Oil Barrel hazard with flame emblem
+    ellipse(d, (3, 18, 21, 23), (10, 14, 18, 130), outline=None)
+    d.rounded_rectangle((5, 3, 19, 21), radius=4, fill=(153, 27, 27, 255), outline=OUTLINE)
+    d.ellipse((6, 3, 18, 8), fill=(220, 38, 38, 255), outline=OUTLINE)
+    for by in (8, 16):
+        d.rectangle((5, by, 19, by + 2), fill=(71, 85, 105, 255), outline=OUTLINE)
+    polygon(d, [(12, 9), (15, 13), (12, 16), (9, 13)], (250, 204, 21, 255), outline=OUTLINE)
+    save(barrel, "effects/barrel.png")
+
     explosion = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(explosion)
     for bx, by, br, col in (

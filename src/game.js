@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, SEASONS, PETS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -90,9 +90,18 @@ export class Game {
     this.pendingNextWave = null;
     this.finalWaveSpawned = false;
     this.stageBoss = null;
+    this.gameMode = 'campaign'; // 'campaign' | 'endless'
+    this.totalGold = 120;
+    this.shopUpgrades = {};
+    this.endlessBestWave = 0;
+    this.endlessBestKills = 0;
+    this.loadShopUpgrades();
     this.loadCampaignProgress();
     this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
     this.passives = {}; // id -> level
+    this.musou = 50;
+    this.mount = null;
+    this.hazards = [];
     this.xp = 0;
     this.level = 1;
     this.xpNext = LEVEL_XP(1);
@@ -106,6 +115,9 @@ export class Game {
       this.keys[e.key] = true;
       this.sfx.unlock();
       if (e.key === 'm' || e.key === 'M') this.toggleSound();
+      if ((e.key === 'r' || e.key === 'R' || e.key === ' ') && this.state === 'playing') {
+        this.triggerMusouUltimate();
+      }
     });
     window.addEventListener('keyup', (e) => { this.keys[e.key] = false; });
     this.fpsSamples = [];
@@ -443,6 +455,56 @@ export class Game {
     seasonBtn.addChild(seasonTxt);
     seasonBtn.x = Math.round((W - seasonBtnW) / 2);
     seasonBtn.y = Math.round(bannerH + extraY + (landscape ? 2 : 5) * s);
+    // Feature 1 & 6: Armory Gold Shop Button + Endless Survival Arena Toggle Button on Menu!
+    const armoryBtn = new Container();
+    const armW = Math.round(92 * s), armH = Math.round(20 * s);
+    const armBg = new Graphics();
+    armBg.roundRect(0, 0, armW, armH, 4)
+      .fill({ color: 0x2b1d0e, alpha: 0.96 })
+      .stroke({ color: 0xfde047, width: 1.3 });
+    armoryBtn.addChild(armBg);
+    const armTxt = new Text({
+      text: `ARMORY (${this.totalGold}G)`,
+      style: new TextStyle({ fill: 0xfde047, fontSize: Math.round(7.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    armTxt.anchor.set(0.5);
+    armTxt.x = Math.round(armW / 2);
+    armTxt.y = Math.round(armH / 2);
+    armoryBtn.addChild(armTxt);
+    armoryBtn.x = gridX;
+    armoryBtn.y = Math.max(4, Math.round(topSafe - armH * 0.55));
+    armoryBtn.cursor = 'pointer';
+    armoryBtn.on('pointertap', () => this.showArmoryModal());
+    this.menuContainer.addChild(armoryBtn);
+
+    const isEndless = this.gameMode === 'endless';
+    const modeBtn = new Container();
+    const modeW = Math.round(138 * s), modeH = Math.round(20 * s);
+    const modeBg = new Graphics();
+    modeBg.roundRect(0, 0, modeW, modeH, 4)
+      .fill({ color: isEndless ? 0x3b1219 : 0x16202b, alpha: 0.96 })
+      .stroke({ color: isEndless ? 0xff5f5f : 0x6bffb0, width: 1.3 });
+    modeBtn.addChild(modeBg);
+    const modeTxt = new Text({
+      text: isEndless
+        ? `ENDLESS (BEST W${this.endlessBestWave || 1})`
+        : 'MODE: CAMPAIGN',
+      style: new TextStyle({ fill: isEndless ? 0xff9e80 : 0x6bffb0, fontSize: Math.round(7.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    modeTxt.anchor.set(0.5);
+    modeTxt.x = Math.round(modeW / 2);
+    modeTxt.y = Math.round(modeH / 2);
+    modeBtn.addChild(modeTxt);
+    modeBtn.x = gridX + totalGridW - modeW;
+    modeBtn.y = Math.max(4, Math.round(topSafe - modeH * 0.55));
+    modeBtn.cursor = 'pointer';
+    modeBtn.on('pointertap', () => {
+      this.sfx.unlock();
+      this.sfx.play('select');
+      this.gameMode = this.gameMode === 'endless' ? 'campaign' : 'endless';
+      this.buildMenu();
+    });
+    this.menuContainer.addChild(modeBtn);
     seasonBtn.eventMode = 'static';
     seasonBtn.cursor = 'pointer';
     seasonBtn.on('pointertap', () => {
@@ -932,6 +994,182 @@ export class Game {
     this.buildMenu();
   }
 
+  loadShopUpgrades() {
+    try {
+      const raw = window.localStorage?.getItem('3k-survivors-armory-v1');
+      if (!raw) {
+        this.totalGold = 120;
+        this.shopUpgrades = {};
+        return;
+      }
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return;
+      this.totalGold = Math.max(0, Number(data.totalGold ?? 120));
+      this.shopUpgrades = data.upgrades && typeof data.upgrades === 'object' ? { ...data.upgrades } : {};
+      this.endlessBestWave = Math.max(0, Number(data.endlessBestWave || 0));
+      this.endlessBestKills = Math.max(0, Number(data.endlessBestKills || 0));
+    } catch {
+      this.totalGold = 120;
+      this.shopUpgrades = {};
+    }
+  }
+
+  saveShopUpgrades() {
+    try {
+      const payload = {
+        version: 1,
+        totalGold: this.totalGold || 0,
+        upgrades: { ...(this.shopUpgrades || {}) },
+        endlessBestWave: this.endlessBestWave || 0,
+        endlessBestKills: this.endlessBestKills || 0,
+      };
+      window.localStorage?.setItem('3k-survivors-armory-v1', JSON.stringify(payload));
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+
+  buyShopUpgrade(upgId) {
+    const spec = SHOP_UPGRADES.find((u) => u.id === upgId);
+    if (!spec) return false;
+    const curLv = this.shopUpgrades?.[upgId] || 0;
+    if (curLv >= spec.max) return false;
+    const cost = spec.baseCost * (curLv + 1);
+    if ((this.totalGold || 0) < cost) return false;
+    this.totalGold -= cost;
+    this.shopUpgrades[upgId] = curLv + 1;
+    this.sfx.play('levelup');
+    this.saveShopUpgrades();
+    if (this.player) this.recomputeStats();
+    if (this.state === 'menu') this.buildMenu();
+    if (this.armoryContainer) this.showArmoryModal();
+    return true;
+  }
+
+  showArmoryModal() {
+    this.sfx.unlock();
+    this.sfx.play('select');
+    if (this.armoryContainer) this.armoryContainer.destroy({ children: true });
+    this.armoryContainer = new Container();
+    this.uiLayer.addChild(this.armoryContainer);
+
+    const W = this.W, H = this.H;
+    const panelW = Math.min(348, W - 20);
+    const panelH = Math.min(410, H - 32);
+    const panelX = Math.round((W - panelW) / 2);
+    const panelY = Math.round((H - panelH) / 2);
+
+    const bg = new Graphics();
+    bg.rect(0, 0, W, H).fill({ color: 0x05080d, alpha: 0.78 });
+    bg.roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x0f1722, alpha: 0.98 })
+      .stroke({ color: 0xfde047, width: 2 });
+    bg.eventMode = 'static';
+    this.armoryContainer.addChild(bg);
+
+    const title = new Text({
+      text: `IMPERIAL ARMORY · TREASURY: ${this.totalGold}G`,
+      style: new TextStyle({ fill: 0xfde047, fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    title.anchor.set(0.5);
+    title.x = Math.round(W / 2);
+    title.y = panelY + 18;
+    this.armoryContainer.addChild(title);
+
+    const rowH = 56;
+    const startY = panelY + 38;
+    SHOP_UPGRADES.forEach((u, idx) => {
+      const lv = this.shopUpgrades?.[u.id] || 0;
+      const isMax = lv >= u.max;
+      const cost = u.baseCost * (lv + 1);
+      const canBuy = !isMax && (this.totalGold || 0) >= cost;
+      const ry = startY + idx * (rowH + 6);
+
+      const row = new Container();
+      row.x = panelX + 12;
+      row.y = ry;
+      const rg = new Graphics();
+      rg.roundRect(0, 0, panelW - 24, rowH, 5)
+        .fill({ color: 0x172332, alpha: 0.96 })
+        .stroke({ color: isMax ? 0xfde047 : u.color, width: 1.4 });
+      row.addChild(rg);
+
+      if (this.iconTextures?.[u.icon]) {
+        const ic = new Sprite(this.iconTextures[u.icon]);
+        ic.scale.set(1.6);
+        ic.x = 10;
+        ic.y = 14;
+        row.addChild(ic);
+      }
+
+      const nm = new Text({
+        text: `${u.name} (Lv ${lv}/${u.max})`,
+        style: new TextStyle({ fill: 0xffffff, fontSize: 10, fontFamily: 'monospace', fontWeight: 'bold' }),
+      });
+      nm.x = 42;
+      nm.y = 8;
+      row.addChild(nm);
+
+      const ds = new Text({
+        text: u.desc,
+        style: new TextStyle({ fill: 0x9ec5e8, fontSize: 8, fontFamily: 'monospace' }),
+      });
+      ds.x = 42;
+      ds.y = 26;
+      row.addChild(ds);
+
+      const buyBtn = new Container();
+      const bw = 68, bh = 26;
+      buyBtn.x = panelW - 24 - bw - 8;
+      buyBtn.y = Math.round((rowH - bh) / 2);
+      const bBg = new Graphics();
+      bBg.roundRect(0, 0, bw, bh, 4)
+        .fill({ color: isMax ? 0x334155 : (canBuy ? 0x1f7a4c : 0x263240) })
+        .stroke({ color: isMax ? 0xfde047 : (canBuy ? 0x6bffb0 : 0x475569), width: 1.3 });
+      buyBtn.addChild(bBg);
+      const bTxt = new Text({
+        text: isMax ? 'MAXED' : `${cost}G BUY`,
+        style: new TextStyle({ fill: isMax ? 0xfde047 : (canBuy ? 0xffffff : 0x94a3b8), fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+      });
+      bTxt.anchor.set(0.5);
+      bTxt.x = Math.round(bw / 2);
+      bTxt.y = Math.round(bh / 2);
+      buyBtn.addChild(bTxt);
+      if (canBuy) {
+        buyBtn.eventMode = 'static';
+        buyBtn.cursor = 'pointer';
+        buyBtn.on('pointertap', () => this.buyShopUpgrade(u.id));
+      }
+      row.addChild(buyBtn);
+      this.armoryContainer.addChild(row);
+    });
+
+    const closeBtn = new Container();
+    const cw = panelW - 24, ch = 34;
+    closeBtn.x = panelX + 12;
+    closeBtn.y = panelY + panelH - ch - 10;
+    const cBg = new Graphics();
+    cBg.roundRect(0, 0, cw, ch, 5).fill({ color: 0xb93829 }).stroke({ color: 0xfde047, width: 1.6 });
+    closeBtn.addChild(cBg);
+    const cTxt = new Text({
+      text: 'CLOSE ARMORY',
+      style: new TextStyle({ fill: 0xffffff, fontSize: 10.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    cTxt.anchor.set(0.5);
+    cTxt.x = Math.round(cw / 2);
+    cTxt.y = Math.round(ch / 2);
+    closeBtn.addChild(cTxt);
+    closeBtn.eventMode = 'static';
+    closeBtn.cursor = 'pointer';
+    closeBtn.on('pointertap', () => {
+      this.sfx.play('select');
+      this.armoryContainer.destroy({ children: true });
+      this.armoryContainer = null;
+    });
+    this.armoryContainer.addChild(closeBtn);
+  }
+
   selectHero(hero) {
     this.sfx.unlock();
     if (this.selectedHero.id === hero.id) return;
@@ -1142,6 +1380,18 @@ export class Game {
     const w = WEAPONS[hero_weapon(this.hero)];
     this.weapons = [{ id: this.hero.weapon, level:1, data: w, evo:false }];
     this.passives = {};
+    this.musou = 50;
+    if (this.mount) {
+      if (this.mount.sprite) this.mount.sprite.destroy();
+      this.mount = null;
+    }
+    for (const hz of (this.hazards || [])) {
+      if (hz.sprite) hz.sprite.destroy();
+      if (hz.ring) hz.ring.destroy();
+    }
+    this.hazards = [];
+    const permLuck = this.shopUpgrades?.luck_perm || 0;
+    this.revivesLeft = permLuck >= 1 ? 1 : 0;
 
     // player
     if (this.playerSprite) this.playerSprite.destroy();
@@ -1182,6 +1432,8 @@ export class Game {
     this.summonPet(heroPetMap[this.hero.id] || 'redhare');
     this.spawnItem('heart', -110, -75);
     this.spawnItem('bomb', 120, -65);
+    this.setupHazards();
+    this.spawnItem('saddle', 95, 75);
     this.startWave(1);
   }
 
@@ -1429,14 +1681,30 @@ export class Game {
     const ps = this.passives;
     const pk = this.perk || {};
     const sSpec = SEASONS[this.activeSeason] || SEASONS.spring;
+    const su = this.shopUpgrades || {};
+    const permMight = (su.might_perm || 0) * 0.12;
+    const permArmor = (su.armor_perm || 0) * 1;
+    const permHp = (su.armor_perm || 0) * 20;
+    const permSpd = (su.speed_perm || 0) * 0.07;
+    const permCd = (su.speed_perm || 0) * 0.05;
+    const permXp = (su.magnet_perm || 0) * 0.25;
     const heroArmor = this.hero?.armor ?? 3;
     const heroDmgBonus = this.hero?.dmgBonus ?? 0.3;
-    this.player.dmgMul = (1 + heroDmgBonus + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
-    this.player.speedMul = (1 + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0));
+    const mountSpdBonus = this.mount && this.mount.timer > 0 ? 0.55 : 0;
+    const shrineBonus = (this.shrineBuffTimer || 0) > 0 ? 0.25 : 0;
+
+    const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp;
+    if (nextMaxHp > this.player.maxHp) {
+      this.player.hp += (nextMaxHp - this.player.maxHp);
+    }
+    this.player.maxHp = nextMaxHp;
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + shrineBonus + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.speedMul = (1 + permSpd + mountSpdBonus + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.65, 1 - permCd);
     this.player.areaMul = (1 + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.xpMul = (1 + permXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.magnetBonus = (su.magnet_perm || 0) * 30;
   }
 
   getWeaponStats(w) {
@@ -1531,6 +1799,22 @@ export class Game {
     });
     this.hudSlots.addChild(this.hudMuteBtn);
 
+    // Feature 2: Active Musou Ultimate Button on HUD!
+    this.musouBtn = new Container();
+    this.musouBtnBg = new Graphics();
+    this.musouBtnTxt = new Text({
+      text: 'MUSOU 50%',
+      style: new TextStyle({ fill: 0xffe066, fontSize: 9.5, fontFamily: 'monospace', fontWeight: 'bold', stroke: { color: 0x06080c, width: 2 } }),
+    });
+    this.musouBtnTxt.anchor.set(0.5);
+    this.musouBtn.addChild(this.musouBtnBg, this.musouBtnTxt);
+    this.musouBtn.eventMode = 'static';
+    this.musouBtn.cursor = 'pointer';
+    this.musouBtn.on('pointertap', (e) => {
+      e.stopPropagation?.();
+      this.triggerMusouUltimate();
+    });
+    this.hud.addChild(this.musouBtn);
     // joystick base
     if (this.joyBase) this.joyBase.destroy();
     if (this.joyKnob) this.joyKnob.destroy();
@@ -1612,6 +1896,10 @@ export class Game {
     this._lastWaveQuant = -1;
     this._loadoutDirty = true;
     this.renderHudSlots();
+    if (this.musouBtn) {
+      this.musouBtn.x = Math.round(W - 88);
+      this.musouBtn.y = Math.round(H - 58);
+    }
   }
 
   renderHudSlots() {
@@ -1891,6 +2179,8 @@ export class Game {
     this.updatePets(dt);
     this.updateAndRenderOrbitWeapons(dt);
 
+    this.updateMountAndMusou(dt);
+    this.updateHazards(dt);
     // projectiles
     this.updateProjectiles(dt);
 
@@ -1938,23 +2228,24 @@ export class Game {
 
   startWave(waveNum = 1) {
     const { map, stage } = this.getStageSpec();
-    this.currentWave = clamp(waveNum, 1, stage.waves);
-    const isEarlyCampaign = this.mapIndex === 0;
-    this.finalWaveSpawned = this.currentWave >= stage.waves;
+    const isEndless = this.gameMode === 'endless';
+    this.currentWave = isEndless ? Math.max(1, waveNum) : clamp(waveNum, 1, stage.waves);
+    const isEarlyCampaign = this.mapIndex === 0 && !isEndless;
+    this.finalWaveSpawned = isEndless ? (this.currentWave % 5 === 0) : (this.currentWave >= stage.waves);
     const waveCurve = isEarlyCampaign
       ? ([9, 13, 18, 24, 300][this.currentWave - 1] || 14)
-      : ([14, 24, 36, 50, 300][this.currentWave - 1] || 20);
-    const stageRatio = clamp((this.mapIndex * 10 + this.stageIndex) / 99, 0, 1);
+      : ([14, 24, 36, 50, 300][(this.currentWave - 1) % 5] || 20);
+    const stageRatio = clamp((this.mapIndex * 10 + this.stageIndex + (isEndless ? this.currentWave * 2 : 0)) / 99, 0, 1);
     const finalHordeCount = clamp(
       randInt(Math.round(300 + stageRatio * 350), Math.round(520 + stageRatio * 480)),
       300,
       1000,
     );
-    // Last Wave (Wave 5/5) always spawns a massive horde between 300 and 1000 enemies!
+    // Last Wave (Wave 5/5 or every 5th Endless Wave) always spawns a massive horde between 300 and 1000 enemies!
     this.waveTotalEnemies = this.finalWaveSpawned
       ? finalHordeCount
       : Math.round(
-        (waveCurve + this.stageIndex * (isEarlyCampaign ? 3 : 5) + this.mapIndex * 7) * Math.min(2.2, stage.spawnMul || 1),
+        (waveCurve + this.stageIndex * (isEarlyCampaign ? 3 : 5) + this.mapIndex * 7 + (isEndless ? this.currentWave * 4 : 0)) * Math.min(2.2, stage.spawnMul || 1),
       );
     this.waveSpawnedCount = 0;
     this.waveKills = 0;
@@ -1964,19 +2255,21 @@ export class Game {
       ? Math.max(8.5, 14.0 - this.currentWave * 1.0)
       : Math.max(5.0, 10.0 - this.currentWave * 1.1);
 
-    if (this.finalWaveSpawned) {
+    if (this.finalWaveSpawned || (isEndless && this.currentWave % 3 === 0)) {
       const bossSpec = stage.levelBoss || map.boss;
       this.stageBoss = this.spawnMapBoss(map, stage, bossSpec);
-      this.waveTotalEnemies = finalHordeCount;
+      if (this.finalWaveSpawned) this.waveTotalEnemies = finalHordeCount;
       this.waveSpawnedCount++;
       this.sfx.play('hurt');
       this.shake = 12;
       if (this.player) {
-        this.showFloatText(this.player.x, this.player.y - 30, `LAST WAVE 5/5 · ${finalHordeCount} HORDE + BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
+        const waveTag = isEndless ? `ENDLESS WAVE ${this.currentWave}` : 'LAST WAVE 5/5';
+        this.showFloatText(this.player.x, this.player.y - 30, `${waveTag} · ${this.waveTotalEnemies} HORDE + BOSS: ${bossSpec.name.toUpperCase()}!`, 0xff5f5f);
       }
     } else if (this.currentWave > 1 && this.player) {
       this.sfx.play('select');
-      this.showFloatText(this.player.x, this.player.y - 26, `WAVE ${this.currentWave}/${stage.waves} · HORDE SURGE!`, 0xf5c84c);
+      const waveLbl = isEndless ? `ENDLESS WAVE ${this.currentWave}` : `WAVE ${this.currentWave}/${stage.waves}`;
+      this.showFloatText(this.player.x, this.player.y - 26, `${waveLbl} · HORDE SURGE!`, 0xf5c84c);
     }
     // Introduce Siege Catapults and Aerial Bird Flocks gently on early levels, ramping up in later campaigns
     const minCatapultWave = isEarlyCampaign ? (this.stageIndex >= 2 ? 3 : 4) : 2;
@@ -2022,7 +2315,7 @@ export class Game {
   }
 
   onWaveCleared() {
-    const { stage } = this.getStageSpec();
+    const { map, stage } = this.getStageSpec();
     // Auto-collect any remaining XP gems on the battlefield
     for (const g of this.gems) {
       if (g.active) {
@@ -2032,6 +2325,18 @@ export class Game {
       }
     }
     this.gems.length = 0;
+    this.totalGold = (this.totalGold || 0) + 15;
+    this.saveShopUpgrades();
+
+    // Feature 6: Endless Boss Rush / Survival Arena Mode!
+    if (this.gameMode === 'endless') {
+      this.endlessBestWave = Math.max(this.endlessBestWave || 0, this.currentWave);
+      this.endlessBestKills = Math.max(this.endlessBestKills || 0, this.kills);
+      this.saveShopUpgrades();
+      this.pendingNextWave = this.currentWave + 1;
+      this.levelUp();
+      return;
+    }
 
     if (this.currentWave < stage.waves) {
       // Wave 1..4 cleared -> auto-save checkpoint & trigger Weapon / Armor / Pet Upgrade Modal!
@@ -2268,8 +2573,10 @@ export class Game {
     it.phase = Math.random() * Math.PI * 2;
     it.sprite.texture = kind === 'golden_egg'
       ? (this.effectTextures.golden_egg || this.effectTextures.bomb)
-      : (kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart);
-    it.sprite.scale.set(kind === 'golden_egg' ? 1.55 : 1.25);
+      : (kind === 'saddle'
+        ? (this.effectTextures.saddle || this.effectTextures.heart)
+        : (kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart));
+    it.sprite.scale.set(kind === 'golden_egg' ? 1.55 : (kind === 'saddle' ? 1.45 : 1.25));
     it.sprite.visible = true;
     it.sprite.x = it.x;
     it.sprite.y = it.y;
@@ -2292,6 +2599,8 @@ export class Game {
       this.explodeBomb(it.x, it.y);
     } else if (it.kind === 'golden_egg') {
       this.summonUltraman(10.0);
+    } else if (it.kind === 'saddle') {
+      this.mountSteed(20.0);
     }
   }
 
@@ -2558,25 +2867,26 @@ export class Game {
     this.enemies.push(e);
     return e;
   }
-  spawnKaijuBoss() {
+  spawnKaijuBoss(forceKind = null) {
     if (!this.player) return null;
     const { stage } = this.getStageSpec();
-    const d = ENEMY_TYPES.kaiju;
+    const kind = forceKind || (Math.random() < 0.45 ? 'ghidorah' : 'kaiju');
+    const isGhidorah = kind === 'ghidorah';
+    const d = ENEMY_TYPES[kind] || ENEMY_TYPES.kaiju;
     const ang = Math.random() * Math.PI * 2;
     const r = 230;
     const x = this.player.x + Math.cos(ang) * r;
     const y = this.player.y + Math.sin(ang) * r;
     const e = this.enemyPool.acquire();
     e.active = true;
-    e.type = 'kaiju';
+    e.type = kind;
     e.x = x;
     e.y = y;
-    const frames = this.enemyTextures.kaiju || this.enemyTextures.elite;
+    const frames = this.enemyTextures[kind] || this.enemyTextures.kaiju || this.enemyTextures.elite;
     e.sprite.texture = frames[0];
     e.baseTint = 0xffffff;
     e.sprite.tint = 0xffffff;
     e.sprite.alpha = 1;
-    // Colossal Kaiju Godzilla Scale (3.25x = 208x208 px on screen!)
     const sc = 3.25;
     e.baseScale = sc;
     e.sprite.scaleX = sc;
@@ -2587,23 +2897,26 @@ export class Game {
     e.speed = d.speed;
     e.dmg = d.dmg * (stage.dmgMul || 1);
     e.size = 52;
-    e.xp = 120;
-    e.color = 0x00f5d4;
+    e.xp = d.xp || 250;
+    e.color = isGhidorah ? 0xfde047 : 0x00f5d4;
     e.ranged = true;
     e.explosive = true;
     e.isCatapult = false;
     e.isBird = false;
+    e.isUfo = false;
     e.isKaiju = true;
+    e.isGhidorah = isGhidorah;
+    e.frame = -1;
     e.countsForWave = true;
-    e.knockResist = 0.96;
+    e.knockResist = 0.99;
     e.shootCd = 1.6;
     e.stompTimer = 1.4;
-    e.eggTimer = 15.0;
+    e.eggTimer = 14.0;
     e._droppedGoldenEgg = false;
     e.isBoss = true;
     e.isMapBoss = false;
     e.enraged = false;
-    e.bossName = 'KAIJU GODZILLA';
+    e.bossName = isGhidorah ? 'KING GHIDORAH' : 'KAIJU GODZILLA';
     e.hitFlash = 0;
     e.knock = 0;
     e.kx = 0;
@@ -2611,11 +2924,16 @@ export class Game {
     this.enemies.push(e);
     this.sfx.play('bomb');
     this.shake = Math.max(this.shake, 20);
-    this.flashScreen(0x00f5d4, 0.28);
-    this.spawnShockwave(x, y, 0x00f5d4, 0.6, 3.2, 0.38);
-    this.showFloatText(this.player.x, this.player.y - 42, '⚠ RARE KAIJU GODZILLA EMERGED!', 0x00f5d4);
-    // Rare Golden Egg drop roll on Kaiju emergence (18% chance, max 1 per Kaiju encounter!)
-    if (Math.random() < 0.18) {
+    this.flashScreen(e.color, 0.28);
+    this.spawnShockwave(x, y, e.color, 0.6, 3.2, 0.38);
+    this.showFloatText(
+      this.player.x,
+      this.player.y - 42,
+      isGhidorah ? '⚠ RARE 3-HEADED KING GHIDORAH EMERGED!' : '⚠ RARE KAIJU GODZILLA EMERGED!',
+      e.color,
+    );
+    const luckBonus = (this.shopUpgrades?.luck_perm || 0) * 0.06;
+    if (Math.random() < 0.18 + luckBonus) {
       this.dropGoldenEggNearPlayer(e);
     }
     return e;
@@ -2805,6 +3123,279 @@ export class Game {
           } else {
             this.damageEnemy(e, rayDmg, u.x, u.y);
           }
+        }
+      }
+    }
+  }
+
+  triggerMusouUltimate() {
+    if (!this.player || (this.musou || 0) < 100) return false;
+    this.musou = 0;
+    const p = this.player;
+    const heroId = this.hero?.id || 'guanyu';
+    const spec = MUSOU_ULTIMATES[heroId] || MUSOU_ULTIMATES.guanyu;
+    this.sfx.play('evolve');
+    this.sfx.play('bomb');
+    this.shake = 24;
+    this.flashScreen(spec.color, 0.35);
+    this.spawnLevelUpVfx(p.x, p.y);
+    this.spawnShockwave(p.x, p.y, spec.color, 0.6, 5.8, 0.42);
+    this.spawnShockwave(p.x, p.y, 0xffffff, 0.35, 3.8, 0.3);
+    this.showFloatText(p.x, p.y - 42, `★ MUSOU ULTIMATE: ${spec.name.toUpperCase()}! ★`, spec.color);
+    p.hp = Math.min(p.maxHp, p.hp + 35);
+    p.invuln = Math.max(p.invuln, 1.5);
+
+    // 8-direction Musou Cataclysm Slashes, Explosions & 12 Homing Ultimate Projectiles!
+    const ultDmg = 240 * (p.dmgMul || 1);
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      const ex = p.x + Math.cos(a) * 115;
+      const ey = p.y + Math.sin(a) * 115;
+      this.spawnSlash(p.x, p.y, spec.color, 1.85, a);
+      this.spawnExplosion(ex, ey, 0.65, 2.35, spec.color, 0.38);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI * 2) / 12;
+      this.spawnProjectile(p.x, p.y, a, ultDmg * 0.65, 1.4, spec.color, null, true, 5, true, true, heroId === 'zhaoyun');
+    }
+    for (const e of this.enemies) {
+      if (!e.active || e.isUfo) continue;
+      if (dist2(e.x, e.y, p.x, p.y) <= 320 * 320) {
+        this.damageEnemy(e, ultDmg, p.x, p.y, heroId === 'zhaoyun', false);
+      }
+    }
+    return true;
+  }
+
+  mountSteed(duration = 20.0) {
+    if (!this.player) return null;
+    const p = this.player;
+    this.sfx.play('evolve');
+    this.spawnLevelUpVfx(p.x, p.y);
+    this.spawnShockwave(p.x, p.y, 0xff6b52, 0.45, 2.5, 0.3);
+    this.showFloatText(p.x, p.y - 36, '🐎 MOUNTED RED HARE STEED (20S)! +55% SPD & TRAMPLE!', 0xffae42);
+    if (this.mount) {
+      this.mount.timer = duration;
+      this.mount.maxTimer = duration;
+      this.recomputeStats();
+      return this.mount;
+    }
+    const texList = this.petTextures?.redhare || [this.effectTextures.impact];
+    const sprite = new Sprite(texList[0]);
+    sprite.anchor.set(0.5, 0.55);
+    sprite.scale.set(1.55);
+    this.playerLayer.addChildAt(sprite, Math.max(0, this.playerLayer.children.length - 1));
+    this.mount = {
+      timer: duration,
+      maxTimer: duration,
+      trampleCd: 0,
+      sprite,
+    };
+    this.recomputeStats();
+    return this.mount;
+  }
+
+  updateMountAndMusou(dt) {
+    const p = this.player;
+    if (!p) return;
+    if (this.shrineBuffTimer > 0) {
+      this.shrineBuffTimer -= dt;
+      if (this.shrineBuffTimer <= 0) this.recomputeStats();
+    }
+    // Update active Mount (Red Hare Steed)
+    if (this.mount) {
+      this.mount.timer -= dt;
+      if (this.mount.timer <= 0) {
+        if (this.mount.sprite) this.mount.sprite.destroy();
+        this.mount = null;
+        this.recomputeStats();
+        this.showFloatText(p.x, p.y - 24, 'STEED DISMOUNTED', 0xcbd5e1);
+      } else {
+        const frame = Math.floor(this.animTime * 10) % 4;
+        const texList = this.petTextures?.redhare;
+        if (texList?.[frame]) this.mount.sprite.texture = texList[frame];
+        this.mount.sprite.x = Math.round(p.x);
+        this.mount.sprite.y = Math.round(p.y + 8);
+        const flip = p.direction === 'left' ? 1.55 : -1.55;
+        this.mount.sprite.scale.set(flip, 1.55);
+        if (this.orbitLayer) {
+          const bw = 42, bh = 3.5;
+          const bx = Math.round(p.x - bw / 2);
+          const by = Math.round(p.y - 36);
+          const ratio = clamp(this.mount.timer / (this.mount.maxTimer || 20), 0, 1);
+          this.orbitLayer.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x0c0e14);
+          this.orbitLayer.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(0xffae42);
+        }
+        this.mount.trampleCd -= dt;
+        if (this.mount.trampleCd <= 0) {
+          this.mount.trampleCd = 0.22;
+          const trampleDmg = 55 * (p.dmgMul || 1);
+          for (const e of this.enemies) {
+            if (!e.active || e.isUfo) continue;
+            if (dist2(e.x, e.y, p.x, p.y) <= (38 + e.size) ** 2) {
+              this.damageEnemy(e, trampleDmg, p.x, p.y);
+              this.spawnHitSpark(e.x, e.y, 0xffae42, 0.5, 0.14);
+            }
+          }
+        }
+      }
+    }
+    // Update HUD Musou Button
+    if (this.musouBtn && this.musouBtnBg && this.musouBtnTxt) {
+      const ready = (this.musou || 0) >= 100;
+      const pct = clamp(Math.floor(this.musou || 0), 0, 100);
+      this.musouBtnBg.clear();
+      this.musouBtnBg.roundRect(-40, -16, 80, 32, 6)
+        .fill({ color: ready ? 0xb91c1c : 0x16202b, alpha: 0.94 })
+        .stroke({ color: ready ? 0xfde047 : 0x64748b, width: ready ? 2.2 : 1.4 });
+      if (pct > 0 && !ready) {
+        this.musouBtnBg.roundRect(-38, 10, Math.round(76 * (pct / 100)), 4, 2).fill(0xf59e0b);
+      }
+      this.musouBtnTxt.text = ready ? '★ MUSOU [R] ★' : `MUSOU ${pct}%`;
+      this.musouBtnTxt.style.fill = ready ? 0xfde047 : 0xcbd5e1;
+    }
+  }
+
+  setupHazards() {
+    for (const hz of (this.hazards || [])) {
+      if (hz.sprite) hz.sprite.destroy();
+      if (hz.ring) hz.ring.destroy();
+    }
+    this.hazards = [];
+    const specs = [
+      { kind: 'oil_barrel', x: -165, y: -110 },
+      { kind: 'oil_barrel', x: 185, y: -95 },
+      { kind: 'oil_barrel', x: -140, y: 155 },
+      { kind: 'ballista', x: 155, y: 145 },
+      { kind: 'ballista', x: -195, y: 25 },
+      { kind: 'shrine', x: 0, y: -195 },
+    ];
+    for (const sp of specs) {
+      const ring = new Graphics();
+      this.propLayer.addChild(ring);
+      const tex = sp.kind === 'oil_barrel'
+        ? (this.effectTextures.barrel || this.effectTextures.bomb)
+        : (sp.kind === 'ballista'
+          ? (this.enemyTextures.catapult?.[0] || this.effectTextures.impact)
+          : (this.effectTextures.heart || this.effectTextures.impact));
+      const sprite = new Sprite(tex);
+      sprite.anchor.set(0.5, 0.6);
+      sprite.scale.set(sp.kind === 'ballista' ? 1.1 : 1.4);
+      sprite.x = sp.x;
+      sprite.y = sp.y;
+      this.propLayer.addChild(sprite);
+      this.hazards.push({
+        kind: sp.kind,
+        active: true,
+        captured: false,
+        captureProgress: 0,
+        activeTimer: 0,
+        shootCd: 0.5,
+        respawnTimer: 0,
+        x: sp.x,
+        y: sp.y,
+        sprite,
+        ring,
+      });
+    }
+  }
+
+  updateHazards(dt) {
+    const p = this.player;
+    if (!p || !this.hazards?.length) return;
+    for (const hz of this.hazards) {
+      hz.ring.clear();
+      if (!hz.active) {
+        hz.respawnTimer -= dt;
+        if (hz.respawnTimer <= 0) {
+          hz.active = true;
+          hz.captured = false;
+          hz.captureProgress = 0;
+          const ang = Math.random() * Math.PI * 2;
+          hz.x = Math.round(p.x + Math.cos(ang) * 190);
+          hz.y = Math.round(p.y + Math.sin(ang) * 190);
+          hz.sprite.x = hz.x;
+          hz.sprite.y = hz.y;
+          hz.sprite.visible = true;
+        }
+        continue;
+      }
+      const d = Math.hypot(p.x - hz.x, p.y - hz.y);
+      if (hz.kind === 'oil_barrel') {
+        hz.ring.circle(hz.x, hz.y, 20).stroke({ color: 0xef4444, alpha: 0.45, width: 1.5 });
+        // Detonate if hit by any player projectile or close weapon attack!
+        let triggered = p.attackTimer > 0.15 && d <= 85;
+        if (!triggered) {
+          for (const pr of this.projectiles) {
+            if (pr.active && !pr.fromEnemy && dist2(pr.x, pr.y, hz.x, hz.y) <= 28 * 28) {
+              triggered = true;
+              break;
+            }
+          }
+        }
+        if (triggered) {
+          hz.active = false;
+          hz.sprite.visible = false;
+          hz.respawnTimer = 14.0;
+          this.sfx.play('bomb');
+          this.shake = Math.max(this.shake, 16);
+          this.spawnExplosion(hz.x, hz.y, 0.85, 3.2, 0xff7b3d, 0.42);
+          this.spawnShockwave(hz.x, hz.y, 0xff4d29, 0.5, 4.2, 0.34);
+          this.showFloatText(hz.x, hz.y - 24, '💥 OIL BARREL DETONATED!', 0xffae42);
+          const barrelDmg = 165 * (p.dmgMul || 1);
+          for (const e of this.enemies) {
+            if (!e.active || e.isKaiju) continue;
+            if (dist2(e.x, e.y, hz.x, hz.y) <= 230 * 230) {
+              this.damageEnemy(e, barrelDmg, hz.x, hz.y, false, true);
+            }
+          }
+        }
+      } else if (hz.kind === 'ballista') {
+        if (!hz.captured) {
+          hz.ring.circle(hz.x, hz.y, 44).stroke({ color: 0xfde047, alpha: 0.5, width: 1.8 });
+          if (d <= 48) {
+            hz.captureProgress += dt;
+            if (hz.captureProgress >= 1.0) {
+              hz.captured = true;
+              hz.activeTimer = 25.0;
+              hz.sprite.tint = 0x6bffb0;
+              this.sfx.play('levelup');
+              this.showFloatText(hz.x, hz.y - 24, '🏹 BALLISTA TURRET CAPTURED (25S)!', 0x6bffb0);
+            }
+          }
+        } else {
+          hz.ring.circle(hz.x, hz.y, 32).stroke({ color: 0x6bffb0, alpha: 0.65, width: 2.0 });
+          hz.activeTimer -= dt;
+          if (hz.activeTimer <= 0) {
+            hz.active = false;
+            hz.sprite.visible = false;
+            hz.respawnTimer = 16.0;
+          } else {
+            hz.shootCd -= dt;
+            if (hz.shootCd <= 0) {
+              hz.shootCd = 0.65;
+              const ne = this.nearestEnemy(hz.x, hz.y);
+              if (ne && dist2(hz.x, hz.y, ne.x, ne.y) <= 380 * 380) {
+                const ang = angleTo(hz.x, hz.y, ne.x, ne.y);
+                this.spawnProjectile(hz.x, hz.y, ang, 75 * (p.dmgMul || 1), 1.25, 0x6bffb0, null, false, 4, true, true, true);
+              }
+            }
+          }
+        }
+      } else if (hz.kind === 'shrine') {
+        hz.ring.circle(hz.x, hz.y, 40).stroke({ color: 0xc084fc, alpha: 0.6, width: 2.0 });
+        if (d <= 44) {
+          hz.active = false;
+          hz.sprite.visible = false;
+          hz.respawnTimer = 18.0;
+          p.hp = Math.min(p.maxHp, p.hp + 45);
+          this.musou = clamp((this.musou || 0) + 50, 0, 100);
+          this.shrineBuffTimer = 12.0;
+          this.recomputeStats();
+          this.sfx.play('heal');
+          this.spawnHealVfx(p.x, p.y);
+          this.spawnShockwave(hz.x, hz.y, 0xc084fc, 0.45, 2.6, 0.3);
+          this.showFloatText(p.x, p.y - 28, '⛩ WAR SHRINE: +45 HP, +50% MUSOU & +25% DMG!', 0xc084fc);
         }
       }
     }
@@ -4008,6 +4599,11 @@ export class Game {
         this.gems.push(g);
       }
       this.kills++;
+      this.musou = clamp((this.musou || 0) + (e.isBoss ? 25 : 6), 0, 100);
+      if (e.isBoss || Math.random() < 0.25) {
+        this.gold = (this.gold || 0) + (e.isBoss ? 15 : 1);
+        this.totalGold = (this.totalGold || 0) + (e.isBoss ? 15 : 1);
+      }
       if (!this.stageBoss) {
         this.stageProgress += 0.35;
       }
@@ -4037,6 +4633,8 @@ export class Game {
           this.spawnItem('heart', e.x, e.y);
         } else if (dropRoll < heartChance + 0.025) {
           this.spawnItem('bomb', e.x, e.y);
+        } else if (dropRoll < heartChance + 0.038 && !this.mount) {
+          this.spawnItem('saddle', e.x, e.y);
         }
       }
       e.active = false;

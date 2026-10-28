@@ -361,6 +361,46 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
         for lx_i, (lx, ly) in enumerate(rim_pts):
             col = light_cols[(lx_i + f_idx) % len(light_cols)]
             d.ellipse((lx - 2, ly - 2 + hover, lx + 2, ly + 2 + hover), fill=col, outline=OUTLINE)
+    elif char_id == "ghidorah":
+        # King Ghidorah: Colossal 3-Headed Golden Gravity-Lightning Dragon with twin sweeping wings & 3 horned dragon heads
+        OUTLINE = (24, 16, 8, 255)
+        GOLD_DARK = (161, 98, 7, 255)
+        GOLD_MID = (234, 179, 8, 255)
+        GOLD_HI = (254, 240, 138, 255)
+        wing_dy = (-4, 2, 5, -1)[f_idx % 4]
+        # Massive shadow
+        d.ellipse((6, 49, 58, 61), fill=(8, 12, 18, 150))
+        # Twin sweeping Golden Dragon Wings (left & right)
+        d.polygon([(24, 28 + bob), (2, 10 + wing_dy), (3, 30 + wing_dy), (12, 38 + bob), (24, 36 + bob)], fill=GOLD_MID, outline=OUTLINE)
+        d.polygon([(40, 28 + bob), (62, 10 + wing_dy), (61, 30 + wing_dy), (52, 38 + bob), (40, 36 + bob)], fill=GOLD_MID, outline=OUTLINE)
+        d.line([(4, 14 + wing_dy), (22, 29 + bob)], fill=GOLD_HI, width=2)
+        d.line([(60, 14 + wing_dy), (42, 29 + bob)], fill=GOLD_HI, width=2)
+        # Twin forked dragon tails & armored golden legs
+        for lx in (20, 36):
+            d.rounded_rectangle((lx, 38 + bob, lx + 9, 55), radius=3, fill=GOLD_DARK, outline=OUTLINE)
+        # Golden scaled dragon torso & chest plates
+        d.ellipse((18, 22 + bob, 46, 48 + bob), fill=GOLD_MID, outline=OUTLINE)
+        for ry in range(26, 45, 4):
+            d.line([(23, ry + bob), (41, ry + bob)], fill=GOLD_HI, width=2)
+        # 3 Undulating Golden Dragon Necks & 3 Horned Dragon Heads (Left, Center, Right)!
+        heads = [
+            (14, 14 + (f_idx % 2) * 2, 23, 27),
+            (32, 8 + bob, 32, 24),
+            (50, 14 + ((f_idx + 1) % 2) * 2, 41, 27),
+        ]
+        for hx, hy, nx, ny in heads:
+            d.line([(nx, ny + bob), (hx, hy)], fill=GOLD_DARK, width=6)
+            d.line([(nx, ny + bob), (hx, hy)], fill=GOLD_MID, width=4)
+            # Crown horns
+            d.polygon([(hx - 5, hy - 2), (hx - 8, hy - 8), (hx - 2, hy - 4)], fill=GOLD_HI, outline=OUTLINE)
+            d.polygon([(hx + 5, hy - 2), (hx + 8, hy - 8), (hx + 2, hy - 4)], fill=GOLD_HI, outline=OUTLINE)
+            # Dragon head & crimson eyes
+            d.ellipse((hx - 6, hy - 5, hx + 6, hy + 6), fill=GOLD_MID, outline=OUTLINE)
+            d.rectangle((hx - 4, hy - 2, hx - 2, hy), fill=(239, 68, 68, 255))
+            d.rectangle((hx + 2, hy - 2, hx + 4, hy), fill=(239, 68, 68, 255))
+        if f_idx in (1, 3):
+            d.line([(14, 19), (8, 29), (15, 36)], fill=GOLD_HI, width=2)
+            d.line([(50, 19), (56, 29), (49, 36)], fill=GOLD_HI, width=2)
 def build_character_frames(layers_spec, anim, frame_indices, lpc_rows=(2, 1, 3, 0), char_id="", is_attack=False):
     loaded_layers = []
     for item in layers_spec:
@@ -644,6 +684,7 @@ ENEMY_RECIPES = {
         ("body/tail/lizard/adult/fg/{anim}.png", "body", "kaiju_obsidian"),
     ],
     "ufo": [],
+    "ghidorah": [],
     "boss_chengyuanzhi": [
         ("shadow/adult/{anim}.png", None, None),
         ("cape/tattered/bg/{anim}.png", "cloth", "yellow"),

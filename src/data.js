@@ -99,6 +99,63 @@ export const PETS = {
   },
 };
 
+export const SHOP_UPGRADES = [
+  {
+    id: 'might_perm',
+    name: 'Imperial Forge',
+    icon: 'might',
+    color: 0xff6b6b,
+    max: 5,
+    baseCost: 40,
+    desc: '+12% Permanent Base Damage per Lv',
+  },
+  {
+    id: 'armor_perm',
+    name: 'Dragon Scale Armor',
+    icon: 'armor',
+    color: 0x6b9fff,
+    max: 5,
+    baseCost: 40,
+    desc: '+1 Base Armor & +20 Max HP per Lv',
+  },
+  {
+    id: 'speed_perm',
+    name: 'Wind-Chaser Boots',
+    icon: 'swiftness',
+    color: 0x6bffb0,
+    max: 5,
+    baseCost: 35,
+    desc: '+7% Move Speed & -5% Weapon CD per Lv',
+  },
+  {
+    id: 'magnet_perm',
+    name: 'Imperial Treasury',
+    icon: 'growth',
+    color: 0xfde047,
+    max: 5,
+    baseCost: 35,
+    desc: '+25% Gold/XP Gain & +30px Magnet per Lv',
+  },
+  {
+    id: 'luck_perm',
+    name: 'Celestial Mandate',
+    icon: 'heal',
+    color: 0xc084fc,
+    max: 5,
+    baseCost: 50,
+    desc: '+6% Egg/Mount Luck & +1 Revive (Lv 1+)',
+  },
+];
+
+export const MUSOU_ULTIMATES = {
+  guanyu: { name: 'Green Dragon Tsunami', color: 0x1fff8a, desc: '8 Crescent Dragon Slashes + 12 Piercing Flame Waves' },
+  zhangfei: { name: 'Roar of Changban Bridge', color: 0xff5f5f, desc: 'Seismic Shockwave + 8 Trident Eruptions & +45 HP Heal' },
+  zhaoyun: { name: 'Seven-Star Dragon Storm', color: 0x5fffff, desc: '18 Homing Silver-Dragon Arrows + 6 Lightning Pillars' },
+  zhugeliang: { name: 'Eight-Trigram Heaven Fire', color: 0xc084fc, desc: '10 Celestial Fire & Lightning Pillars Across Battlefield' },
+  lubu: { name: 'Demon God Sky-Piercer', color: 0xffaa5f, desc: '8 Cardinal Cataclysm Explosions + Dual Giant Whirlwinds' },
+  sunshangxiang: { name: 'Crimson Lotus Barrage', color: 0xfde047, desc: '16 Homing Explosive Chakrams + 4 Lotus Fireball Rings' },
+};
+
 export const ENEMY_TYPES = {
   soldier: { name:'Militia Spearman', color:0x7a8a9a, hp:8, speed:60, dmg:6, size:14, xp:1, weight:50 },
   archer: { name:'Crossbow Scout', color:0x5a8a62, hp:6, speed:52, dmg:8, size:13, xp:2, weight:20, ranged:true },
@@ -112,6 +169,7 @@ export const ENEMY_TYPES = {
   firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:12, speed:240, dmg:5,  size:14, xp:5, weight:0, isBird:true },
   kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:12000, speed:42, dmg:32, size:30, xp:250, weight:0, boss:true, isKaiju:true, knockResist:0.99 },
   ufo:        { name:'Cosmic UFO Saucer',   color:0x38bdf8, hp:95,  speed:190, dmg:0, size:20, xp:60,  weight:0, isUfo:true },
+  ghidorah:   { name:'King Ghidorah Titan',color:0xfde047, hp:13500, speed:44, dmg:34, size:32, xp:300, weight:0, boss:true, isKaiju:true, isGhidorah:true, knockResist:0.99 },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },
   elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:9, size:23, xp:30, weight:0, boss:true },
