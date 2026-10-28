@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -109,6 +109,10 @@ export class Game {
     this.selectedTerrainMode = 'auto';
     this.groundZones = [];
     this.lightningArcs = [];
+    this.disasterTimer = 11.0;
+    this.disasterStrikes = [];
+    this.activeFireTornado = null;
+    this.playerFrostSlowTimer = 0;
     this.loadShopUpgrades();
     this.loadCampaignProgress();
     this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
@@ -1667,6 +1671,10 @@ export class Game {
     }
     this.groundZones = [];
     this.lightningArcs = [];
+    this.disasterTimer = 11.0;
+    this.disasterStrikes = [];
+    this.activeFireTornado = null;
+    this.playerFrostSlowTimer = 0;
     this.partnerTimer = 7.5;
     this.mythicFusion = null;
     this.activeWaveEvent = null;
@@ -1993,6 +2001,7 @@ export class Game {
     const tArea = tSpec.areaBonus || 0;
     const tCd = tSpec.cdBonus || 0;
     const tXp = tSpec.xpBonus || 0;
+    const frostPenalty = (this.playerFrostSlowTimer || 0) > 0 ? -0.35 : 0;
 
     const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp;
     if (nextMaxHp > this.player.maxHp) {
@@ -2001,7 +2010,7 @@ export class Game {
     this.player.maxHp = nextMaxHp;
     this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
     this.player.armor = heroArmor + permArmor + relicArmor + tArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
-    this.player.speedMul = (1 + permSpd + mountSpdBonus + tSpd + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
+    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
     this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.45, 1 - permCd - relicCd - bloodMoonCd - tCd);
     this.player.areaMul = (1 + relicArea + tArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
     this.player.xpMul = (1 + permXp + relicXp + tXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
@@ -3740,6 +3749,218 @@ export class Game {
       }
     }
     this.updateGroundZonesAndArcs(dt);
+    this.updateDisasters(dt);
+  }
+
+  triggerDisaster(forceKind = null) {
+    if (!this.player) return null;
+    const p = this.player;
+    const kinds = Object.keys(DISASTER_SPECS);
+    const kind = (forceKind && DISASTER_SPECS[forceKind])
+      ? forceKind
+      : kinds[Math.floor(Math.random() * kinds.length)];
+    const spec = DISASTER_SPECS[kind];
+    this.sfx.play('bomb');
+    this.shake = Math.max(this.shake, 14);
+    this.flashScreen(spec.color, 0.22);
+    this.showFloatText(
+      p.x,
+      p.y - 44,
+      `⚠ CATACLYSM: ${spec.name.toUpperCase()}! DODGE IMPACT ZONES!`,
+      spec.color,
+    );
+
+    if (kind === 'fire_tornado') {
+      this.activeFireTornado = {
+        x: p.x + (Math.random() < 0.5 ? -135 : 135),
+        y: p.y - 65,
+        vx: 78,
+        vy: 54,
+        radius: spec.radius,
+        timer: 7.5,
+        tickCd: 0.15,
+        spec,
+      };
+      return this.activeFireTornado;
+    }
+
+    const count = kind === 'hailstorm' ? 9 : (kind === 'earthquake' ? 5 : 6);
+    const vx = p.vx || 0;
+    const vy = p.vy || 0;
+    for (let i = 0; i < count; i++) {
+      const ang = i === 0
+        ? Math.atan2(vy || 1, vx || 1)
+        : (i * Math.PI * 2) / count + (Math.random() - 0.5) * 0.4;
+      const dist = i === 0 ? 48 : (65 + (i % 3) * 48);
+      const tx = Math.round(p.x + Math.cos(ang) * dist);
+      const ty = Math.round(p.y + Math.sin(ang) * dist);
+      const delay = 1.05 + i * 0.14;
+      this.disasterStrikes.push({
+        kind,
+        spec,
+        x: tx,
+        y: ty,
+        sourceX: kind === 'volcano' ? p.x - 120 : tx + 135,
+        sourceY: kind === 'volcano' ? p.y - 120 : ty - 220,
+        radius: spec.radius,
+        timer: delay,
+        maxTimer: delay,
+      });
+    }
+    return spec;
+  }
+
+  updateDisasters(dt) {
+    const p = this.player;
+    const g = this.orbitLayer;
+    if (!p) return;
+
+    if (this.playerFrostSlowTimer > 0) {
+      this.playerFrostSlowTimer -= dt;
+      if (this.playerFrostSlowTimer <= 0) {
+        this.playerFrostSlowTimer = 0;
+        this.recomputeStats();
+      }
+    }
+
+    this.disasterTimer = (this.disasterTimer ?? 12.0) - dt;
+    if (this.disasterTimer <= 0 && this.disasterStrikes.length === 0 && !this.activeFireTornado) {
+      this.disasterTimer = 15.0;
+      this.triggerDisaster();
+    }
+
+    // 1. Update Roaming Fire Tornado Vortex
+    if (this.activeFireTornado) {
+      const ft = this.activeFireTornado;
+      ft.timer -= dt;
+      const angToP = angleTo(ft.x, ft.y, p.x, p.y);
+      ft.vx = Math.cos(angToP) * 74 + Math.cos(this.time * 3) * 32;
+      ft.vy = Math.sin(angToP) * 74 + Math.sin(this.time * 3) * 32;
+      ft.x += ft.vx * dt;
+      ft.y += ft.vy * dt;
+      if (g) {
+        for (let r = 0; r < 3; r++) {
+          const rad = ft.radius * (1 - r * 0.25);
+          g.circle(Math.round(ft.x + Math.sin(this.time * 12 + r) * 5), Math.round(ft.y + Math.cos(this.time * 12 + r) * 5), rad)
+            .fill({ color: r === 2 ? 0xfef08a : 0xf97316, alpha: 0.28 + r * 0.12 })
+            .stroke({ color: 0xef4444, width: 2.2, alpha: 0.85 });
+        }
+      }
+      ft.tickCd -= dt;
+      if (ft.tickCd <= 0) {
+        ft.tickCd = 0.45;
+        this.spawnSpin(ft.x, ft.y, 1.15, 0xf97316);
+        const r2 = (ft.radius + 10) ** 2;
+        if (dist2(p.x, p.y, ft.x, ft.y) <= r2) {
+          this.damagePlayerPercent(ft.spec.minPct, ft.spec.maxPct, 'FIRE CYCLONE', {
+            type: 'bomber',
+            name: ft.spec.name,
+            title: 'NATURAL CATACLYSM DISASTER',
+            color: ft.spec.color,
+          });
+        }
+        for (const e of this.enemies) {
+          if (e.active && !e.isUfo && dist2(e.x, e.y, ft.x, ft.y) <= (ft.radius + e.size) ** 2) {
+            this.damageEnemy(e, ft.spec.enemyDmg * (p.dmgMul || 1), ft.x, ft.y, false, true);
+          }
+        }
+      }
+      if (ft.timer <= 0) {
+        this.activeFireTornado = null;
+      }
+    }
+
+    // 2. Update Telegraphed Disaster Strikes (Volcano, Meteor Crash, Hailstorm, Lightning, Earthquake)
+    for (let i = this.disasterStrikes.length - 1; i >= 0; i--) {
+      const st = this.disasterStrikes[i];
+      st.timer -= dt;
+      const progress = clamp(1 - st.timer / (st.maxTimer || 1.1), 0, 1);
+
+      if (g && st.timer > 0) {
+        g.circle(st.x, st.y, st.radius)
+          .fill({ color: st.spec.color, alpha: 0.14 + progress * 0.22 })
+          .stroke({ color: st.spec.color, width: 2.2, alpha: 0.9 });
+        g.circle(st.x, st.y, Math.max(4, st.radius * progress))
+          .stroke({ color: 0xffffff, width: 1.5, alpha: 0.85 });
+
+        if (st.kind === 'meteor_shower' || st.kind === 'volcano' || st.kind === 'hailstorm') {
+          const curX = st.sourceX + (st.x - st.sourceX) * progress;
+          const curY = st.sourceY + (st.y - st.sourceY) * progress - Math.sin(progress * Math.PI) * (st.kind === 'volcano' ? 95 : 0);
+          const tailX = curX - (st.x - st.sourceX) * 0.18;
+          const tailY = curY - (st.y - st.sourceY) * 0.18;
+          g.moveTo(tailX, tailY).lineTo(curX, curY).stroke({ color: st.spec.color, width: st.kind === 'meteor_shower' ? 8 : 5, alpha: 0.75 });
+          g.circle(curX, curY, st.kind === 'meteor_shower' ? 13 : 9)
+            .fill({ color: st.kind === 'hailstorm' ? 0xe0f2fe : 0xfef08a })
+            .stroke({ color: st.spec.color, width: 2.5 });
+        } else if (st.kind === 'earthquake') {
+          g.moveTo(st.x - st.radius, st.y - 12)
+            .lineTo(st.x - 10, st.y + 8)
+            .lineTo(st.x + 14, st.y - 6)
+            .lineTo(st.x + st.radius, st.y + 12)
+            .stroke({ color: 0xfde047, width: 2.5, alpha: 0.85 });
+        }
+      }
+
+      if (st.timer <= 0) {
+        this.sfx.play(st.kind === 'hailstorm' ? 'hit' : 'bomb');
+        this.shake = Math.max(this.shake, st.kind === 'meteor_shower' ? 18 : 12);
+        this.spawnExplosion(st.x, st.y, 0.55, (st.radius / 26), st.spec.color, 0.34);
+        this.spawnShockwave(st.x, st.y, st.spec.color, 0.45, (st.radius / 18), 0.28);
+
+        if (st.kind === 'lightning_storm') {
+          this.lightningArcs.push({
+            points: [
+              { x: st.x + (Math.random() - 0.5) * 24, y: st.y - 260 },
+              { x: st.x + (Math.random() - 0.5) * 18, y: st.y - 130 },
+              { x: st.x, y: st.y },
+            ],
+            color: 0xc084fc,
+            life: 0.28,
+          });
+        } else if (st.kind === 'volcano') {
+          this.groundZones.push({
+            kind: 'fire_pool',
+            x: st.x,
+            y: st.y,
+            radius: 38,
+            dmg: 42,
+            area: 1,
+            life: 3.5,
+            tickCd: 0.2,
+            hurtsPlayer: true,
+            color: 0xff5722,
+          });
+        }
+
+        // 1. Check Player Hit!
+        if (dist2(p.x, p.y, st.x, st.y) <= (st.radius + 10) ** 2) {
+          this.damagePlayerPercent(st.spec.minPct, st.spec.maxPct, st.spec.name.toUpperCase(), {
+            type: st.kind === 'lightning_storm' ? 'ufo' : 'bomber',
+            name: st.spec.name,
+            title: 'NATURAL CATACLYSM DISASTER',
+            color: st.spec.color,
+          });
+          if (st.kind === 'hailstorm') {
+            this.playerFrostSlowTimer = 2.5;
+            this.recomputeStats();
+            this.showFloatText(p.x, p.y - 38, '❄ FROSTBITE SLOW (-35% SPD)!', 0x38bdf8);
+          }
+        }
+
+        // 2. Check Collateral Enemy Damage!
+        const hitR2 = (st.radius + 16) ** 2;
+        const eDmg = st.spec.enemyDmg * (p.dmgMul || 1);
+        for (const e of this.enemies) {
+          if (!e.active || e.isUfo) continue;
+          if (dist2(e.x, e.y, st.x, st.y) <= hitR2) {
+            if (st.kind === 'hailstorm') e.speed *= 0.55;
+            this.damageEnemy(e, eDmg, st.x, st.y, false, true);
+          }
+        }
+
+        this.disasterStrikes.splice(i, 1);
+      }
+    }
   }
 
   updateGroundZonesAndArcs(dt) {
@@ -3796,6 +4017,14 @@ export class Game {
         if (gz.tickCd <= 0) {
           gz.tickCd = 0.28;
           const r2 = gz.radius * gz.radius;
+          if (gz.hurtsPlayer && dist2(p.x, p.y, gz.x, gz.y) <= r2) {
+            this.damagePlayerPercent(0.08, 0.12, 'VOLCANO LAVA BURN', {
+              type: 'bomber',
+              name: 'Volcanic Magma Pool',
+              title: 'NATURAL CATACLYSM DISASTER',
+              color: 0xff5722,
+            });
+          }
           for (const e of this.enemies) {
             if (e.active && !e.isUfo && dist2(e.x, e.y, gz.x, gz.y) <= r2) {
               this.damageEnemy(e, gz.dmg * 0.48, gz.x, gz.y);
