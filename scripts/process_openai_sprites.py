@@ -170,7 +170,79 @@ def process_weapons():
     print(f"Saved 32x32 OpenAI-upgraded UI icons atlas: {icons_path.relative_to(ROOT)} ({new_icons.size})")
 
 
+def process_mounts():
+    src_path = MEDIA_DIR / "openai_mounts.png"
+    if not src_path.exists():
+        return
+    img = Image.open(src_path).convert("RGBA")
+    w, h = img.size
+    hw, hh = w // 2, h // 2
+    quads = {
+        "mount_elephant": (0, 0, hw, hh),
+        "mount_chariot": (hw, 0, w, hh),
+        "mount_wolf": (0, hh, hw, h),
+        "mount_dragon": (hw, hh, w, h),
+    }
+    for name, box in quads.items():
+        q = remove_black_bg(img.crop(box), threshold=20)
+        bbox = q.getbbox()
+        if bbox:
+            q = q.crop(bbox)
+        canvas = Image.new("RGBA", (88, 88), (0, 0, 0, 0))
+        scale = min(82 / max(1, q.width), 82 / max(1, q.height))
+        nw = max(1, int(round(q.width * scale)))
+        nh = max(1, int(round(q.height * scale)))
+        resized = q.resize((nw, nh), Image.Resampling.NEAREST)
+        canvas.paste(resized, ((88 - nw) // 2, (88 - nh) // 2))
+        out_path = OUT_DIR / "effects" / f"{name}.png"
+        canvas.save(out_path, format="PNG", optimize=True)
+        print(f"Saved OpenAI War Beast Mount sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
+
+
+def process_gems_and_forts():
+    src_path = MEDIA_DIR / "openai_gems_forts.png"
+    if not src_path.exists():
+        return
+    img = Image.open(src_path).convert("RGBA")
+    w, h = img.size
+    cw, ch = w // 4, h // 2
+    fort_names = ["fort_gatehouse", "fort_beacon", "fort_depot", "fort_citadel"]
+    for idx, fname in enumerate(fort_names):
+        cell = remove_black_bg(img.crop((idx * cw + 4, 4, (idx + 1) * cw - 4, ch - 4)), threshold=20)
+        bbox = cell.getbbox()
+        if bbox:
+            cell = cell.crop(bbox)
+        canvas = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+        scale = min(90 / max(1, cell.width), 90 / max(1, cell.height))
+        nw = max(1, int(round(cell.width * scale)))
+        nh = max(1, int(round(cell.height * scale)))
+        resized = cell.resize((nw, nh), Image.Resampling.NEAREST)
+        canvas.paste(resized, ((96 - nw) // 2, (96 - nh) // 2))
+        out_path = OUT_DIR / "effects" / f"{fname}.png"
+        canvas.save(out_path, format="PNG", optimize=True)
+        print(f"Saved OpenAI Destructible Fortress sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
+
+    gem_names = ["gem_fire", "gem_ice", "gem_thunder", "formation_bagua"]
+    for idx, gname in enumerate(gem_names):
+        cell = remove_black_bg(img.crop((idx * cw + 4, ch + 4, (idx + 1) * cw - 4, h - 4)), threshold=20)
+        bbox = cell.getbbox()
+        if bbox:
+            cell = cell.crop(bbox)
+        size = 84 if gname == "formation_bagua" else 36
+        canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        scale = min((size - 4) / max(1, cell.width), (size - 4) / max(1, cell.height))
+        nw = max(1, int(round(cell.width * scale)))
+        nh = max(1, int(round(cell.height * scale)))
+        resized = cell.resize((nw, nh), Image.Resampling.NEAREST)
+        canvas.paste(resized, ((size - nw) // 2, (size - nh) // 2))
+        out_path = OUT_DIR / "effects" / f"{gname}.png"
+        canvas.save(out_path, format="PNG", optimize=True)
+        print(f"Saved OpenAI Gem/Formation sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
+
+
 if __name__ == "__main__":
     process_terrains()
     process_meteors()
     process_weapons()
+    process_mounts()
+    process_gems_and_forts()

@@ -17,6 +17,11 @@ const SFX_URLS = {
   hit: new URL('../assets/sfx/hit.wav', import.meta.url).href,
   hurt: new URL('../assets/sfx/hurt.wav', import.meta.url).href,
   bomb: new URL('../assets/sfx/bomb.wav', import.meta.url).href,
+  voice_musou: new URL('../assets/sfx/voice_musou.mp3', import.meta.url).href,
+  voice_partner: new URL('../assets/sfx/voice_partner.mp3', import.meta.url).href,
+  voice_titan: new URL('../assets/sfx/voice_titan.mp3', import.meta.url).href,
+  voice_disaster: new URL('../assets/sfx/voice_disaster.mp3', import.meta.url).href,
+  voice_duel: new URL('../assets/sfx/voice_duel.mp3', import.meta.url).href,
 };
 
 export const BGM_URLS = {
@@ -53,6 +58,11 @@ const CUE_CONFIG = {
   bomb: { vol: 0.78, minIntervalMs: 140, jitter: 0.05 },
   toggleOn: { vol: 0.40, minIntervalMs: 40, jitter: 0.0 },
   toggleOff: { vol: 0.40, minIntervalMs: 40, jitter: 0.0 },
+  voice_musou: { vol: 0.88, minIntervalMs: 1200, jitter: 0.0 },
+  voice_partner: { vol: 0.85, minIntervalMs: 1200, jitter: 0.0 },
+  voice_titan: { vol: 0.90, minIntervalMs: 1500, jitter: 0.0 },
+  voice_disaster: { vol: 0.85, minIntervalMs: 1500, jitter: 0.0 },
+  voice_duel: { vol: 0.88, minIntervalMs: 1500, jitter: 0.0 },
 };
 export const ELEVENLABS_SFX_PROMPTS = {
   slash: { text: 'Sharp metallic guandao heavy blade slash whoosh cutting through air', durationSeconds: 0.7 },

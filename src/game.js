@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -113,6 +113,10 @@ export class Game {
     this.disasterStrikes = [];
     this.activeFireTornado = null;
     this.playerFrostSlowTimer = 0;
+    this.activeFormation = 'eight_gates';
+    this.formationSprite = null;
+    this.socketedGems = new Set(['fire_ruby']);
+    this.warlordDuel = null;
     this.loadShopUpgrades();
     this.loadCampaignProgress();
     this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
@@ -1682,13 +1686,22 @@ export class Game {
     }
     this.activeFireTornado = null;
     this.playerFrostSlowTimer = 0;
+    this.warlordDuel = null;
     this.partnerTimer = 7.5;
     this.mythicFusion = null;
     this.activeWaveEvent = null;
     this.waveEventTimer = 8.5;
     const permLuck = this.shopUpgrades?.luck_perm || 0;
     this.revivesLeft = permLuck >= 1 ? 1 : 0;
-    // player
+    // Feature 1: Setup Eight-Trigram War Formation Compass beneath player
+    if (this.formationSprite) this.formationSprite.destroy();
+    if (this.effectTextures?.formation_bagua) {
+      this.formationSprite = new Sprite(this.effectTextures.formation_bagua);
+      this.formationSprite.anchor.set(0.5);
+      this.formationSprite.scale.set(0.95);
+      this.formationSprite.alpha = 0.52;
+      this.playerLayer.addChild(this.formationSprite);
+    }
     if (this.playerSprite) this.playerSprite.destroy();
     if (this.playerShadow) this.playerShadow.destroy();
     this.playerShadow = new Graphics();
@@ -2009,19 +2022,61 @@ export class Game {
     const tCd = tSpec.cdBonus || 0;
     const tXp = tSpec.xpBonus || 0;
     const frostPenalty = (this.playerFrostSlowTimer || 0) > 0 ? -0.35 : 0;
+    const fSpec = WAR_FORMATIONS[this.activeFormation] || {};
+    const fDmg = fSpec.dmgBonus || 0;
+    const fArmor = fSpec.armorBonus || 0;
+    const fSpd = fSpec.speedBonus || 0;
+    const fArea = fSpec.areaBonus || 0;
+    const fCd = fSpec.cdBonus || 0;
+    const fXp = fSpec.xpBonus || 0;
+    const mSpec = this.mount?.spec || {};
+    const mArmor = mSpec.armorBonus || 0;
+    let gemDmg = 0;
+    if (this.socketedGems) {
+      for (const gid of this.socketedGems) {
+        gemDmg += ELEMENTAL_GEMS[gid]?.dmgBonus || 0;
+      }
+    }
 
     const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp;
     if (nextMaxHp > this.player.maxHp) {
       this.player.hp += (nextMaxHp - this.player.maxHp);
     }
     this.player.maxHp = nextMaxHp;
-    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
-    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.45, 1 - permCd - relicCd - bloodMoonCd - tCd);
-    this.player.areaMul = (1 + relicArea + tArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + permXp + relicXp + tXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
-    this.player.magnetBonus = (su.magnet_perm || 0) * 30;
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + fSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.42, 1 - permCd - relicCd - bloodMoonCd - tCd - fCd);
+    this.player.areaMul = (1 + relicArea + tArea + fArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
+    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.magnetBonus = (su.magnet_perm || 0) * 30 + (fSpec.magnetBonus || 0);
+  }
+
+  setFormation(formationId = 'eight_gates') {
+    if (!WAR_FORMATIONS[formationId]) return null;
+    this.activeFormation = formationId;
+    const fSpec = WAR_FORMATIONS[formationId];
+    if (this.formationSprite) {
+      this.formationSprite.tint = fSpec.color || 0xffffff;
+    }
+    this.recomputeStats();
+    if (this.player) {
+      this.showFloatText(this.player.x, this.player.y - 34, `☯ WAR FORMATION: ${fSpec.name.toUpperCase()} (${fSpec.desc})!`, fSpec.color);
+    }
+    return fSpec;
+  }
+
+  socketElementalGem(gemId = 'fire_ruby') {
+    if (!ELEMENTAL_GEMS[gemId]) return null;
+    this.socketedGems = this.socketedGems || new Set();
+    this.socketedGems.add(gemId);
+    const gSpec = ELEMENTAL_GEMS[gemId];
+    this.recomputeStats();
+    if (this.player) {
+      this.sfx.play('levelup');
+      this.showFloatText(this.player.x, this.player.y - 32, `💎 GEM SOCKETED: ${gSpec.name.toUpperCase()} (${gSpec.desc})!`, gSpec.color);
+    }
+    return gSpec;
   }
 
   getWeaponStats(w) {
@@ -2898,9 +2953,10 @@ export class Game {
       ? (this.effectTextures.golden_egg || this.effectTextures.bomb)
       : (kind === 'saddle'
         ? (this.effectTextures.saddle || this.effectTextures.heart)
-        : (kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart));
-    it.sprite.scale.set(kind === 'golden_egg' ? 1.55 : (kind === 'saddle' ? 1.45 : 1.25));
-    it.sprite.visible = true;
+        : (kind.startsWith('gem_')
+          ? (this.effectTextures[kind] || this.effectTextures.gem_fire || this.effectTextures.gem)
+          : (kind === 'bomb' ? this.effectTextures.bomb : this.effectTextures.heart)));
+    it.sprite.scale.set(kind === 'golden_egg' ? 1.55 : (kind === 'saddle' ? 1.45 : (kind.startsWith('gem_') ? 0.95 : 1.25)));
     it.sprite.x = it.x;
     it.sprite.y = it.y;
     this.items.push(it);
@@ -2924,6 +2980,9 @@ export class Game {
       this.summonUltraman(10.0);
     } else if (it.kind === 'saddle') {
       this.mountSteed(20.0);
+    } else if (it.kind.startsWith('gem_')) {
+      const mapGem = { gem_fire: 'fire_ruby', gem_ice: 'ice_sapphire', gem_thunder: 'thunder_topaz' };
+      this.socketElementalGem(mapGem[it.kind] || 'fire_ruby');
     }
   }
 
@@ -3246,8 +3305,8 @@ export class Game {
     e.ky = 0;
     this.enemies.push(e);
     this.sfx.play('bomb');
+    this.sfx.play('voice_titan');
     this.shake = Math.max(this.shake, 20);
-    this.flashScreen(e.color, 0.28);
     this.spawnShockwave(x, y, e.color, 0.6, 3.2, 0.38);
     this.showFloatText(
       this.player.x,
@@ -3471,7 +3530,7 @@ export class Game {
     const spec = MUSOU_ULTIMATES[heroId] || MUSOU_ULTIMATES.guanyu;
     this.sfx.play('evolve');
     this.sfx.play('bomb');
-    this.shake = 24;
+    this.sfx.play('voice_musou');
     this.flashScreen(spec.color, 0.35);
     this.spawnLevelUpVfx(p.x, p.y);
     this.spawnShockwave(p.x, p.y, spec.color, 0.6, 5.8, 0.42);
@@ -3538,6 +3597,7 @@ export class Game {
       sprite: sp,
     };
     this.sfx.play('slash');
+    this.sfx.play('voice_partner');
     this.spawnShockwave(sp.x, sp.y, bond.color, 0.45, 3.2, 0.3);
     this.showFloatText(p.x, p.y - 34, `🤝 ${bond.title}: ${partnerHero.name.toUpperCase()} ASSIST!`, bond.color);
     return this.partnerEntity;
@@ -3602,26 +3662,83 @@ export class Game {
     }
     return this.activeWaveEvent;
   }
-
-  mountSteed(duration = 20.0) {
+  triggerWarlordDuel(forceWarlord = null) {
     if (!this.player) return null;
     const p = this.player;
+    const warlords = [
+      { name: 'RIVAL LÜ BU', type: 'boss_huaxiong', color: 0xff5f5f },
+      { name: 'RIVAL XIAHOU DUN', type: 'boss_caoren', color: 0x38bdf8 },
+      { name: 'RIVAL GAN NING', type: 'boss_caimao', color: 0xfde047 },
+      { name: 'RIVAL TAISHI CI', type: 'boss_zhangyun', color: 0x4ade80 },
+    ];
+    const wSpec = forceWarlord
+      ? (warlords.find((w) => w.name.includes(forceWarlord.toUpperCase())) || warlords[0])
+      : warlords[Math.floor(Math.random() * warlords.length)];
+    const e = this.spawnEnemy(wSpec.type);
+    if (!e) return null;
+    e.x = p.x + 85;
+    e.y = p.y - 25;
+    e.hp = 240 * (1 + this.currentWave * 0.15);
+    e.maxHp = e.hp;
+    e.baseScale = 1.65;
+    e.sprite.scaleX = 1.65;
+    e.sprite.scaleY = 1.65;
+    e.isBoss = true;
+    e.isDuelRival = true;
+    e.bossName = wSpec.name;
+    e.countsForWave = false;
+    this.warlordDuel = {
+      enemy: e,
+      name: wSpec.name,
+      color: wSpec.color,
+      x: p.x,
+      y: p.y,
+      radius: 170,
+      timer: 15.0,
+    };
+    this.sfx.play('voice_duel');
+    this.spawnShockwave(p.x, p.y, wSpec.color, 0.55, 4.2, 0.35);
+    this.showFloatText(p.x, p.y - 42, `⚔ 1V1 HONOR DUEL: ${wSpec.name}! DEFEAT IN 15S FOR +80G & SOUL GEM!`, wSpec.color);
+    return this.warlordDuel;
+  }
+
+  mountSteed(duration = 20.0, forceMountId = null) {
+    if (!this.player) return null;
+    const p = this.player;
+    const mountKeys = Object.keys(MOUNT_SPECS);
+    const heroMountMap = {
+      menghuo: 'war_elephant',
+      caocao: 'war_chariot',
+      machao: 'frost_wolf',
+      zhugeliang: 'azure_dragon',
+      guanyu: 'redhare',
+      lubu: 'redhare',
+    };
+    const mId = (forceMountId && MOUNT_SPECS[forceMountId])
+      ? forceMountId
+      : (heroMountMap[this.hero?.id] || mountKeys[Math.floor(Math.random() * mountKeys.length)]);
+    const mSpec = MOUNT_SPECS[mId] || MOUNT_SPECS.redhare;
     this.sfx.play('evolve');
     this.spawnLevelUpVfx(p.x, p.y);
-    this.spawnShockwave(p.x, p.y, 0xff6b52, 0.45, 2.5, 0.3);
-    this.showFloatText(p.x, p.y - 36, '🐎 MOUNTED RED HARE STEED (20S)! +55% SPD & TRAMPLE!', 0xffae42);
-    if (this.mount) {
-      this.mount.timer = duration;
-      this.mount.maxTimer = duration;
-      this.recomputeStats();
-      return this.mount;
+    this.spawnShockwave(p.x, p.y, mSpec.color, 0.45, 2.5, 0.3);
+    this.showFloatText(p.x, p.y - 36, `🐎 MOUNTED ${mSpec.name.toUpperCase()} (20S)! ${mSpec.desc.toUpperCase()}!`, mSpec.color);
+    if (this.mount?.sprite) {
+      this.mount.sprite.destroy();
     }
-    const texList = this.petTextures?.redhare || [this.effectTextures.impact];
-    const sprite = new Sprite(texList[0]);
+    const isRedHare = mId === 'redhare';
+    const tex = isRedHare
+      ? (this.petTextures?.redhare?.[0] || this.effectTextures.impact)
+      : (this.effectTextures?.[mSpec.sprite] || this.petTextures?.redhare?.[0] || this.effectTextures.impact);
+    const sprite = new Sprite(tex);
     sprite.anchor.set(0.5, 0.55);
-    sprite.scale.set(1.55);
+    const baseSc = isRedHare ? 1.55 : 0.85;
+    sprite.scale.set(baseSc);
     this.playerLayer.addChildAt(sprite, Math.max(0, this.playerLayer.children.length - 1));
     this.mount = {
+      id: mId,
+      spec: mSpec,
+      baseSc,
+      isRedHare,
       timer: duration,
       maxTimer: duration,
       trampleCd: 0,
@@ -3638,39 +3755,82 @@ export class Game {
       this.shrineBuffTimer -= dt;
       if (this.shrineBuffTimer <= 0) this.recomputeStats();
     }
-    // Update active Mount (Red Hare Steed)
+    // Feature 1: Update Eight-Trigram War Formation Compass & Aura
+    if (this.formationSprite) {
+      this.formationSprite.x = Math.round(p.x);
+      this.formationSprite.y = Math.round(p.y + 8);
+      this.formationSprite.rotation += 0.65 * dt;
+    }
+    const fSpec = WAR_FORMATIONS[this.activeFormation];
+    if (fSpec?.hpRegen && p.hp < p.maxHp) {
+      p.hp = Math.min(p.maxHp, p.hp + fSpec.hpRegen * dt);
+    }
+
+    // Feature 4: Update Rival Warlord 1v1 Honor Duel Arena
+    if (this.warlordDuel) {
+      const wd = this.warlordDuel;
+      wd.timer -= dt;
+      if (this.orbitLayer) {
+        this.orbitLayer.circle(Math.round(wd.x), Math.round(wd.y), wd.radius)
+          .stroke({ color: wd.color, width: 3.0, alpha: 0.82 });
+      }
+      if (!wd.enemy.active || wd.enemy.hp <= 0) {
+        this.gold = (this.gold || 0) + 80;
+        this.totalGold = (this.totalGold || 0) + 80;
+        this.musou = 100;
+        this.spawnChest(wd.x, wd.y);
+        this.spawnItem('gem_thunder', wd.x + 24, wd.y);
+        this.sfx.play('levelup');
+        this.showFloatText(p.x, p.y - 40, `🏆 HONOR DUEL WON VS ${wd.name}! +80G, CHEST & SOUL GEM!`, 0xfde047);
+        this.warlordDuel = null;
+      } else if (wd.timer <= 0) {
+        this.warlordDuel = null;
+      }
+    }
+
+    // Feature 2: Update active Mount (Red Hare / War Elephant / Chariot / Frostwolf / Azure Dragon)
     if (this.mount) {
       this.mount.timer -= dt;
       if (this.mount.timer <= 0) {
         if (this.mount.sprite) this.mount.sprite.destroy();
         this.mount = null;
         this.recomputeStats();
-        this.showFloatText(p.x, p.y - 24, 'STEED DISMOUNTED', 0xcbd5e1);
+        this.showFloatText(p.x, p.y - 24, 'MOUNT DISMOUNTED', 0xcbd5e1);
       } else {
-        const frame = Math.floor(this.animTime * 10) % 4;
-        const texList = this.petTextures?.redhare;
-        if (texList?.[frame]) this.mount.sprite.texture = texList[frame];
+        if (this.mount.isRedHare) {
+          const frame = Math.floor(this.animTime * 10) % 4;
+          const texList = this.petTextures?.redhare;
+          if (texList?.[frame]) this.mount.sprite.texture = texList[frame];
+        }
         this.mount.sprite.x = Math.round(p.x);
         this.mount.sprite.y = Math.round(p.y + 8);
-        const flip = p.direction === 'left' ? 1.55 : -1.55;
-        this.mount.sprite.scale.set(flip, 1.55);
+        const sc = this.mount.baseSc || 1.0;
+        const flip = p.direction === 'left' ? -sc : sc;
+        this.mount.sprite.scale.set(this.mount.isRedHare ? -flip : flip, sc);
         if (this.orbitLayer) {
           const bw = 42, bh = 3.5;
           const bx = Math.round(p.x - bw / 2);
           const by = Math.round(p.y - 36);
           const ratio = clamp(this.mount.timer / (this.mount.maxTimer || 20), 0, 1);
           this.orbitLayer.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x0c0e14);
-          this.orbitLayer.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(0xffae42);
+          this.orbitLayer.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(this.mount.spec?.color || 0xffae42);
         }
         this.mount.trampleCd -= dt;
         if (this.mount.trampleCd <= 0) {
-          this.mount.trampleCd = 0.22;
-          const trampleDmg = 55 * (p.dmgMul || 1);
+          this.mount.trampleCd = 0.24;
+          const mSpec = this.mount.spec || MOUNT_SPECS.redhare;
+          const trampleDmg = (mSpec.trampleDmg || 65) * (p.dmgMul || 1);
+          if (this.mount.id === 'war_elephant') {
+            this.spawnShockwave(p.x, p.y, 0xf59e0b, 0.35, 1.9, 0.22);
+          } else if (this.mount.id === 'azure_dragon') {
+            this.spawnExplosion(p.x + (p.direction === 'left' ? -45 : 45), p.y, 0.4, 1.45, 0x4ade80, 0.24);
+          }
           for (const e of this.enemies) {
             if (!e.active || e.isUfo) continue;
-            if (dist2(e.x, e.y, p.x, p.y) <= (38 + e.size) ** 2) {
+            if (dist2(e.x, e.y, p.x, p.y) <= (52 + e.size) ** 2) {
+              if (mSpec.freeze) e.speed *= 0.6;
               this.damageEnemy(e, trampleDmg, p.x, p.y);
-              this.spawnHitSpark(e.x, e.y, 0xffae42, 0.5, 0.14);
+              this.spawnHitSpark(e.x, e.y, mSpec.color || 0xffae42, 0.5, 0.14);
             }
           }
         }
@@ -3774,6 +3934,7 @@ export class Game {
       : kinds[Math.floor(Math.random() * kinds.length)];
     const spec = DISASTER_SPECS[kind];
     this.sfx.play('bomb');
+    this.sfx.play('voice_disaster');
     this.shake = Math.max(this.shake, 14);
     this.flashScreen(spec.color, 0.22);
     this.showFloatText(
@@ -4176,23 +4337,34 @@ export class Game {
       { kind: 'ballista', x: -195, y: 25 },
       { kind: 'shrine', x: 0, y: -195 },
       { kind: 'naval_river', x: 130, y: -18 },
+      // Feature 5: 4 OpenAI Destructible Enemy Fortresses!
+      { kind: 'fortress', fortKey: 'fort_gatehouse', name: 'Iron Siege Gatehouse', x: -135, y: -145, hp: 260 },
+      { kind: 'fortress', fortKey: 'fort_beacon', name: 'Watchtower Flame Beacon', x: 145, y: -135, hp: 240 },
+      { kind: 'fortress', fortKey: 'fort_depot', name: 'Imperial Supply Granary', x: -155, y: 120, hp: 250 },
+      { kind: 'fortress', fortKey: 'fort_citadel', name: 'Warlord Command Keep', x: 155, y: 120, hp: 320 },
     ];
     for (const sp of specs) {
       const ring = new Graphics();
       this.propLayer.addChild(ring);
-      const tex = sp.kind === 'oil_barrel'
-        ? (this.effectTextures.barrel || this.effectTextures.bomb)
-        : (sp.kind === 'ballista'
-          ? (this.enemyTextures.catapult?.[0] || this.effectTextures.impact)
-          : (this.effectTextures.heart || this.effectTextures.impact));
+      const tex = sp.kind === 'fortress'
+        ? (this.effectTextures?.[sp.fortKey] || this.effectTextures.chest)
+        : (sp.kind === 'oil_barrel'
+          ? (this.effectTextures.barrel || this.effectTextures.bomb)
+          : (sp.kind === 'ballista'
+            ? (this.enemyTextures.catapult?.[0] || this.effectTextures.impact)
+            : (this.effectTextures.heart || this.effectTextures.impact)));
       const sprite = new Sprite(tex);
       sprite.anchor.set(0.5, 0.6);
-      sprite.scale.set(sp.kind === 'ballista' ? 1.1 : 1.4);
+      sprite.scale.set(sp.kind === 'fortress' ? 0.88 : (sp.kind === 'ballista' ? 1.1 : 1.4));
       sprite.x = sp.x;
       sprite.y = sp.y;
       this.propLayer.addChild(sprite);
       this.hazards.push({
         kind: sp.kind,
+        fortKey: sp.fortKey,
+        name: sp.name,
+        hp: sp.hp || 260,
+        maxHp: sp.hp || 260,
         active: true,
         captured: false,
         captureProgress: 0,
@@ -4319,6 +4491,45 @@ export class Game {
             this.spawnExplosion(e.x, e.y, 0.45, 1.4, 0x38bdf8, 0.25);
             this.showFloatText(e.x, e.y - 18, '🌊 CHIBI RIVER HAZARD KILL!', 0x38bdf8);
             this.damageEnemy(e, e.hp + 999, hz.x, hz.y, false, true);
+          }
+        }
+      } else if (hz.kind === 'fortress') {
+        // Feature 5: Destructible Enemy Fortress with Overhead Siege HP Bar!
+        const bw = 44, bh = 4.5;
+        const bx = Math.round(hz.x - bw / 2);
+        const by = Math.round(hz.y - 46);
+        const ratio = clamp(hz.hp / (hz.maxHp || 260), 0, 1);
+        hz.ring.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x090d14);
+        hz.ring.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(0xef4444);
+
+        // Take damage from player melee attacks or player projectiles!
+        let hitDmg = 0;
+        if (p.attackTimer > 0.16 && d <= 92) {
+          hitDmg += 38 * (p.dmgMul || 1) * dt * 8;
+        }
+        for (const pr of this.projectiles) {
+          if (pr.active && !pr.fromEnemy && dist2(pr.x, pr.y, hz.x, hz.y) <= 36 * 36) {
+            hitDmg += pr.dmg;
+            pr.life = 0;
+            this.spawnHitSpark(hz.x, hz.y, 0xfde047, 0.6, 0.14);
+          }
+        }
+        if (hitDmg > 0) {
+          hz.hp -= hitDmg;
+          if (hz.hp <= 0) {
+            hz.active = false;
+            hz.sprite.visible = false;
+            hz.respawnTimer = 28.0;
+            this.sfx.play('bomb');
+            this.shake = Math.max(this.shake, 18);
+            this.spawnDisasterVfx('volcano', hz.x, hz.y, 2.1, 0.65);
+            this.gold = (this.gold || 0) + 45;
+            this.totalGold = (this.totalGold || 0) + 45;
+            this.spawnChest(hz.x, hz.y);
+            const gemKinds = ['gem_fire', 'gem_ice', 'gem_thunder'];
+            this.spawnItem(gemKinds[Math.floor(Math.random() * gemKinds.length)], hz.x - 24, hz.y + 14);
+            this.spawnItem('saddle', hz.x + 24, hz.y + 14);
+            this.showFloatText(hz.x, hz.y - 32, `🏰 ${hz.name.toUpperCase()} DESTROYED! +45G, CHEST, GEM & SADDLE!`, 0xfde047);
           }
         }
       }

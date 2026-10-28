@@ -230,6 +230,32 @@ export const MYTHIC_FUSIONS = [
     desc: 'Unleashes 10 Cardinal Crimson Volcano Pillars & Homing Dragon Chakrams every 3.5s',
   },
 ];
+export const WAR_FORMATIONS = {
+  eight_gates: { id: 'eight_gates', name: 'Eight-Gates Golden Lock', color: 0xfde047, armorBonus: 2, enemySlowAura: 0.25, desc: '+2 Armor & slows nearby foes -25%' },
+  serpent_coil: { id: 'serpent_coil', name: 'Coiling Serpent Array', color: 0x4ade80, speedBonus: 0.20, cdBonus: 0.08, desc: '+20% Move Speed & -8% Cooldown' },
+  crane_wing: { id: 'crane_wing', name: 'Crane Wing Formation', color: 0x38bdf8, dmgBonus: 0.22, areaBonus: 0.12, desc: '+22% Damage & +12% Attack Area' },
+  tiger_claw: { id: 'tiger_claw', name: 'Fierce Tiger Wedge', color: 0xf97316, dmgBonus: 0.28, desc: '+28% Melee & Impact Damage' },
+  dragon_flight: { id: 'dragon_flight', name: 'Flying Dragon Array', color: 0x00f5d4, cdBonus: 0.14, xpBonus: 0.20, desc: '-14% Cooldown & +20% XP Gain' },
+  earth_wall: { id: 'earth_wall', name: 'Earth-Shield Square', color: 0xf59e0b, armorBonus: 3, hpRegen: 2.0, desc: '+3 Armor & +2 HP/s Regen' },
+  heaven_net: { id: 'heaven_net', name: 'Heaven-Earth Net', color: 0xc084fc, areaBonus: 0.25, magnetBonus: 60, desc: '+25% Attack Area & +60px Magnet' },
+  void_star: { id: 'void_star', name: 'Seven-Star Altar Array', color: 0xf472b6, dmgBonus: 0.18, cdBonus: 0.10, starStrike: true, desc: '+18% DMG, -10% CD & Star-Bolt Strikes' },
+};
+
+export const MOUNT_SPECS = {
+  redhare: { id: 'redhare', name: 'Red Hare Flame Steed', sprite: 'redhare', color: 0xff6b52, speedBonus: 0.55, armorBonus: 1, trampleDmg: 55, desc: '+55% Speed & Flame Hoof Trample' },
+  war_elephant: { id: 'war_elephant', name: 'Nanman War Elephant', sprite: 'mount_elephant', color: 0xf59e0b, speedBonus: 0.38, armorBonus: 3, trampleDmg: 95, desc: '+38% Speed, +3 Armor & Seismic Stomp' },
+  war_chariot: { id: 'war_chariot', name: 'Imperial Scythe Chariot', sprite: 'mount_chariot', color: 0xfde047, speedBonus: 0.62, armorBonus: 2, trampleDmg: 110, desc: '+62% Speed & Dual Wheel-Scythe Cleave' },
+  frost_wolf: { id: 'frost_wolf', name: 'Northern Dire Frostwolf', sprite: 'mount_wolf', color: 0x38bdf8, speedBonus: 0.75, armorBonus: 1, trampleDmg: 75, freeze: true, desc: '+75% Speed & Glacial Frostbite Bite' },
+  azure_dragon: { id: 'azure_dragon', name: 'Celestial Azure Dragon', sprite: 'mount_dragon', color: 0x4ade80, speedBonus: 0.68, armorBonus: 2, trampleDmg: 125, flying: true, desc: '+68% Speed, Flies Over Obstacles & Dragon Breath' },
+};
+
+export const ELEMENTAL_GEMS = {
+  fire_ruby: { id: 'fire_ruby', name: 'Crimson Fire Ruby', sprite: 'gem_fire', color: 0xef4444, dmgBonus: 0.22, desc: '+22% Fire Burn Damage on all weapons' },
+  ice_sapphire: { id: 'ice_sapphire', name: 'Glacial Ice Sapphire', sprite: 'gem_ice', color: 0x38bdf8, dmgBonus: 0.15, slowOnHit: true, desc: '+15% Crit Shatter & chills enemies -35% SPD' },
+  thunder_topaz: { id: 'thunder_topaz', name: 'Heaven Thunder Topaz', sprite: 'gem_thunder', color: 0xc084fc, dmgBonus: 0.18, chainOnHit: true, desc: '+18% DMG & 25% chance to arc Chain Shock' },
+  poison_jade: { id: 'poison_jade', name: 'Venomous Serpent Jade', sprite: 'gem_fire', tint: 0x4ade80, color: 0x4ade80, dmgBonus: 0.20, desc: '+20% Corrosive Venom Damage' },
+  blood_garnet: { id: 'blood_garnet', name: 'Vampiric Bloodstone', sprite: 'gem_fire', tint: 0xf43f5e, color: 0xf43f5e, lifesteal: 3, desc: 'Restores +3 HP every 6 enemy kills' },
+};
 
 export const ENEMY_TYPES = {
   soldier: { name:'Militia Spearman', color:0x7a8a9a, hp:8, speed:60, dmg:6, size:14, xp:1, weight:50 },

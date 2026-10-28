@@ -65,6 +65,18 @@ const EFFECTS = {
   meteor_crater: new URL('../assets/sprites/effects/meteor_crater.png', import.meta.url).href,
   fire_cyclone: new URL('../assets/sprites/effects/fire_cyclone.png', import.meta.url).href,
   wooden_ox_sprite: new URL('../assets/sprites/effects/wooden_ox_sprite.png', import.meta.url).href,
+  mount_elephant: new URL('../assets/sprites/effects/mount_elephant.png', import.meta.url).href,
+  mount_chariot: new URL('../assets/sprites/effects/mount_chariot.png', import.meta.url).href,
+  mount_wolf: new URL('../assets/sprites/effects/mount_wolf.png', import.meta.url).href,
+  mount_dragon: new URL('../assets/sprites/effects/mount_dragon.png', import.meta.url).href,
+  fort_gatehouse: new URL('../assets/sprites/effects/fort_gatehouse.png', import.meta.url).href,
+  fort_beacon: new URL('../assets/sprites/effects/fort_beacon.png', import.meta.url).href,
+  fort_depot: new URL('../assets/sprites/effects/fort_depot.png', import.meta.url).href,
+  fort_citadel: new URL('../assets/sprites/effects/fort_citadel.png', import.meta.url).href,
+  gem_fire: new URL('../assets/sprites/effects/gem_fire.png', import.meta.url).href,
+  gem_ice: new URL('../assets/sprites/effects/gem_ice.png', import.meta.url).href,
+  gem_thunder: new URL('../assets/sprites/effects/gem_thunder.png', import.meta.url).href,
+  formation_bagua: new URL('../assets/sprites/effects/formation_bagua.png', import.meta.url).href,
 };
 const VFX_SHEETS = {
   explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
