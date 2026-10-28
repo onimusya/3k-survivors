@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -95,6 +95,16 @@ export class Game {
     this.shopUpgrades = {};
     this.endlessBestWave = 0;
     this.endlessBestKills = 0;
+    this.heroRosterPage = 1;
+    this.codexTab = 'bestiary';
+    this.bestiaryKills = { soldier: 12, cavalry: 5, catapult: 3, firebird: 4, elite: 2, kaiju: 1, ghidorah: 1, ufo: 1 };
+    this.unlockedRelics = new Set(['jade_seal', 'chibi_tally', 'titan_emblem', 'starfall_compass', 'peach_cup', 'conqueror_crown']);
+    this.selectedPartnerId = null;
+    this.partnerEntity = null;
+    this.partnerTimer = 8.0;
+    this.mythicFusion = null;
+    this.activeWaveEvent = null;
+    this.waveEventTimer = 9.0;
     this.loadShopUpgrades();
     this.loadCampaignProgress();
     this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
@@ -102,7 +112,6 @@ export class Game {
     this.musou = 50;
     this.mount = null;
     this.hazards = [];
-    this.xp = 0;
     this.level = 1;
     this.xpNext = LEVEL_XP(1);
 
@@ -455,9 +464,9 @@ export class Game {
     seasonBtn.addChild(seasonTxt);
     seasonBtn.x = Math.round((W - seasonBtnW) / 2);
     seasonBtn.y = Math.round(bannerH + extraY + (landscape ? 2 : 5) * s);
-    // Feature 1 & 6: Armory Gold Shop Button + Endless Survival Arena Toggle Button on Menu!
+    // Feature 1, 3 & 6: Armory Shop + Codex Bestiary/Relics + Endless Arena Toggle Buttons on Top Bar!
     const armoryBtn = new Container();
-    const armW = Math.round(92 * s), armH = Math.round(20 * s);
+    const armW = Math.round(88 * s), armH = Math.round(20 * s);
     const armBg = new Graphics();
     armBg.roundRect(0, 0, armW, armH, 4)
       .fill({ color: 0x2b1d0e, alpha: 0.96 })
@@ -465,7 +474,7 @@ export class Game {
     armoryBtn.addChild(armBg);
     const armTxt = new Text({
       text: `ARMORY (${this.totalGold}G)`,
-      style: new TextStyle({ fill: 0xfde047, fontSize: Math.round(7.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+      style: new TextStyle({ fill: 0xfde047, fontSize: Math.round(7.2 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     armTxt.anchor.set(0.5);
     armTxt.x = Math.round(armW / 2);
@@ -473,13 +482,36 @@ export class Game {
     armoryBtn.addChild(armTxt);
     armoryBtn.x = gridX;
     armoryBtn.y = Math.max(4, Math.round(topSafe - armH * 0.55));
+    armoryBtn.eventMode = 'static';
     armoryBtn.cursor = 'pointer';
     armoryBtn.on('pointertap', () => this.showArmoryModal());
     this.menuContainer.addChild(armoryBtn);
 
+    const codexBtn = new Container();
+    const codexW = Math.round(76 * s), codexH = Math.round(20 * s);
+    const codexBg = new Graphics();
+    codexBg.roundRect(0, 0, codexW, codexH, 4)
+      .fill({ color: 0x1e1633, alpha: 0.96 })
+      .stroke({ color: 0xc084fc, width: 1.3 });
+    codexBtn.addChild(codexBg);
+    const codexTxt = new Text({
+      text: `CODEX (${this.unlockedRelics.size}/6)`,
+      style: new TextStyle({ fill: 0xe9d5ff, fontSize: Math.round(7.2 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    codexTxt.anchor.set(0.5);
+    codexTxt.x = Math.round(codexW / 2);
+    codexTxt.y = Math.round(codexH / 2);
+    codexBtn.addChild(codexTxt);
+    codexBtn.x = Math.round(gridX + armW + 6 * s);
+    codexBtn.y = Math.max(4, Math.round(topSafe - codexH * 0.55));
+    codexBtn.eventMode = 'static';
+    codexBtn.cursor = 'pointer';
+    codexBtn.on('pointertap', () => this.showCodexModal());
+    this.menuContainer.addChild(codexBtn);
+
     const isEndless = this.gameMode === 'endless';
     const modeBtn = new Container();
-    const modeW = Math.round(138 * s), modeH = Math.round(20 * s);
+    const modeW = Math.round(126 * s), modeH = Math.round(20 * s);
     const modeBg = new Graphics();
     modeBg.roundRect(0, 0, modeW, modeH, 4)
       .fill({ color: isEndless ? 0x3b1219 : 0x16202b, alpha: 0.96 })
@@ -489,7 +521,7 @@ export class Game {
       text: isEndless
         ? `ENDLESS (BEST W${this.endlessBestWave || 1})`
         : 'MODE: CAMPAIGN',
-      style: new TextStyle({ fill: isEndless ? 0xff9e80 : 0x6bffb0, fontSize: Math.round(7.5 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+      style: new TextStyle({ fill: isEndless ? 0xff9e80 : 0x6bffb0, fontSize: Math.round(7.2 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     modeTxt.anchor.set(0.5);
     modeTxt.x = Math.round(modeW / 2);
@@ -497,6 +529,7 @@ export class Game {
     modeBtn.addChild(modeTxt);
     modeBtn.x = gridX + totalGridW - modeW;
     modeBtn.y = Math.max(4, Math.round(topSafe - modeH * 0.55));
+    modeBtn.eventMode = 'static';
     modeBtn.cursor = 'pointer';
     modeBtn.on('pointertap', () => {
       this.sfx.unlock();
@@ -516,19 +549,53 @@ export class Game {
     });
     this.menuContainer.addChild(seasonBtn);
 
+    const curPage = this.heroRosterPage || 1;
     const section = new Text({
-      text:'1. CHOOSE YOUR WARRIOR',
-      style: new TextStyle({ fill:0xe7e2d2, fontSize:Math.round((landscape ? 10 : 11) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:1.1 }),
+      text: `1. WARRIOR ROSTER (${curPage}/2)`,
+      style: new TextStyle({ fill:0xe7e2d2, fontSize:Math.round((landscape ? 9.5 : 10.5) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.8 }),
     });
-    section.anchor.set(0.5);
-    section.x = Math.round(W / 2);
+    section.anchor.set(0, 0.5);
+    section.x = gridX;
     section.y = Math.round(bannerH + extraY + (landscape ? 12 : 34) * s);
     this.menuContainer.addChild(section);
 
+    // Roster Page Switcher Button (Page 1: Shu/Han <-> Page 2: Wei/Wu/Legends)
+    const rosterBtn = new Container();
+    const rBtnW = Math.round(138 * s), rBtnH = Math.round(17 * s);
+    const rBtnBg = new Graphics();
+    rBtnBg.roundRect(0, 0, rBtnW, rBtnH, 4)
+      .fill({ color: curPage === 2 ? 0x2e1065 : 0x172554, alpha: 0.95 })
+      .stroke({ color: curPage === 2 ? 0xf472b6 : 0x38bdf8, width: 1.2 });
+    rosterBtn.addChild(rBtnBg);
+    const rBtnTxt = new Text({
+      text: curPage === 1 ? 'ROSTER 2: WEI/WU/LEGENDS ▸' : '◂ ROSTER 1: SHU/HAN HEROES',
+      style: new TextStyle({ fill: curPage === 2 ? 0xfbcfe8 : 0xbae6fd, fontSize: Math.round(7.0 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    rBtnTxt.anchor.set(0.5);
+    rBtnTxt.x = Math.round(rBtnW / 2);
+    rBtnTxt.y = Math.round(rBtnH / 2);
+    rosterBtn.addChild(rBtnTxt);
+    rosterBtn.x = gridX + totalGridW - rBtnW;
+    rosterBtn.y = Math.round(section.y - rBtnH / 2);
+    rosterBtn.eventMode = 'static';
+    rosterBtn.cursor = 'pointer';
+    rosterBtn.on('pointertap', () => {
+      this.sfx.unlock();
+      this.sfx.play('select');
+      this.heroRosterPage = curPage === 1 ? 2 : 1;
+      const pageList = HEROES.filter((h) => (h.roster || 1) === this.heroRosterPage);
+      if (pageList.length && !pageList.some((h) => h.id === this.selectedHero.id)) {
+        this.selectedHero = pageList[0];
+      }
+      this.buildMenu();
+    });
+    this.menuContainer.addChild(rosterBtn);
+
     const portraitW = Math.round(46 * s);
     const thumbScale = s >= 1.2 ? 0.96 : 0.82;
+    const visibleHeroes = HEROES.filter((h) => (h.roster || 1) === curPage);
 
-    HEROES.forEach((h, i) => {
+    visibleHeroes.forEach((h, i) => {
       const bx = gridX + (i % cols) * (cardW + gap);
       const by = gridY + Math.floor(i / cols) * (cardH + gap);
       const selected = h.id === this.selectedHero.id;
@@ -705,14 +772,17 @@ export class Game {
     deployText.anchor.set(0.5);
     deployText.x = Math.round(deployW / 2); deployText.y = Math.round(deployH * 0.36);
     deploy.addChild(deployText);
+    const bondSpec = SWORN_BONDS[this.selectedHero.id] || { partner: 'zhaoyun', title: 'SWORN OATH' };
+    const partnerHero = HEROES.find((h) => h.id === (this.selectedPartnerId || bondSpec.partner)) || HEROES[1];
     const deploySub = new Text({
-      text:`PERK: ${this.selectedPerk.name.toUpperCase()}`,
-      style:new TextStyle({ fill:0x33260e, fontSize:Math.round(9 * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.3 }),
+      text:`${this.selectedPerk.short} • SWORN PARTNER: ${partnerHero.name.toUpperCase()}`,
+      style:new TextStyle({ fill:0x33260e, fontSize:Math.round(8.2 * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.2 }),
     });
     deploySub.anchor.set(0.5);
     deploySub.x = Math.round(deployW / 2); deploySub.y = Math.round(deployH * 0.72);
     deploy.addChild(deploySub);
-    deploy.x = Math.round((W - deployW) / 2); deploy.y = deployY;
+    deploy.x = Math.round((W - deployW) / 2);
+    deploy.y = deployY;
     deploy.eventMode = 'static';
     deploy.cursor = 'pointer';
     deploy.on('pointertap', () => this.startRun(this.selectedHero, this.selectedPerk));
@@ -1170,6 +1240,180 @@ export class Game {
     this.armoryContainer.addChild(closeBtn);
   }
 
+  showCodexModal(tab = this.codexTab || 'bestiary') {
+    this.sfx.unlock();
+    this.sfx.play('select');
+    this.codexTab = tab;
+    if (this.codexContainer) this.codexContainer.destroy({ children: true });
+    this.codexContainer = new Container();
+    this.uiLayer.addChild(this.codexContainer);
+
+    const W = this.W, H = this.H;
+    const panelW = Math.min(354, W - 18);
+    const panelH = Math.min(436, H - 28);
+    const panelX = Math.round((W - panelW) / 2);
+    const panelY = Math.round((H - panelH) / 2);
+
+    const bg = new Graphics();
+    bg.rect(0, 0, W, H).fill({ color: 0x05080d, alpha: 0.84 });
+    bg.eventMode = 'static';
+    this.codexContainer.addChild(bg);
+
+    const panel = new Graphics();
+    panel.roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x101824, alpha: 0.98 })
+      .stroke({ color: 0xc084fc, width: 2.2 });
+    this.codexContainer.addChild(panel);
+
+    const title = new Text({
+      text: 'IMPERIAL CODEX & RELIC HALL',
+      style: new TextStyle({ fill: 0xe9d5ff, fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.6 }),
+    });
+    title.anchor.set(0.5);
+    title.x = Math.round(W / 2);
+    title.y = panelY + 18;
+    this.codexContainer.addChild(title);
+
+    // 2 Tab Buttons: BESTIARY vs IMPERIAL SEALS (RELICS)
+    ['bestiary', 'relics'].forEach((tKey, idx) => {
+      const isSel = this.codexTab === tKey;
+      const tw = Math.floor((panelW - 34) / 2);
+      const tx = panelX + 14 + idx * (tw + 6);
+      const ty = panelY + 34;
+      const tBtn = new Container();
+      const tBg = new Graphics();
+      tBg.roundRect(0, 0, tw, 22, 4)
+        .fill({ color: isSel ? 0x3b1d5e : 0x182230 })
+        .stroke({ color: isSel ? 0xe9d5ff : 0x475569, width: 1.4 });
+      tBtn.addChild(tBg);
+      const tTxt = new Text({
+        text: tKey === 'bestiary' ? 'BESTIARY (FOES & TITANS)' : `IMPERIAL SEALS (${this.unlockedRelics.size}/6)`,
+        style: new TextStyle({ fill: isSel ? 0xfef08a : 0xcbd5e1, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+      });
+      tTxt.anchor.set(0.5);
+      tTxt.x = Math.round(tw / 2);
+      tTxt.y = 11;
+      tBtn.addChild(tTxt);
+      tBtn.x = tx;
+      tBtn.y = ty;
+      tBtn.eventMode = 'static';
+      tBtn.cursor = 'pointer';
+      tBtn.on('pointertap', () => this.showCodexModal(tKey));
+      this.codexContainer.addChild(tBtn);
+    });
+
+    if (this.codexTab === 'bestiary') {
+      const entries = [
+        { key: 'soldier', title: 'Militia Spearman', role: 'Infantry Swarm' },
+        { key: 'cavalry', title: 'Steppe Raider', role: 'Fast Charger' },
+        { key: 'catapult', title: 'Siege Catapult', role: 'Explosive Artillery' },
+        { key: 'firebird', title: 'Feather-Storm Hawk', role: '5-Way Aerial Volley' },
+        { key: 'elite', title: 'Warlord Zhang Jiao', role: 'Campaign Boss' },
+        { key: 'kaiju', title: 'Kaiju Godzilla', role: 'Bomb-Immune Titan' },
+        { key: 'ghidorah', title: 'King Ghidorah', role: '3-Headed Dragon' },
+        { key: 'ufo', title: 'Cosmic UFO Saucer', role: '80% HP Lightning' },
+      ];
+      const cw = Math.floor((panelW - 34) / 2);
+      const ch = 74;
+      entries.forEach((en, i) => {
+        const cx = panelX + 14 + (i % 2) * (cw + 6);
+        const cy = panelY + 64 + Math.floor(i / 2) * (ch + 6);
+        const d = ENEMY_TYPES[en.key] || ENEMY_TYPES.soldier;
+        const card = new Graphics();
+        card.roundRect(cx, cy, cw, ch, 5)
+          .fill({ color: 0x16202e })
+          .stroke({ color: d.color || 0x64748b, width: 1.4 });
+        this.codexContainer.addChild(card);
+
+        const tex = this.enemyTextures?.[en.key]?.[0] || this.enemyTextures?.soldier?.[0];
+        if (tex) {
+          const sp = new Sprite(tex);
+          sp.anchor.set(0.5);
+          sp.scale.set(en.key === 'kaiju' || en.key === 'ghidorah' ? 0.72 : 0.68);
+          sp.x = cx + 24;
+          sp.y = cy + 37;
+          this.codexContainer.addChild(sp);
+        }
+        const nm = new Text({
+          text: en.title,
+          style: new TextStyle({ fill: 0xf8fafc, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        nm.x = cx + 48;
+        nm.y = cy + 8;
+        this.codexContainer.addChild(nm);
+
+        const rl = new Text({
+          text: en.role,
+          style: new TextStyle({ fill: 0xfde047, fontSize: 7.2, fontFamily: 'monospace' }),
+        });
+        rl.x = cx + 48;
+        rl.y = cy + 23;
+        this.codexContainer.addChild(rl);
+
+        const st = new Text({
+          text: `HP:${d.hp} SPD:${d.speed}\nSLAIN: ${this.bestiaryKills?.[en.key] || 0}`,
+          style: new TextStyle({ fill: 0x94a3b8, fontSize: 7.2, fontFamily: 'monospace', lineHeight: 11 }),
+        });
+        st.x = cx + 48;
+        st.y = cy + 38;
+        this.codexContainer.addChild(st);
+      });
+    } else {
+      CODEX_RELICS.forEach((rel, idx) => {
+        const ry = panelY + 64 + idx * 52;
+        const active = this.unlockedRelics.has(rel.id);
+        const row = new Graphics();
+        row.roundRect(panelX + 14, ry, panelW - 28, 46, 5)
+          .fill({ color: active ? 0x1c2838 : 0x111722 })
+          .stroke({ color: active ? rel.color : 0x475569, width: 1.5 });
+        this.codexContainer.addChild(row);
+
+        const rName = new Text({
+          text: `★ ${rel.name} (${active ? 'ACTIVE SEAL' : 'LOCKED'})`,
+          style: new TextStyle({ fill: active ? rel.color : 0x94a3b8, fontSize: 9.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+        });
+        rName.x = panelX + 24;
+        rName.y = ry + 8;
+        this.codexContainer.addChild(rName);
+
+        const rDesc = new Text({
+          text: rel.desc,
+          style: new TextStyle({ fill: 0xe2e8f0, fontSize: 8.0, fontFamily: 'monospace' }),
+        });
+        rDesc.x = panelX + 24;
+        rDesc.y = ry + 25;
+        this.codexContainer.addChild(rDesc);
+      });
+    }
+
+    const closeBtn = new Container();
+    const closeBg = new Graphics();
+    closeBg.roundRect(0, 0, panelW - 28, 32, 5)
+      .fill({ color: 0x6d28d9 })
+      .stroke({ color: 0xe9d5ff, width: 1.5 });
+    closeBtn.addChild(closeBg);
+    const closeTxt = new Text({
+      text: 'CLOSE IMPERIAL CODEX',
+      style: new TextStyle({ fill: 0xffffff, fontSize: 10, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    closeTxt.anchor.set(0.5);
+    closeTxt.x = Math.round((panelW - 28) / 2);
+    closeTxt.y = 16;
+    closeBtn.addChild(closeTxt);
+    closeBtn.x = panelX + 14;
+    closeBtn.y = panelY + panelH - 42;
+    closeBtn.eventMode = 'static';
+    closeBtn.cursor = 'pointer';
+    closeBtn.on('pointertap', () => {
+      this.sfx.play('select');
+      if (this.codexContainer) {
+        this.codexContainer.destroy({ children: true });
+        this.codexContainer = null;
+      }
+    });
+    this.codexContainer.addChild(closeBtn);
+  }
+
   selectHero(hero) {
     this.sfx.unlock();
     if (this.selectedHero.id === hero.id) return;
@@ -1390,9 +1634,16 @@ export class Game {
       if (hz.ring) hz.ring.destroy();
     }
     this.hazards = [];
+    if (this.partnerEntity) {
+      if (this.partnerEntity.sprite) this.partnerEntity.sprite.destroy();
+      this.partnerEntity = null;
+    }
+    this.partnerTimer = 7.5;
+    this.mythicFusion = null;
+    this.activeWaveEvent = null;
+    this.waveEventTimer = 8.5;
     const permLuck = this.shopUpgrades?.luck_perm || 0;
     this.revivesLeft = permLuck >= 1 ? 1 : 0;
-
     // player
     if (this.playerSprite) this.playerSprite.destroy();
     if (this.playerShadow) this.playerShadow.destroy();
@@ -1424,13 +1675,18 @@ export class Game {
     const heroPetMap = {
       guanyu: 'redhare',
       lubu: 'redhare',
-      zhangfei: 'white_tiger',
-      sunshangxiang: 'white_tiger',
+      machao: 'redhare',
+      caocao: 'vermilion',
+      zhouyu: 'vermilion',
       zhaoyun: 'vermilion',
+      zhangfei: 'white_tiger',
+      menghuo: 'white_tiger',
+      sunshangxiang: 'white_tiger',
+      diaochan: 'qilin',
+      simayi: 'qilin',
       zhugeliang: 'qilin',
     };
     this.summonPet(heroPetMap[this.hero.id] || 'redhare');
-    this.spawnItem('heart', -110, -75);
     this.spawnItem('bomb', 120, -65);
     this.setupHazards();
     this.spawnItem('saddle', 95, 75);
@@ -1692,18 +1948,27 @@ export class Game {
     const heroDmgBonus = this.hero?.dmgBonus ?? 0.3;
     const mountSpdBonus = this.mount && this.mount.timer > 0 ? 0.55 : 0;
     const shrineBonus = (this.shrineBuffTimer || 0) > 0 ? 0.25 : 0;
+    const relicDmg = this.unlockedRelics?.has('jade_seal') ? 0.10 : 0;
+    const relicArea = this.unlockedRelics?.has('chibi_tally') ? 0.12 : 0;
+    const relicHp = this.unlockedRelics?.has('titan_emblem') ? 25 : 0;
+    const relicArmor = this.unlockedRelics?.has('titan_emblem') ? 1 : 0;
+    const relicCd = this.unlockedRelics?.has('starfall_compass') ? 0.08 : 0;
+    const relicXp = this.unlockedRelics?.has('conqueror_crown') ? 0.20 : 0;
+    const fusionBonus = this.mythicFusion ? 0.65 : 0;
+    const duelBonus = this.activeWaveEvent?.kind === 'duel_ring' ? 0.40 : 0;
+    const bloodMoonCd = this.activeWaveEvent?.kind === 'blood_moon' ? 0.20 : 0;
 
-    const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp;
+    const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp;
     if (nextMaxHp > this.player.maxHp) {
       this.player.hp += (nextMaxHp - this.player.maxHp);
     }
     this.player.maxHp = nextMaxHp;
-    this.player.dmgMul = (1 + heroDmgBonus + permMight + shrineBonus + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + permArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + relicArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
     this.player.speedMul = (1 + permSpd + mountSpdBonus + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.65, 1 - permCd);
-    this.player.areaMul = (1 + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + permXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.5, 1 - permCd - relicCd - bloodMoonCd);
+    this.player.areaMul = (1 + relicArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
+    this.player.xpMul = (1 + permXp + relicXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
     this.player.magnetBonus = (su.magnet_perm || 0) * 30;
   }
 
@@ -3009,21 +3274,31 @@ export class Game {
     return e;
   }
 
-  summonUltraman(duration = 10.0) {
+  summonUltraman(duration = 10.0, forceGuardian = null) {
     if (!this.player) return null;
     const p = this.player;
+    const guardians = [
+      { id: 'ultraman', name: 'ULTRAMAN', ray: 'SPECIUM RAY', color: 0x38bdf8, tint: 0xffffff },
+      { id: 'mecha', name: 'COLOSSAL MECHA-GENERAL', ray: 'HEAVEN HALBERD BEAM', color: 0xfde047, tint: 0xffe066 },
+      { id: 'dragon', name: 'CELESTIAL GOLDEN DRAGON', ray: 'IMPERIAL DRAGON BREATH', color: 0x4ade80, tint: 0x86efac },
+    ];
+    const gSpec = forceGuardian
+      ? (guardians.find((g) => g.id === forceGuardian) || guardians[0])
+      : guardians[Math.floor(Math.random() * guardians.length)];
     this.sfx.play('evolve');
     this.sfx.play('bomb');
     this.shake = Math.max(this.shake, 18);
-    this.flashScreen(0x38bdf8, 0.28);
+    this.flashScreen(gSpec.color, 0.28);
     this.spawnLevelUpVfx(p.x, p.y);
-    this.spawnExplosion(p.x, p.y, 0.75, 2.8, 0x38bdf8, 0.38);
+    this.spawnExplosion(p.x, p.y, 0.75, 2.8, gSpec.color, 0.38);
     this.spawnShockwave(p.x, p.y, 0xfde047, 0.5, 3.2, 0.34);
-    this.showFloatText(p.x, p.y - 40, '★ ULTRAMAN SUMMONED (10S)! SPECIUM RAY!', 0x38bdf8);
+    this.showFloatText(p.x, p.y - 40, `★ ${gSpec.name} SUMMONED (10S)! ${gSpec.ray}!`, gSpec.color);
 
     if (this.ultraman) {
       this.ultraman.timer = duration;
       this.ultraman.maxTimer = duration;
+      this.ultraman.guardian = gSpec;
+      this.ultraman.sprite.tint = gSpec.tint;
       return this.ultraman;
     }
     const shadow = new Graphics();
@@ -3032,6 +3307,7 @@ export class Game {
     const sprite = new Sprite(this.effectTextures.ultraman || this.effectTextures.impact);
     sprite.anchor.set(0.5, 0.62);
     sprite.scale.set(2.85);
+    sprite.tint = gSpec.tint;
     this.petLayer.addChild(sprite);
     this.ultraman = {
       x: p.x + 65,
@@ -3039,6 +3315,7 @@ export class Game {
       timer: duration,
       maxTimer: duration,
       cdTimer: 0.15,
+      guardian: gSpec,
       sprite,
       shadow,
     };
@@ -3164,7 +3441,108 @@ export class Game {
         this.damageEnemy(e, ultDmg, p.x, p.y, heroId === 'zhaoyun', false);
       }
     }
+    // Also trigger Sworn Partner General Combo Strike alongside Musou Ultimate!
+    this.triggerPartnerAssist();
     return true;
+  }
+
+  triggerPartnerAssist() {
+    if (!this.player) return null;
+    const p = this.player;
+    const bond = SWORN_BONDS[this.hero?.id] || { partner: 'zhaoyun', title: 'SWORN BROTHERHOOD', color: 0x4ade80 };
+    const partnerId = this.selectedPartnerId || bond.partner;
+    const partnerHero = HEROES.find((h) => h.id === partnerId) || HEROES[1];
+    const frames = this.heroAttackFrames?.[partnerHero.id]?.[0] || this.heroFrames?.[partnerHero.id]?.[0];
+    if (!frames) return null;
+
+    if (this.partnerEntity?.sprite) {
+      this.partnerEntity.sprite.destroy();
+    }
+    const sp = new AnimatedSprite({
+      textures: frames,
+      animationSpeed: 0.2,
+      autoPlay: true,
+    });
+    sp.anchor.set(0.5, 0.62);
+    sp.scale.set(1.25);
+    sp.x = Math.round(p.x - 42);
+    sp.y = Math.round(p.y - 12);
+    this.playerLayer.addChild(sp);
+    this.partnerEntity = {
+      id: partnerHero.id,
+      name: partnerHero.name,
+      title: bond.title,
+      color: bond.color || partnerHero.color,
+      timer: 4.0,
+      strikeCd: 0.1,
+      x: sp.x,
+      y: sp.y,
+      sprite: sp,
+    };
+    this.sfx.play('slash');
+    this.spawnShockwave(sp.x, sp.y, bond.color, 0.45, 3.2, 0.3);
+    this.showFloatText(p.x, p.y - 34, `🤝 ${bond.title}: ${partnerHero.name.toUpperCase()} ASSIST!`, bond.color);
+    return this.partnerEntity;
+  }
+
+  awakenMythicFusion(fusionId = null) {
+    const fSpec = (fusionId && MYTHIC_FUSIONS.find((f) => f.id === fusionId)) || MYTHIC_FUSIONS[0];
+    this.mythicFusion = {
+      ...fSpec,
+      cdTimer: 0.25,
+    };
+    this.recomputeStats();
+    if (this.player) {
+      this.sfx.play('evolve');
+      this.sfx.play('bomb');
+      this.shake = Math.max(this.shake, 20);
+      this.flashScreen(fSpec.color, 0.32);
+      this.spawnLevelUpVfx(this.player.x, this.player.y);
+      this.spawnShockwave(this.player.x, this.player.y, fSpec.color, 0.65, 5.2, 0.4);
+      this.showFloatText(this.player.x, this.player.y - 40, `★ MYTHIC FUSION: ${fSpec.name.toUpperCase()}! ★`, fSpec.color);
+    }
+    return this.mythicFusion;
+  }
+
+  triggerWaveEvent(forceKind = null) {
+    if (!this.player) return null;
+    const p = this.player;
+    const kinds = ['caravan', 'blood_moon', 'duel_ring'];
+    const kind = forceKind || kinds[Math.floor(Math.random() * kinds.length)];
+    this.activeWaveEvent = {
+      kind,
+      timer: kind === 'blood_moon' ? 16.0 : 14.0,
+      x: p.x,
+      y: p.y,
+    };
+    this.recomputeStats();
+    this.sfx.play('select');
+    if (kind === 'caravan') {
+      for (let i = 0; i < 2; i++) {
+        const e = this.spawnEnemy('caravan');
+        if (e) {
+          e.x = p.x + (i === 0 ? -150 : 150);
+          e.y = p.y - 60 + i * 90;
+          e.hp = 160;
+          e.maxHp = 160;
+          e.baseTint = 0xfde047;
+          e.sprite.tint = 0xfde047;
+          e.baseScale = 1.35;
+          e.sprite.scaleX = 1.35;
+          e.sprite.scaleY = 1.35;
+          e.isCaravan = true;
+          e.countsForWave = false;
+        }
+      }
+      this.showFloatText(p.x, p.y - 38, '💰 EVENT: GOLDEN SUPPLY CARAVAN SPOTTED! DESTROY FOR +35G & CHEST!', 0xfde047);
+    } else if (kind === 'blood_moon') {
+      this.flashScreen(0xef4444, 0.25);
+      this.showFloatText(p.x, p.y - 38, '🌑 EVENT: BLOOD MOON ECLIPSE! 2X GOLD/XP & +20% ATK SPD!', 0xff6b6b);
+    } else if (kind === 'duel_ring') {
+      this.spawnShockwave(p.x, p.y, 0xfde047, 0.5, 4.0, 0.35);
+      this.showFloatText(p.x, p.y - 38, '🔥 EVENT: WARLORD DUEL RING! +40% DMG INSIDE THE RING!', 0xfde047);
+    }
+    return this.activeWaveEvent;
   }
 
   mountSteed(duration = 20.0) {
@@ -3254,6 +3632,77 @@ export class Game {
       this.musouBtnTxt.text = ready ? '★ MUSOU [R] ★' : `MUSOU ${pct}%`;
       this.musouBtnTxt.style.fill = ready ? 0xfde047 : 0xcbd5e1;
     }
+
+    // Feature 2: Update Sworn Partner General Assist
+    this.partnerTimer = (this.partnerTimer ?? 9.0) - dt;
+    if (this.partnerTimer <= 0 && !this.partnerEntity) {
+      this.partnerTimer = 11.0;
+      this.triggerPartnerAssist();
+    }
+    if (this.partnerEntity) {
+      const pe = this.partnerEntity;
+      pe.timer -= dt;
+      if (pe.timer <= 0) {
+        if (pe.sprite) pe.sprite.destroy();
+        this.partnerEntity = null;
+      } else {
+        pe.x += (p.x - 44 - pe.x) * Math.min(1, dt * 8);
+        pe.y += (p.y - 10 - pe.y) * Math.min(1, dt * 8);
+        pe.sprite.x = Math.round(pe.x);
+        pe.sprite.y = Math.round(pe.y);
+        pe.strikeCd -= dt;
+        if (pe.strikeCd <= 0) {
+          pe.strikeCd = 0.65;
+          const relicMul = this.unlockedRelics?.has('peach_cup') ? 1.25 : 1.0;
+          const assistDmg = 85 * (p.dmgMul || 1) * relicMul;
+          this.spawnSlash(pe.x, pe.y, pe.color, 1.4, this.time * 3);
+          for (const e of this.enemies) {
+            if (!e.active || e.isUfo) continue;
+            if (dist2(e.x, e.y, pe.x, pe.y) <= 165 * 165) {
+              this.damageEnemy(e, assistDmg, pe.x, pe.y);
+            }
+          }
+        }
+      }
+    }
+
+    // Feature 4: Update Mythic Weapon Fusion (Lv 8 + Lv 8 Tier-3 Super Weapon)
+    if (!this.mythicFusion) {
+      const lv8Count = this.weapons.filter((w) => w.level >= 8 || w.evo).length;
+      if (lv8Count >= 2) {
+        this.awakenMythicFusion();
+      }
+    } else {
+      this.mythicFusion.cdTimer -= dt;
+      if (this.mythicFusion.cdTimer <= 0) {
+        this.mythicFusion.cdTimer = 3.2;
+        const mf = this.mythicFusion;
+        this.spawnShockwave(p.x, p.y, mf.color, 0.55, 4.5, 0.35);
+        const fDmg = 155 * (p.dmgMul || 1);
+        for (let i = 0; i < 8; i++) {
+          const a = (i * Math.PI) / 4 + this.time;
+          this.spawnProjectile(p.x, p.y, a, fDmg * 0.7, 1.35, mf.color, null, true, 4, true, true, true);
+        }
+      }
+    }
+
+    // Feature 6: Update Mid-Wave Dynamic Events (Treasure Caravan, Blood Moon, Duel Ring)
+    this.waveEventTimer = (this.waveEventTimer ?? 10.0) - dt;
+    if (this.waveEventTimer <= 0 && !this.activeWaveEvent) {
+      this.waveEventTimer = 18.0;
+      this.triggerWaveEvent();
+    }
+    if (this.activeWaveEvent) {
+      this.activeWaveEvent.timer -= dt;
+      if (this.activeWaveEvent.kind === 'duel_ring' && this.orbitLayer) {
+        this.orbitLayer.circle(Math.round(this.activeWaveEvent.x), Math.round(this.activeWaveEvent.y), 165)
+          .stroke({ color: 0xfde047, alpha: 0.75, width: 3.0 });
+      }
+      if (this.activeWaveEvent.timer <= 0) {
+        this.activeWaveEvent = null;
+        this.recomputeStats();
+      }
+    }
   }
 
   setupHazards() {
@@ -3269,6 +3718,7 @@ export class Game {
       { kind: 'ballista', x: 155, y: 145 },
       { kind: 'ballista', x: -195, y: 25 },
       { kind: 'shrine', x: 0, y: -195 },
+      { kind: 'naval_river', x: 130, y: -18 },
     ];
     for (const sp of specs) {
       const ring = new Graphics();
@@ -3396,6 +3846,23 @@ export class Game {
           this.spawnHealVfx(p.x, p.y);
           this.spawnShockwave(hz.x, hz.y, 0xc084fc, 0.45, 2.6, 0.3);
           this.showFloatText(p.x, p.y - 28, '⛩ WAR SHRINE: +45 HP, +50% MUSOU & +25% DMG!', 0xc084fc);
+        }
+      } else if (hz.kind === 'naval_river') {
+        // Feature 5: Chibi Naval Warship Deck & Blazing Yangtze River Channel Hazard!
+        hz.sprite.visible = false;
+        hz.ring.roundRect(hz.x - 56, hz.y - 22, 112, 44, 8)
+          .fill({ color: 0x0284c7, alpha: 0.55 })
+          .stroke({ color: 0xf97316, width: 2.2, alpha: 0.85 });
+        hz.ring.roundRect(hz.x - 48, hz.y - 14, 96, 28, 5)
+          .fill({ color: 0xea580c, alpha: 0.42 });
+        // Any non-boss enemy pushed/knocked into the Blazing Yangtze River Channel suffers an instant Water/Fire Hazard Kill!
+        for (const e of this.enemies) {
+          if (!e.active || e.isBoss || e.isUfo) continue;
+          if (Math.abs(e.x - hz.x) <= 52 && Math.abs(e.y - hz.y) <= 22) {
+            this.spawnExplosion(e.x, e.y, 0.45, 1.4, 0x38bdf8, 0.25);
+            this.showFloatText(e.x, e.y - 18, '🌊 CHIBI RIVER HAZARD KILL!', 0x38bdf8);
+            this.damageEnemy(e, e.hp + 999, hz.x, hz.y, false, true);
+          }
         }
       }
     }
@@ -4599,10 +5066,21 @@ export class Game {
         this.gems.push(g);
       }
       this.kills++;
-      this.musou = clamp((this.musou || 0) + (e.isBoss ? 25 : 6), 0, 100);
-      if (e.isBoss || Math.random() < 0.25) {
-        this.gold = (this.gold || 0) + (e.isBoss ? 15 : 1);
-        this.totalGold = (this.totalGold || 0) + (e.isBoss ? 15 : 1);
+      if (this.bestiaryKills && e.type) {
+        this.bestiaryKills[e.type] = (this.bestiaryKills[e.type] || 0) + 1;
+      }
+      const duelMul = this.activeWaveEvent?.kind === 'duel_ring' ? 1.5 : 1.0;
+      const bloodMul = this.activeWaveEvent?.kind === 'blood_moon' ? 2.0 : 1.0;
+      this.musou = clamp((this.musou || 0) + Math.round((e.isBoss ? 25 : 6) * duelMul), 0, 100);
+      if (e.isCaravan) {
+        this.gold = (this.gold || 0) + 35;
+        this.totalGold = (this.totalGold || 0) + 35;
+        this.spawnChest(e.x, e.y);
+        this.showFloatText(e.x, e.y - 28, '💰 SUPPLY CART LOOTED! +35G & CHEST!', 0xfde047);
+      } else if (e.isBoss || Math.random() < 0.25 * bloodMul) {
+        const gAmt = Math.round((e.isBoss ? 15 : 1) * bloodMul);
+        this.gold = (this.gold || 0) + gAmt;
+        this.totalGold = (this.totalGold || 0) + gAmt;
       }
       if (!this.stageBoss) {
         this.stageProgress += 0.35;

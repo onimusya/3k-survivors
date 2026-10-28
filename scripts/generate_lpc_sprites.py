@@ -233,6 +233,39 @@ def decorate_three_kingdoms(cell, char_id, g_row, f_idx, is_attack=False):
         d.polygon([(fx, fy + 6), (fx - 6, fy - 4), (fx, fy - 7), (fx + 6, fy - 4)], fill=(245, 248, 255, 255), outline=(148, 172, 215, 255))
         d.line([(fx, fy + 8), (fx, fy + 2)], fill=(168, 118, 62, 255), width=2)
 
+    elif char_id == "caocao":
+        # Imperial Golden Crown of Wei + Heaven Sword of Yitian (Cyan-Gold Imperial Jian)
+        d.rectangle((27, 13 + bob, 37, 16 + bob), fill=(250, 204, 21, 255), outline=(146, 64, 14, 255))
+        d.rectangle((31, 11 + bob, 33, 14 + bob), fill=(56, 189, 248, 255))
+        sx = 45 if g_row != 1 else 18
+        sy = (20 + bob) if not is_attack else (22 + (f_idx % 4) * 5)
+        d.line([(34 if g_row != 1 else 29, 41), (sx, sy)], fill=(56, 189, 248, 255), width=3)
+        d.line([(34 if g_row != 1 else 29, 41), (sx, sy)], fill=(224, 242, 254, 255), width=1)
+    elif char_id == "zhouyu":
+        # Blazing Crimson Fire Zither / Phoenix Fan in hand
+        fx = 44 if g_row != 1 else 19
+        fy = 34 + bob - (3 if is_attack else 0)
+        d.rounded_rectangle((fx - 6, fy - 4, fx + 6, fy + 5), radius=2, fill=(220, 38, 38, 255), outline=(250, 204, 21, 255))
+        d.line([(fx - 4, fy), (fx + 4, fy)], fill=(254, 240, 138, 255), width=1)
+    elif char_id == "diaochan":
+        # Flowing Moonlight Silk Ribbons around shoulders
+        d.arc((18, 22 + bob, 46, 44 + bob), start=190, end=350, fill=(244, 114, 182, 235), width=2)
+    elif char_id == "machao":
+        # Xiliang Silver-Cyan Lightning Lance crackling tip
+        lx = 46 if g_row != 1 else 17
+        ly = 16 + bob
+        d.polygon([(lx, ly - 6), (lx - 3, ly + 2), (lx + 3, ly + 2)], fill=(125, 211, 252, 255), outline=(250, 204, 21, 255))
+    elif char_id == "simayi":
+        # Floating Dark-Violet Void Phantasm Grimoire Orb
+        ox = 44 if g_row != 1 else 19
+        oy = 29 + bob
+        d.ellipse((ox - 5, oy - 5, ox + 5, oy + 5), fill=(147, 51, 234, 235), outline=(216, 180, 254, 255))
+    elif char_id == "menghuo":
+        # Nanman Beast King Twin-Bladed Golden War Axe
+        ax = 46 if g_row != 1 else 17
+        ay = (19 + bob) if not is_attack else (21 + (f_idx % 4) * 5)
+        d.line([(34 if g_row != 1 else 29, 43), (ax, ay)], fill=(146, 64, 14, 255), width=2)
+        d.polygon([(ax - 6, ay - 5), (ax + 7, ay - 3), (ax + 6, ay + 6), (ax - 5, ay + 4)], fill=(249, 115, 22, 255), outline=(253, 224, 71, 255))
     elif char_id == "cavalry":
         # Steppe warhorse head, mane, saddle, and hooves so Cavalry is visibly mounted
         step = (-2, 0, 2, 0)[f_idx % 4]
@@ -561,6 +594,133 @@ HERO_RECIPES = {
             ("hair/high_ponytail/adult/fg/{anim}.png", "hair", "black"),
             ("hat/headband/hairtie/adult/{anim}.png", "cloth", "red"),
             ("weapon/sword/dagger/{anim}/dagger.png", "metal", "gold"),
+        ],
+    },
+    "caocao": {
+        "attack_anim": "slash",
+        "walk_frames": [1, 3, 5, 7],
+        "attack_frames": [1, 2, 3, 4],
+        "layers": [
+            ("shadow/adult/{anim}.png", None, None),
+            ("cape/solid/bg/{anim}.png", "cloth", "navy"),
+            ("body/bodies/male/{anim}.png", "body", "light"),
+            ("legs/armour/plate/male/{anim}.png", "metal", "iron"),
+            ("feet/armour/plate/male/{anim}.png", "metal", "gold"),
+            ("torso/armour/plate/male/{anim}.png", "metal", "iron"),
+            ("torso/jacket/tabard/male/{anim}/blue.png", None, None),
+            ("shoulders/legion/male/{anim}.png", "metal", "gold"),
+            ("arms/armour/plate/male/{anim}.png", "metal", "gold"),
+            ("head/heads/human/male/{anim}.png", "body", "light"),
+            ("head/faces/male/anger/{anim}.png", "body", "light"),
+            ("beards/mustache/chevron/{anim}.png", "hair", "black"),
+            ("hat/headband/thick/adult/{anim}.png", "cloth", "yellow"),
+            ("cape/solid/fg/{anim}.png", "cloth", "navy"),
+        ],
+    },
+    "zhouyu": {
+        "attack_anim": "spellcast",
+        "walk_frames": [1, 3, 5, 7],
+        "attack_frames": [1, 3, 4, 5],
+        "layers": [
+            ("shadow/adult/{anim}.png", None, None),
+            ("cape/solid/bg/{anim}.png", "cloth", "red"),
+            ("body/bodies/male/{anim}.png", "body", "light"),
+            ("legs/pants/male/{anim}.png", "cloth", "maroon"),
+            ("feet/boots/basic/male/{anim}.png", "cloth", "black"),
+            ("torso/clothes/longsleeve/longsleeve/male/{anim}.png", "cloth", "white"),
+            ("torso/jacket/frock/male/{anim}/purple.png", "cloth", "red"),
+            ("torso/waist/sash/male/{anim}.png", "cloth", "yellow"),
+            ("shoulders/mantal/male/{anim}.png", "cloth", "red"),
+            ("head/heads/human/male/{anim}.png", "body", "light"),
+            ("head/faces/male/neutral/{anim}.png", "body", "light"),
+            ("hat/cloth/bandana2/adult/{anim}.png", "cloth", "red"),
+            ("cape/solid/fg/{anim}.png", "cloth", "red"),
+            ("weapon/magic/simple/foreground/{anim}/simple.png", None, None),
+        ],
+    },
+    "diaochan": {
+        "attack_anim": "slash",
+        "walk_frames": [1, 3, 5, 7],
+        "attack_frames": [1, 2, 3, 4],
+        "layers": [
+            ("shadow/adult/{anim}.png", None, None),
+            ("hair/high_ponytail/adult/bg/{anim}.png", "hair", "black"),
+            ("body/bodies/female/{anim}.png", "body", "light"),
+            ("legs/leggings/thin/{anim}.png", "cloth", "purple"),
+            ("feet/boots/rimmed/thin/{anim}.png", "cloth", "maroon"),
+            ("torso/armour/leather/female/{anim}.png", "cloth", "lavender"),
+            ("torso/jacket/tabard/female/{anim}/orange.png", "cloth", "purple"),
+            ("shoulders/epaulets/thin/{anim}.png", "cloth", "yellow"),
+            ("arms/bracers/thin/{anim}.png", "metal", "gold"),
+            ("head/heads/human/female/{anim}.png", "body", "light"),
+            ("head/faces/female/neutral/{anim}.png", "body", "light"),
+            ("hair/high_ponytail/adult/fg/{anim}.png", "hair", "black"),
+            ("hat/headband/hairtie/adult/{anim}.png", "cloth", "yellow"),
+            ("weapon/sword/dagger/{anim}/dagger.png", "metal", "silver"),
+        ],
+    },
+    "machao": {
+        "attack_anim": "thrust",
+        "walk_frames": [1, 3, 5, 7],
+        "attack_frames": [2, 3, 4, 5],
+        "layers": [
+            ("shadow/adult/{anim}.png", None, None),
+            ("cape/tattered/bg/{anim}.png", "cloth", "white"),
+            ("body/bodies/male/{anim}.png", "body", "light"),
+            ("legs/armour/plate/male/{anim}.png", "metal", "silver"),
+            ("feet/armour/plate/male/{anim}.png", "metal", "gold"),
+            ("torso/armour/plate/male/{anim}.png", "metal", "silver"),
+            ("torso/jacket/tabard/male/{anim}/maroon.png", "cloth", "teal"),
+            ("shoulders/pauldrons/male/{anim}.png", "cloth", "yellow"),
+            ("arms/armour/plate/male/{anim}.png", "metal", "silver"),
+            ("head/heads/human/male/{anim}.png", "body", "light"),
+            ("head/faces/male/anger/{anim}.png", "body", "light"),
+            ("hair/spiked_porcupine/adult/{anim}.png", "hair", "blonde"),
+            ("hat/headband/thick/adult/{anim}.png", "cloth", "teal"),
+            ("cape/tattered/fg/{anim}.png", "cloth", "white"),
+            ("weapon/polearm/spear/foreground/{anim}/red.png", "metal", "silver"),
+        ],
+    },
+    "simayi": {
+        "attack_anim": "spellcast",
+        "walk_frames": [1, 3, 5, 7],
+        "attack_frames": [1, 3, 4, 5],
+        "layers": [
+            ("shadow/adult/{anim}.png", None, None),
+            ("cape/solid/bg/{anim}.png", "cloth", "charcoal"),
+            ("body/bodies/male/{anim}.png", "body", "light"),
+            ("legs/pants/male/{anim}.png", "cloth", "black"),
+            ("feet/boots/basic/male/{anim}.png", "cloth", "charcoal"),
+            ("torso/clothes/longsleeve/longsleeve/male/{anim}.png", "cloth", "charcoal"),
+            ("torso/jacket/frock/male/{anim}/purple.png", "cloth", "charcoal"),
+            ("torso/waist/sash/male/{anim}.png", "cloth", "purple"),
+            ("shoulders/mantal/male/{anim}.png", "cloth", "charcoal"),
+            ("head/heads/human/male/{anim}.png", "body", "light"),
+            ("head/faces/male/neutral/{anim}.png", "body", "light"),
+            ("beards/mustache/chevron/{anim}.png", "hair", "white"),
+            ("hat/cloth/bandana2/adult/{anim}.png", "cloth", "charcoal"),
+            ("cape/solid/fg/{anim}.png", "cloth", "charcoal"),
+            ("weapon/magic/simple/foreground/{anim}/simple.png", None, None),
+        ],
+    },
+    "menghuo": {
+        "attack_anim": "slash",
+        "walk_frames": [1, 3, 5, 7],
+        "attack_frames": [1, 2, 3, 4],
+        "layers": [
+            ("shadow/adult/{anim}.png", None, None),
+            ("cape/solid/bg/{anim}.png", "cloth", "orange"),
+            ("body/bodies/male/{anim}.png", "body", "bronze"),
+            ("legs/armour/plate/male/{anim}.png", "metal", "gold"),
+            ("feet/armour/plate/male/{anim}.png", "metal", "gold"),
+            ("torso/armour/plate/male/{anim}.png", "metal", "crimson_metal"),
+            ("torso/jacket/tabard/male/{anim}/red.png", "cloth", "orange"),
+            ("shoulders/legion/male/{anim}.png", "metal", "gold"),
+            ("arms/armour/plate/male/{anim}.png", "metal", "gold"),
+            ("head/heads/human/male/{anim}.png", "body", "bronze"),
+            ("head/faces/male/anger/{anim}.png", "body", "bronze"),
+            ("hat/helmet/horned/adult/{anim}.png", "metal", "gold"),
+            ("cape/solid/fg/{anim}.png", "cloth", "orange"),
         ],
     },
 }

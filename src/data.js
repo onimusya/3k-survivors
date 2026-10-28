@@ -1,11 +1,18 @@
 // Three Kingdoms heroes
 export const HEROES = [
-  { id:'guanyu', name:'Guan Yu', color:0x2f8f4e, hp:165, armor:3, dmgBonus:0.32, speed:1.0, weapon:'blade', desc:'Green Dragon Crescent Blade' },
-  { id:'zhangfei', name:'Zhang Fei', color:0x8b2f2f, hp:210, armor:4, dmgBonus:0.35, speed:0.9, weapon:'spear', desc:'Serpent Spear' },
-  { id:'zhaoyun', name:'Zhao Yun', color:0x3a6ea5, hp:145, armor:3, dmgBonus:0.30, speed:1.25, weapon:'bow', desc:'Dragon Bow' },
-  { id:'zhugeliang', name:'Zhuge Liang', color:0x9b6fa5, hp:135, armor:3, dmgBonus:0.32, speed:1.05, weapon:'fan', desc:'Feather Fan' },
-  { id:'lubu', name:'Lu Bu', color:0xb83232, hp:190, armor:3, dmgBonus:0.40, speed:1.1, weapon:'halberd', desc:'Sky Piercer Halberd' },
-  { id:'sunshangxiang', name:'Sun Shangxiang', color:0xd4a017, hp:140, armor:3, dmgBonus:0.32, speed:1.3, weapon:'daggers', desc:'Twin Ring Blades' },
+  { id:'guanyu', name:'Guan Yu', roster:1, color:0x2f8f4e, hp:165, armor:3, dmgBonus:0.32, speed:1.0, weapon:'blade', desc:'Green Dragon Crescent Blade' },
+  { id:'zhangfei', name:'Zhang Fei', roster:1, color:0x8b2f2f, hp:210, armor:4, dmgBonus:0.35, speed:0.9, weapon:'spear', desc:'Serpent Spear' },
+  { id:'zhaoyun', name:'Zhao Yun', roster:1, color:0x3a6ea5, hp:145, armor:3, dmgBonus:0.30, speed:1.25, weapon:'bow', desc:'Dragon Bow' },
+  { id:'zhugeliang', name:'Zhuge Liang', roster:1, color:0x9b6fa5, hp:135, armor:3, dmgBonus:0.32, speed:1.05, weapon:'fan', desc:'Feather Fan' },
+  { id:'lubu', name:'Lu Bu', roster:1, color:0xb83232, hp:190, armor:3, dmgBonus:0.40, speed:1.1, weapon:'halberd', desc:'Sky Piercer Halberd' },
+  { id:'sunshangxiang', name:'Sun Shangxiang', roster:1, color:0xd4a017, hp:140, armor:3, dmgBonus:0.32, speed:1.3, weapon:'daggers', desc:'Twin Ring Blades' },
+  // Roster 2: Wei, Wu & Legends Warlords
+  { id:'caocao', name:'Cao Cao', roster:2, color:0x38bdf8, hp:175, armor:4, dmgBonus:0.36, speed:1.1, weapon:'blade', desc:'Heaven Sword of Yitian' },
+  { id:'zhouyu', name:'Zhou Yu', roster:2, color:0xef4444, hp:150, armor:3, dmgBonus:0.38, speed:1.15, weapon:'fan', desc:'Crimson Fire Zither' },
+  { id:'diaochan', name:'Diaochan', roster:2, color:0xf472b6, hp:140, armor:3, dmgBonus:0.34, speed:1.35, weapon:'daggers', desc:'Moonlight Silk Ribbons' },
+  { id:'machao', name:'Ma Chao', roster:2, color:0x2dd4bf, hp:180, armor:3, dmgBonus:0.37, speed:1.25, weapon:'spear', desc:'Western Lightning Lance' },
+  { id:'simayi', name:'Sima Yi', roster:2, color:0xa855f7, hp:145, armor:3, dmgBonus:0.39, speed:1.08, weapon:'flying_blades', desc:'Void Phantasm Talismans' },
+  { id:'menghuo', name:'Meng Huo', roster:2, color:0xf97316, hp:225, armor:4, dmgBonus:0.42, speed:0.95, weapon:'halberd', desc:'Nanman Beast King Axe' },
 ];
 
 export const STARTING_PERKS = [
@@ -154,7 +161,58 @@ export const MUSOU_ULTIMATES = {
   zhugeliang: { name: 'Eight-Trigram Heaven Fire', color: 0xc084fc, desc: '10 Celestial Fire & Lightning Pillars Across Battlefield' },
   lubu: { name: 'Demon God Sky-Piercer', color: 0xffaa5f, desc: '8 Cardinal Cataclysm Explosions + Dual Giant Whirlwinds' },
   sunshangxiang: { name: 'Crimson Lotus Barrage', color: 0xfde047, desc: '16 Homing Explosive Chakrams + 4 Lotus Fireball Rings' },
+  caocao: { name: 'Mandate of Wei Heaven-Sword', color: 0x38bdf8, desc: '10 Imperial Sword Waves + +40 HP Royal Decree' },
+  zhouyu: { name: 'Red Cliffs Inferno Requiem', color: 0xef4444, desc: '12 Blazing Phoenix Firestorms Across the Fleet' },
+  diaochan: { name: 'Moonlight Blossom Dance', color: 0xf472b6, desc: '16 Homing Moonlight Ribbons + +45 HP Lotus Grace' },
+  machao: { name: 'Xiliang Thunder Stampede', color: 0x2dd4bf, desc: '10 Piercing Lightning Lances + 12s Red Hare Mount' },
+  simayi: { name: 'Dark Starfall Singularity', color: 0xa855f7, desc: '10 Void Gravity Novas + 14 Homing Phantom Blades' },
+  menghuo: { name: 'Nanman Savage Cataclysm', color: 0xf97316, desc: '10 Volcanic Quake Eruptions + Dual Beast Whirlwinds' },
 };
+
+export const SWORN_BONDS = {
+  guanyu: { partner: 'zhangfei', title: 'PEACH GARDEN OATH', color: 0x4ade80 },
+  zhangfei: { partner: 'guanyu', title: 'PEACH GARDEN OATH', color: 0xf87171 },
+  zhaoyun: { partner: 'machao', title: 'TWIN DRAGON LANCERS', color: 0x38bdf8 },
+  zhugeliang: { partner: 'zhouyu', title: 'CHIBI WIND & FIRE', color: 0xc084fc },
+  lubu: { partner: 'diaochan', title: 'CRIMSON MOON ECLIPSE', color: 0xfb923c },
+  sunshangxiang: { partner: 'zhouyu', title: 'SUN-WU BLAZING PACT', color: 0xfacc15 },
+  caocao: { partner: 'simayi', title: 'HEAVEN DECREE OF WEI', color: 0x60a5fa },
+  zhouyu: { partner: 'sunshangxiang', title: 'RED CLIFFS ARMADA', color: 0xf87171 },
+  diaochan: { partner: 'lubu', title: 'LOTUS & SKY-PIERCER', color: 0xf472b6 },
+  machao: { partner: 'zhaoyun', title: 'XILIANG SPEAR STORM', color: 0x2dd4bf },
+  simayi: { partner: 'caocao', title: 'SHADOW PHANTASM PACT', color: 0xc084fc },
+  menghuo: { partner: 'zhangfei', title: 'TITAN WARLORD ROAR', color: 0xfb923c },
+};
+
+export const CODEX_RELICS = [
+  { id: 'jade_seal', name: 'Imperial Jade Seal', color: 0x4ade80, bonus: '+10% All Damage', desc: 'Ancient heirloom of the Han Dynasty (+10% DMG)' },
+  { id: 'chibi_tally', name: 'Red Cliffs Fire Tally', color: 0xf87171, bonus: '+12% Attack Area', desc: 'Bronze naval tally from Chibi (+12% Area)' },
+  { id: 'titan_emblem', name: 'Titan Slayer Crest', color: 0x38bdf8, bonus: '+25 Max HP & +1 Armor', desc: 'Forged from Kaiju & Ghidorah scales (+25 HP, +1 Armor)' },
+  { id: 'starfall_compass', name: 'Eight-Trigram Compass', color: 0xc084fc, bonus: '-8% Weapon Cooldown', desc: 'Zhuge Liang celestial astrolabe (-8% Cooldown)' },
+  { id: 'peach_cup', name: 'Peach Garden Wine Cup', color: 0xfacc15, bonus: '+25% Partner Assist DMG', desc: 'Sworn Brotherhood oath vessel (+25% Partner DMG)' },
+  { id: 'conqueror_crown', name: 'Endless Conqueror Diadem', color: 0xfb923c, bonus: '+20% Gold & XP Gain', desc: 'Crown of the Survival Arena (+20% Gold & XP)' },
+];
+
+export const MYTHIC_FUSIONS = [
+  {
+    id: 'azure_heaven_splitter',
+    name: 'Azure Dragon Heaven-Splitter',
+    color: 0x00f5d4,
+    desc: 'Fuses 2 Lv 8 Weapons into periodic 8-way Azure Dragon Beam Novas (+65% DMG)',
+  },
+  {
+    id: 'cosmos_bagua_array',
+    name: 'Eight-Trigram Cosmos Array',
+    color: 0xfde047,
+    desc: 'Surrounds warrior with an expanding Sacred Golden Bagua Supernova & Meteor Shower',
+  },
+  {
+    id: 'infernal_cataclysm',
+    name: 'Infernal Sky-Piercer Cataclysm',
+    color: 0xff5f5f,
+    desc: 'Unleashes 10 Cardinal Crimson Volcano Pillars & Homing Dragon Chakrams every 3.5s',
+  },
+];
 
 export const ENEMY_TYPES = {
   soldier: { name:'Militia Spearman', color:0x7a8a9a, hp:8, speed:60, dmg:6, size:14, xp:1, weight:50 },
@@ -170,6 +228,7 @@ export const ENEMY_TYPES = {
   kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:12000, speed:42, dmg:32, size:30, xp:250, weight:0, boss:true, isKaiju:true, knockResist:0.99 },
   ufo:        { name:'Cosmic UFO Saucer',   color:0x38bdf8, hp:95,  speed:190, dmg:0, size:20, xp:60,  weight:0, isUfo:true },
   ghidorah:   { name:'King Ghidorah Titan',color:0xfde047, hp:13500, speed:44, dmg:34, size:32, xp:300, weight:0, boss:true, isKaiju:true, isGhidorah:true, knockResist:0.99 },
+  caravan:    { name:'Golden Supply Cart', color:0xfacc15, hp:85, speed:48, dmg:0, size:20, xp:30, weight:0, isCaravan:true, knockResist:0.95 },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },
   elite: { name:'Zhang Jiao', color:0xd4a017, hp:120, speed:75, dmg:9, size:23, xp:30, weight:0, boss:true },

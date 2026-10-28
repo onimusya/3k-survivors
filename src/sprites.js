@@ -7,6 +7,12 @@ const HERO_SHEETS = {
   zhugeliang: new URL('../assets/sprites/heroes/zhugeliang.png', import.meta.url).href,
   lubu: new URL('../assets/sprites/heroes/lubu.png', import.meta.url).href,
   sunshangxiang: new URL('../assets/sprites/heroes/sunshangxiang.png', import.meta.url).href,
+  caocao: new URL('../assets/sprites/heroes/caocao.png', import.meta.url).href,
+  zhouyu: new URL('../assets/sprites/heroes/zhouyu.png', import.meta.url).href,
+  diaochan: new URL('../assets/sprites/heroes/diaochan.png', import.meta.url).href,
+  machao: new URL('../assets/sprites/heroes/machao.png', import.meta.url).href,
+  simayi: new URL('../assets/sprites/heroes/simayi.png', import.meta.url).href,
+  menghuo: new URL('../assets/sprites/heroes/menghuo.png', import.meta.url).href,
 };
 
 const ENEMY_ATLAS = new URL('../assets/sprites/enemies/atlas.png', import.meta.url).href;
