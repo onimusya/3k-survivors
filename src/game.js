@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -105,6 +105,10 @@ export class Game {
     this.mythicFusion = null;
     this.activeWaveEvent = null;
     this.waveEventTimer = 9.0;
+    this.activeTerrain = 'grassland';
+    this.selectedTerrainMode = 'auto';
+    this.groundZones = [];
+    this.lightningArcs = [];
     this.loadShopUpgrades();
     this.loadCampaignProgress();
     this.pets = []; // [{ id, level, x, y, vx, vy, cdTimer, healTimer, lungeX, lungeY, sprite, shadow }]
@@ -1534,11 +1538,18 @@ export class Game {
       : (stage.season || 'spring');
     this.activeSeason = SEASONS[seasonId] ? seasonId : 'spring';
     const sSpec = SEASONS[this.activeSeason] || SEASONS.spring;
+    const terrainId = this.selectedTerrainMode && this.selectedTerrainMode !== 'auto'
+      ? this.selectedTerrainMode
+      : (stage.terrainBiome || 'grassland');
+    this.activeTerrain = TERRAIN_BIOME_SPECS[terrainId] ? terrainId : 'grassland';
     if (this.appEl) {
+      const biomeUrl = SPRITE_MANIFEST.terrains?.[this.activeTerrain] || SPRITE_MANIFEST.terrain;
+      this.appEl.style.backgroundImage = `url("${biomeUrl}")`;
+      this.appEl.style.backgroundSize = '128px 128px';
       this.appEl.style.backgroundColor = this.selectedSeasonMode !== 'auto'
         ? sSpec.bgColor
         : (stage.bgColor || sSpec.bgColor || map.bgColor || '#263820');
-      this.appEl.style.backgroundBlendMode = 'overlay';
+      this.appEl.style.backgroundBlendMode = 'soft-light';
       this.appEl.style.filter = 'none';
     }
     if (this.sfx) {
@@ -1546,6 +1557,19 @@ export class Game {
     }
   }
 
+  setTerrain(biomeId = 'grassland') {
+    if (!TERRAIN_BIOME_SPECS[biomeId]) return false;
+    this.selectedTerrainMode = biomeId;
+    this.activeTerrain = biomeId;
+    if (this.appEl) {
+      const biomeUrl = SPRITE_MANIFEST.terrains?.[biomeId] || SPRITE_MANIFEST.terrain;
+      this.appEl.style.backgroundImage = `url("${biomeUrl}")`;
+      this.appEl.style.backgroundSize = '128px 128px';
+      this.appEl.style.backgroundBlendMode = 'normal';
+    }
+    this.recomputeStats();
+    return true;
+  }
   setSeason(seasonId = 'spring') {
     if (!SEASONS[seasonId]) return;
     this.selectedSeasonMode = seasonId;
@@ -1638,6 +1662,11 @@ export class Game {
       if (this.partnerEntity.sprite) this.partnerEntity.sprite.destroy();
       this.partnerEntity = null;
     }
+    for (const gz of (this.groundZones || [])) {
+      if (gz.sprite) gz.sprite.destroy();
+    }
+    this.groundZones = [];
+    this.lightningArcs = [];
     this.partnerTimer = 7.5;
     this.mythicFusion = null;
     this.activeWaveEvent = null;
@@ -1957,18 +1986,25 @@ export class Game {
     const fusionBonus = this.mythicFusion ? 0.65 : 0;
     const duelBonus = this.activeWaveEvent?.kind === 'duel_ring' ? 0.40 : 0;
     const bloodMoonCd = this.activeWaveEvent?.kind === 'blood_moon' ? 0.20 : 0;
+    const tSpec = TERRAIN_BIOME_SPECS[this.activeTerrain] || {};
+    const tDmg = tSpec.dmgBonus || 0;
+    const tArmor = tSpec.armorBonus || 0;
+    const tSpd = tSpec.speedBonus || 0;
+    const tArea = tSpec.areaBonus || 0;
+    const tCd = tSpec.cdBonus || 0;
+    const tXp = tSpec.xpBonus || 0;
 
     const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp;
     if (nextMaxHp > this.player.maxHp) {
       this.player.hp += (nextMaxHp - this.player.maxHp);
     }
     this.player.maxHp = nextMaxHp;
-    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + permArmor + relicArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
-    this.player.speedMul = (1 + permSpd + mountSpdBonus + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.5, 1 - permCd - relicCd - bloodMoonCd);
-    this.player.areaMul = (1 + relicArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + permXp + relicXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.speedMul = (1 + permSpd + mountSpdBonus + tSpd + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.45, 1 - permCd - relicCd - bloodMoonCd - tCd);
+    this.player.areaMul = (1 + relicArea + tArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
+    this.player.xpMul = (1 + permXp + relicXp + tXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
     this.player.magnetBonus = (su.magnet_perm || 0) * 30;
   }
 
@@ -3703,6 +3739,133 @@ export class Game {
         this.recomputeStats();
       }
     }
+    this.updateGroundZonesAndArcs(dt);
+  }
+
+  updateGroundZonesAndArcs(dt) {
+    const p = this.player;
+    const g = this.orbitLayer;
+    if (!p) return;
+    // 1. Update & render Chain Lightning Arcs
+    for (let i = (this.lightningArcs?.length || 0) - 1; i >= 0; i--) {
+      const arc = this.lightningArcs[i];
+      arc.life -= dt;
+      if (arc.life <= 0) {
+        this.lightningArcs.splice(i, 1);
+        continue;
+      }
+      if (g) {
+        const pts = arc.points;
+        for (let k = 0; k < pts.length - 1; k++) {
+          const x0 = pts[k].x, y0 = pts[k].y;
+          const x1 = pts[k + 1].x, y1 = pts[k + 1].y;
+          const mx = (x0 + x1) / 2 + (Math.random() - 0.5) * 14;
+          const my = (y0 + y1) / 2 + (Math.random() - 0.5) * 14;
+          g.moveTo(x0, y0).lineTo(mx, my).lineTo(x1, y1).stroke({ color: arc.color || 0xc084fc, width: 2.6, alpha: 0.9 });
+          g.moveTo(x0, y0).lineTo(mx, my).lineTo(x1, y1).stroke({ color: 0xffffff, width: 1.1, alpha: 0.95 });
+        }
+      }
+    }
+    // 2. Update & render Ground Zones (Fire Pools, Wooden Oxen, Caltrop Mines, Shadow Clones)
+    for (let i = (this.groundZones?.length || 0) - 1; i >= 0; i--) {
+      const gz = this.groundZones[i];
+      gz.life -= dt;
+      if (gz.life <= 0) {
+        if (gz.kind === 'wooden_ox' || gz.kind === 'shadow_clone') {
+          this.spawnExplosion(gz.x, gz.y, 0.55, 1.9, gz.color || 0xfde047, 0.3);
+          for (const e of this.enemies) {
+            if (e.active && !e.isUfo && dist2(e.x, e.y, gz.x, gz.y) <= (78 * (gz.area || 1)) ** 2) {
+              this.damageEnemy(e, gz.dmg * 1.35, gz.x, gz.y);
+            }
+          }
+        }
+        if (gz.sprite) gz.sprite.destroy();
+        this.groundZones.splice(i, 1);
+        continue;
+      }
+      if (gz.kind === 'fire_pool') {
+        if (g) {
+          const pulse = 1 + Math.sin(this.time * 10 + i) * 0.08;
+          g.circle(gz.x, gz.y, gz.radius * pulse)
+            .fill({ color: 0xea580c, alpha: 0.38 })
+            .stroke({ color: 0xfde047, width: 1.8, alpha: 0.78 });
+          g.circle(gz.x, gz.y, gz.radius * 0.58 * pulse)
+            .fill({ color: 0xfef08a, alpha: 0.35 });
+        }
+        gz.tickCd -= dt;
+        if (gz.tickCd <= 0) {
+          gz.tickCd = 0.28;
+          const r2 = gz.radius * gz.radius;
+          for (const e of this.enemies) {
+            if (e.active && !e.isUfo && dist2(e.x, e.y, gz.x, gz.y) <= r2) {
+              this.damageEnemy(e, gz.dmg * 0.48, gz.x, gz.y);
+            }
+          }
+        }
+      } else if (gz.kind === 'wooden_ox') {
+        gz.x += gz.vx * dt;
+        gz.y += gz.vy * dt;
+        if (gz.sprite) {
+          gz.sprite.x = Math.round(gz.x);
+          gz.sprite.y = Math.round(gz.y);
+        }
+        if (g) {
+          g.circle(gz.x, gz.y, 20).stroke({ color: 0xfacc15, width: 1.8, alpha: 0.65 });
+        }
+        gz.tickCd -= dt;
+        if (gz.tickCd <= 0) {
+          gz.tickCd = 0.2;
+          for (const e of this.enemies) {
+            if (e.active && !e.isUfo && dist2(e.x, e.y, gz.x, gz.y) <= 36 * 36) {
+              this.damageEnemy(e, gz.dmg, gz.x, gz.y);
+              e.knock = Math.max(e.knock || 0, 14 * (1 - (e.knockResist || 0)));
+            }
+          }
+        }
+      } else if (gz.kind === 'caltrop_mine') {
+        if (g) {
+          g.circle(gz.x, gz.y, gz.radius)
+            .fill({ color: 0x334155, alpha: 0.45 })
+            .stroke({ color: gz.color || 0x94a3b8, width: 1.6, alpha: 0.85 });
+          for (let s = 0; s < 4; s++) {
+            const a = this.time * 2 + (s * Math.PI) / 2;
+            g.circle(gz.x + Math.cos(a) * 8, gz.y + Math.sin(a) * 8, 3).fill(0xfef08a);
+          }
+        }
+        for (const e of this.enemies) {
+          if (!e.active || e.isUfo) continue;
+          if (dist2(e.x, e.y, gz.x, gz.y) <= (gz.radius + e.size) ** 2) {
+            this.spawnExplosion(gz.x, gz.y, 0.45, 1.55, gz.color || 0x4ade80, 0.25);
+            for (const sub of this.enemies) {
+              if (sub.active && !sub.isUfo && dist2(sub.x, sub.y, gz.x, gz.y) <= (68 * (gz.area || 1)) ** 2) {
+                sub.speed *= 0.65;
+                this.damageEnemy(sub, gz.dmg * 1.15, gz.x, gz.y);
+              }
+            }
+            gz.life = 0;
+            break;
+          }
+        }
+      } else if (gz.kind === 'shadow_clone') {
+        if (gz.sprite) {
+          gz.sprite.x = Math.round(gz.x);
+          gz.sprite.y = Math.round(gz.y);
+        }
+        if (g) {
+          g.circle(gz.x, gz.y + 8, 22).stroke({ color: 0xc084fc, width: 1.8, alpha: 0.65 });
+        }
+        gz.tickCd -= dt;
+        if (gz.tickCd <= 0) {
+          gz.tickCd = 0.55;
+          this.spawnSlash(gz.x, gz.y, 0xc084fc, gz.area || 1.1, this.time * 4);
+          for (const e of this.enemies) {
+            if (e.active && !e.isUfo && dist2(e.x, e.y, gz.x, gz.y) <= (88 * (gz.area || 1)) ** 2) {
+              this.damageEnemy(e, gz.dmg * 0.85, gz.x, gz.y);
+            }
+          }
+        }
+      }
+    }
   }
 
   setupHazards() {
@@ -4401,6 +4564,199 @@ export class Game {
           const ang = angleTo(p.x, p.y, t.x, t.y) + spread;
           this.spawnProjectile(p.x, p.y, ang, dmg, area, wd ? wd.color : base.color, wd, w.id==='daggers' || lvl >= 6, pierce, isMagic, isMax, isArrow);
         }
+      }
+    } else if (type === 'rapid_stream') {
+      // W1: Zhuge Repeating Crossbow (Liannu) — rapid directional 6..12 arrow burst stream (shreds UFOs too!)
+      this.sfx.play('shoot');
+      const ne = this.nearestEnemy(p.x, p.y);
+      const baseAng = ne
+        ? angleTo(p.x, p.y, ne.x, ne.y)
+        : ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[p.direction] ?? 0);
+      this.beginAttack(this.directionFromAngle(baseAng), 0.22);
+      const bolts = 4 + lvl + (isMax ? 4 : 0);
+      const pierce = (isMax ? 4 : 2) + bonusPierce;
+      for (let i = 0; i < bolts; i++) {
+        const spread = (i - (bolts - 1) / 2) * 0.055;
+        this.spawnProjectile(
+          p.x + Math.cos(baseAng) * (i * 5),
+          p.y + Math.sin(baseAng) * (i * 5),
+          baseAng + spread,
+          dmg * 0.68,
+          area,
+          wd ? wd.color : base.color,
+          wd,
+          isMax,
+          pierce,
+          isMax,
+          isMax,
+          true, // Counts as Arrow so it damages Cosmic UFOs!
+        );
+      }
+    } else if (type === 'ground_zone') {
+      // W2: Fire Oil Flask (Huoyou) — lobs clay flasks that shatter into lingering Blazing Fire Pools!
+      this.sfx.play('bomb');
+      const poolCount = 1 + Math.floor(lvl / 3) + (isMax ? 2 : 0);
+      const targets = this.nearestEnemies(p.x, p.y, poolCount);
+      for (let i = 0; i < poolCount; i++) {
+        const t = targets[i];
+        const ang = t ? angleTo(p.x, p.y, t.x, t.y) : (this.time + (i * Math.PI * 2) / poolCount);
+        const dist = t ? Math.min(135, Math.hypot(t.x - p.x, t.y - p.y)) : 85;
+        const zx = Math.round(p.x + Math.cos(ang) * dist);
+        const zy = Math.round(p.y + Math.sin(ang) * dist);
+        this.spawnExplosion(zx, zy, 0.45, 1.55 * area, 0xf97316, 0.26);
+        this.groundZones.push({
+          kind: 'fire_pool',
+          x: zx,
+          y: zy,
+          radius: (isMax ? 54 : 38) * area,
+          dmg,
+          area,
+          life: isMax ? 5.2 : 4.0,
+          tickCd: 0.1,
+          color: wd ? wd.color : base.color,
+        });
+      }
+    } else if (type === 'boomerang') {
+      // W3: Chain Whip & Meteor Hammer — boomerang sweep + inward vortex pull!
+      this.sfx.play('slash');
+      const ne = this.nearestEnemy(p.x, p.y);
+      const ang = ne ? angleTo(p.x, p.y, ne.x, ne.y) : this.time * 2;
+      const reach = (isMax ? 155 : 120) * area;
+      const mx = p.x + Math.cos(ang) * reach * 0.7;
+      const my = p.y + Math.sin(ang) * reach * 0.7;
+      this.spawnSpin(mx, my, area * (isMax ? 1.35 : 1.0), wd ? wd.color : base.color);
+      this.spawnShockwave(mx, my, wd ? wd.color : base.color, 0.4, 2.2 * area, 0.25);
+      for (const e of this.enemies) {
+        if (!e.active || e.isUfo) continue;
+        if (dist2(e.x, e.y, mx, my) <= (88 * area) ** 2) {
+          this.damageEnemy(e, dmg * (isMax ? 1.35 : 1.0), mx, my);
+          if (!e.isKaiju) {
+            e.x += (mx - e.x) * 0.28;
+            e.y += (my - e.y) * 0.28;
+          }
+        }
+      }
+    } else if (type === 'automaton') {
+      // W4: Wooden Ox & Flowing Horse (Muniu Liuma) — rolling siege automaton!
+      this.sfx.play('thrust');
+      const oxCount = 1 + (lvl >= 5 ? 1 : 0) + (isMax ? 1 : 0);
+      const ne = this.nearestEnemy(p.x, p.y);
+      const baseAng = ne ? angleTo(p.x, p.y, ne.x, ne.y) : 0;
+      for (let i = 0; i < oxCount; i++) {
+        const a = baseAng + (i - (oxCount - 1) / 2) * 0.35;
+        const sp = new Sprite(this.enemyTextures?.catapult?.[0] || this.effectTextures.chest);
+        sp.anchor.set(0.5, 0.6);
+        sp.scale.set(isMax ? 1.15 : 0.95);
+        sp.tint = isMax ? 0xfde047 : 0xfacc15;
+        sp.x = Math.round(p.x);
+        sp.y = Math.round(p.y);
+        this.propLayer.addChild(sp);
+        this.groundZones.push({
+          kind: 'wooden_ox',
+          x: p.x,
+          y: p.y,
+          vx: Math.cos(a) * 145,
+          vy: Math.sin(a) * 145,
+          dmg: dmg * 1.1,
+          area,
+          life: 2.8,
+          tickCd: 0.05,
+          color: wd ? wd.color : base.color,
+          sprite: sp,
+        });
+      }
+    } else if (type === 'chain_lightning') {
+      // W5: Five-Thunder Talisman (Wulei Fu) — chains lightning across 4..10 nearby enemies!
+      this.sfx.play('shoot');
+      const maxChains = 3 + lvl + (isMax ? 3 : 0);
+      const targets = this.nearestEnemies(p.x, p.y, maxChains);
+      if (targets.length) {
+        const points = [{ x: p.x, y: p.y - 10 }];
+        for (let i = 0; i < targets.length; i++) {
+          const t = targets[i];
+          points.push({ x: t.x, y: t.y });
+          this.damageEnemy(t, dmg * (isMax ? 1.3 : 1.0) * Math.pow(0.92, i), p.x, p.y);
+          this.spawnHitSpark(t.x, t.y, 0xc084fc, 0.7, 0.16);
+          if (isMax && i === 0) {
+            this.spawnShockwave(t.x, t.y, 0xc084fc, 0.4, 2.0 * area, 0.25);
+          }
+        }
+        this.lightningArcs.push({
+          points,
+          color: wd ? wd.color : base.color,
+          life: 0.22,
+        });
+      }
+    } else if (type === 'minefield') {
+      // W6: Iron Lotus Caltrops (Jili) — proximity spike mines that slow & detonate!
+      this.sfx.play('select');
+      const mineCount = 1 + Math.floor(lvl / 3) + (isMax ? 2 : 0);
+      for (let i = 0; i < mineCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 36 + Math.random() * 48;
+        this.groundZones.push({
+          kind: 'caltrop_mine',
+          x: Math.round(p.x + Math.cos(a) * r),
+          y: Math.round(p.y + Math.sin(a) * r),
+          radius: (isMax ? 26 : 20) * area,
+          dmg: dmg * 1.25,
+          area,
+          life: 7.5,
+          color: wd ? wd.color : base.color,
+        });
+      }
+    } else if (type === 'sonic_aura') {
+      // W7: Imperial War Drum (Zhangu) — rhythmic concentric sonic shockwave rings & knockback boom!
+      this.sfx.play('bomb');
+      w._drumBeat = ((w._drumBeat || 0) + 1) % 3;
+      const isBoom = w._drumBeat === 0 || isMax;
+      const rad = (isBoom ? 165 : 120) * area;
+      this.spawnShockwave(p.x, p.y, wd ? wd.color : base.color, 0.45, (isBoom ? 3.2 : 2.1) * area, 0.28);
+      if (isBoom) {
+        this.spawnShockwave(p.x, p.y, 0xfde047, 0.3, 2.4 * area, 0.22);
+      }
+      const r2 = rad * rad;
+      for (const e of this.enemies) {
+        if (!e.active || e.isUfo) continue;
+        if (dist2(e.x, e.y, p.x, p.y) <= r2) {
+          this.damageEnemy(e, dmg * (isBoom ? 1.35 : 1.0), p.x, p.y);
+          if (isBoom) {
+            e.knock = Math.max(e.knock || 0, 18 * (1 - (e.knockResist || 0)));
+          }
+        }
+      }
+    } else if (type === 'decoy_clone') {
+      // W8: Shadow Clone Talisman (Fenshen) — holographic warrior mirage that slashes & detonates!
+      this.sfx.play('slash');
+      const cloneCount = isMax ? 2 : 1;
+      for (let i = 0; i < cloneCount; i++) {
+        const a = this.time * 2 + i * Math.PI;
+        const cx = Math.round(p.x + Math.cos(a) * 58);
+        const cy = Math.round(p.y + Math.sin(a) * 44);
+        const frames = this.heroAttackFrames?.[this.hero?.id]?.[0] || this.heroFrames?.[this.hero?.id]?.[0];
+        const sp = new AnimatedSprite({
+          textures: frames || [this.effectTextures.impact],
+          animationSpeed: 0.22,
+          autoPlay: true,
+        });
+        sp.anchor.set(0.5, 0.62);
+        sp.scale.set(1.08);
+        sp.tint = 0xd8b4fe;
+        sp.alpha = 0.78;
+        sp.x = cx;
+        sp.y = cy;
+        this.playerLayer.addChild(sp);
+        this.groundZones.push({
+          kind: 'shadow_clone',
+          x: cx,
+          y: cy,
+          dmg,
+          area,
+          life: isMax ? 4.5 : 3.4,
+          tickCd: 0.15,
+          color: wd ? wd.color : base.color,
+          sprite: sp,
+        });
       }
     }
   }

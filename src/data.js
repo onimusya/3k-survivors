@@ -6,13 +6,13 @@ export const HEROES = [
   { id:'zhugeliang', name:'Zhuge Liang', roster:1, color:0x9b6fa5, hp:135, armor:3, dmgBonus:0.32, speed:1.05, weapon:'fan', desc:'Feather Fan' },
   { id:'lubu', name:'Lu Bu', roster:1, color:0xb83232, hp:190, armor:3, dmgBonus:0.40, speed:1.1, weapon:'halberd', desc:'Sky Piercer Halberd' },
   { id:'sunshangxiang', name:'Sun Shangxiang', roster:1, color:0xd4a017, hp:140, armor:3, dmgBonus:0.32, speed:1.3, weapon:'daggers', desc:'Twin Ring Blades' },
-  // Roster 2: Wei, Wu & Legends Warlords
-  { id:'caocao', name:'Cao Cao', roster:2, color:0x38bdf8, hp:175, armor:4, dmgBonus:0.36, speed:1.1, weapon:'blade', desc:'Heaven Sword of Yitian' },
-  { id:'zhouyu', name:'Zhou Yu', roster:2, color:0xef4444, hp:150, armor:3, dmgBonus:0.38, speed:1.15, weapon:'fan', desc:'Crimson Fire Zither' },
-  { id:'diaochan', name:'Diaochan', roster:2, color:0xf472b6, hp:140, armor:3, dmgBonus:0.34, speed:1.35, weapon:'daggers', desc:'Moonlight Silk Ribbons' },
-  { id:'machao', name:'Ma Chao', roster:2, color:0x2dd4bf, hp:180, armor:3, dmgBonus:0.37, speed:1.25, weapon:'spear', desc:'Western Lightning Lance' },
-  { id:'simayi', name:'Sima Yi', roster:2, color:0xa855f7, hp:145, armor:3, dmgBonus:0.39, speed:1.08, weapon:'flying_blades', desc:'Void Phantasm Talismans' },
-  { id:'menghuo', name:'Meng Huo', roster:2, color:0xf97316, hp:225, armor:4, dmgBonus:0.42, speed:0.95, weapon:'halberd', desc:'Nanman Beast King Axe' },
+  // Roster 2: Wei, Wu & Legends Warlords (paired with new v0.4.0 weapon archetypes!)
+  { id:'caocao', name:'Cao Cao', roster:2, color:0x38bdf8, hp:175, armor:4, dmgBonus:0.36, speed:1.1, weapon:'shadow_clone', desc:'Imperial Shadow Mirage' },
+  { id:'zhouyu', name:'Zhou Yu', roster:2, color:0xef4444, hp:150, armor:3, dmgBonus:0.38, speed:1.15, weapon:'fire_flask', desc:'Chibi Fire Oil Flasks' },
+  { id:'diaochan', name:'Diaochan', roster:2, color:0xf472b6, hp:140, armor:3, dmgBonus:0.34, speed:1.35, weapon:'meteor_chain', desc:'Moonlight Meteor Chain' },
+  { id:'machao', name:'Ma Chao', roster:2, color:0x2dd4bf, hp:180, armor:3, dmgBonus:0.37, speed:1.25, weapon:'crossbow', desc:'Repeating Bolt Crossbow' },
+  { id:'simayi', name:'Sima Yi', roster:2, color:0xa855f7, hp:145, armor:3, dmgBonus:0.39, speed:1.08, weapon:'thunder_talisman', desc:'Five-Thunder Talisman' },
+  { id:'menghuo', name:'Meng Huo', roster:2, color:0xf97316, hp:225, armor:4, dmgBonus:0.42, speed:0.95, weapon:'war_drum', desc:'Nanman Thunder War Drum' },
 ];
 
 export const STARTING_PERKS = [
@@ -61,6 +61,15 @@ export const WEAPONS = {
   daggers: { name:'Twin Blades', color:0xd4c017, dmg:15, cd:0.4, area:1.0, type:'projectile', evo:'twindragons', pass:'growth', desc:'Dual homing daggers' },
   flying_blades: { name:'Rotating Flying Blades', color:0x38bdf8, dmg:19, cd:0.45, area:1.0, type:'orbit', evo:'celestial_buzzsaw', pass:'swiftness', desc:'Spinning blades orbit you, slicing foes & blocking bolts' },
   bagua_shields: { name:'Eight-Trigram Shields', color:0xfbbf24, dmg:22, cd:0.5, area:1.05, type:'orbit', evo:'imperial_aegis_ring', pass:'armor', desc:'Orbiting Bagua shields bash foes & deflect projectiles' },
+  // 8 New v0.4.0 Three Kingdoms Weapon Archetypes!
+  crossbow: { name:'Repeating Crossbow', color:0x38bdf8, dmg:14, cd:0.34, area:1.0, type:'rapid_stream', evo:'ten_thousand_bolts', pass:'swiftness', desc:'Rapid 6-bolt machine-gun stream (damages UFOs!)' },
+  fire_flask: { name:'Fire Oil Flask', color:0xf97316, dmg:24, cd:1.15, area:1.15, type:'ground_zone', evo:'chibi_hellfire', pass:'area', desc:'Shatters into blazing ground fire pools for 4.5s' },
+  meteor_chain: { name:'Meteor Hammer Chain', color:0xf472b6, dmg:26, cd:1.05, area:1.1, type:'boomerang', evo:'soul_dragon_chain', pass:'might', desc:'Boomerang chain sweep that pulls foes inward' },
+  wooden_ox: { name:'Wooden Ox Automaton', color:0xfacc15, dmg:34, cd:1.4, area:1.2, type:'automaton', evo:'juggernaut_ox', pass:'armor', desc:'Clockwork siege ox bulldozes & explodes through hordes' },
+  thunder_talisman: { name:'Five-Thunder Talisman', color:0xc084fc, dmg:27, cd:0.95, area:1.1, type:'chain_lightning', evo:'nine_skies_thunder', pass:'cooldown', desc:'Lightning bolt chains across 4 to 10 nearby enemies' },
+  caltrops: { name:'Iron Lotus Caltrops', color:0x94a3b8, dmg:21, cd:0.85, area:1.0, type:'minefield', evo:'iron_lotus_mines', pass:'growth', desc:'Proximity spike traps slow foes -50% & detonate' },
+  war_drum: { name:'Imperial War Drum', color:0xef4444, dmg:25, cd:1.1, area:1.25, type:'sonic_aura', evo:'earth_shaker_drum', pass:'area', desc:'Rhythmic sonic shockwave rings & knockback boom' },
+  shadow_clone: { name:'Shadow Clone Talisman', color:0xa855f7, dmg:24, cd:1.25, area:1.1, type:'decoy_clone', evo:'phantom_army', pass:'cooldown', desc:'Spawns a holographic warrior mirage that slashes & explodes' },
 };
 
 export const EVOLUTIONS = {
@@ -72,6 +81,14 @@ export const EVOLUTIONS = {
   twindragons: { name:'Twin Dragons', color:0xffff5f, dmgMul:2.0, cdMul:0.45, areaMul:1.1, desc:'Dual homing blades' },
   celestial_buzzsaw: { name:'Celestial Sword Wheel', color:0x7dd3fc, dmgMul:2.1, cdMul:0.65, areaMul:1.35, desc:'Blazing sword-wheel ring shreds foes & bullets' },
   imperial_aegis_ring: { name:'Imperial Aegis Ring', color:0xfde047, dmgMul:2.2, cdMul:0.7, areaMul:1.4, desc:'Golden dragon-shields repel foes & projectiles' },
+  ten_thousand_bolts: { name:'Ten-Thousand Bolt Tempest', color:0x38bdf8, dmgMul:2.1, cdMul:0.55, areaMul:1.2, desc:'Unending Gattling storm of piercing dragon bolts' },
+  chibi_hellfire: { name:'Chibi Hellfire Sea', color:0xff5f5f, dmgMul:2.2, cdMul:0.75, areaMul:1.55, desc:'Spreads massive infernal lava pools across the battlefield' },
+  soul_dragon_chain: { name:'Soul-Seizing Dragon Chain', color:0xf472b6, dmgMul:2.2, cdMul:0.7, areaMul:1.4, desc:'Twin boomerang dragon chains vortex foes into explosions' },
+  juggernaut_ox: { name:'Juggernaut Flame Ox', color:0xfde047, dmgMul:2.3, cdMul:0.75, areaMul:1.45, desc:'Armored flame-oxen stampede in 3 directions & detonate' },
+  nine_skies_thunder: { name:'Nine-Skies Thunder Wrath', color:0xc084fc, dmgMul:2.2, cdMul:0.68, areaMul:1.4, desc:'10-target chain lightning arcs with thunder-pillar blasts' },
+  iron_lotus_mines: { name:'Eight-Gates Iron Lotus', color:0x4ade80, dmgMul:2.1, cdMul:0.68, areaMul:1.35, desc:'Cluster of shrapnel lotus mines that shred & freeze hordes' },
+  earth_shaker_drum: { name:'Earth-Shaker Thunder Drums', color:0xfde047, dmgMul:2.3, cdMul:0.72, areaMul:1.5, desc:'Triple concentric sonic booms stun & blast all nearby foes' },
+  phantom_army: { name:'Phantom Army of One', color:0xd8b4fe, dmgMul:2.2, cdMul:0.7, areaMul:1.4, desc:'Summons twin shadow clones that unleash synchronized novas' },
 };
 
 export const PASSIVES = {
@@ -476,6 +493,24 @@ const LEVEL_SQUAD_TEMPLATES = [
 const WEAPON_STYLES = ['spear_volley', 'crossbow_bolt', 'throwing_axe', 'fire_pot', 'arcane_orb'];
 
 const SECOND_HALF_PREFIXES = ['Inner', 'Fortified', 'Upper', 'Citadel', 'Sanctum'];
+export const TERRAIN_BIOME_SPECS = {
+  grassland: { id: 'grassland', name: 'Peach Blossom Grasslands', effectDesc: '+1 HP/s Natural Regen', hpRegen: 1.0 },
+  fortress: { id: 'fortress', name: 'Hulao Fortress Flagstone', effectDesc: '+1 Armor on Stone Courtyard', armorBonus: 1 },
+  scorched: { id: 'scorched', name: 'Guandu Scorched Trenches', effectDesc: '+12% Explosive & Fire DMG', dmgBonus: 0.12 },
+  warship: { id: 'warship', name: 'Chibi Chained Warship Deck', effectDesc: '+15% Area on Warship Planks', areaBonus: 0.15 },
+  snowfield: { id: 'snowfield', name: 'Tong Pass Frozen Icefield', effectDesc: '+12% Slide Speed & -10% Enemy SPD', speedBonus: 0.12, enemySlow: 0.10 },
+  flooded: { id: 'flooded', name: 'Fan Castle Flooded Causeway', effectDesc: '-14% Enemy Speed in Water', enemySlow: 0.14 },
+  magma: { id: 'magma', name: 'Yiling Magma Ember Fissures', effectDesc: '+18% All Weapon Damage', dmgBonus: 0.18 },
+  star_altar: { id: 'star_altar', name: 'Wuzhang Obsidian Star-Altar', effectDesc: '-10% Weapon Cooldown & +15% XP', cdBonus: 0.10, xpBonus: 0.15 },
+};
+const CAMPAIGN_TERRAIN_ORDER = [
+  'grassland', 'fortress', 'scorched', 'grassland', 'warship',
+  'snowfield', 'fortress', 'flooded', 'magma', 'star_altar',
+];
+const STAGE_TERRAIN_CYCLE = [
+  'grassland', 'fortress', 'scorched', 'warship',
+  'snowfield', 'flooded', 'magma', 'star_altar',
+];
 
 export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
   const finalBoss = c.bosses[4];
@@ -518,6 +553,9 @@ export const CAMPAIGN_MAPS = CAMPAIGN_SPECS.map((c, cIdx) => {
         spawnMul: +(0.78 + cIdx * 0.05 + lIdx * 0.045).toFixed(2),
         bossStage: lIdx === 9,
         bgColor: c.bgColors[baseIdx],
+        terrainBiome: lIdx % 3 === 0
+          ? CAMPAIGN_TERRAIN_ORDER[cIdx % CAMPAIGN_TERRAIN_ORDER.length]
+          : STAGE_TERRAIN_CYCLE[(cIdx * 3 + lIdx) % STAGE_TERRAIN_CYCLE.length],
         layoutPattern: c.patterns[(lIdx + cIdx) % c.patterns.length],
         season: c.seasons[(lIdx + cIdx) % c.seasons.length],
         weather: c.weathers[(lIdx + cIdx) % c.weathers.length],

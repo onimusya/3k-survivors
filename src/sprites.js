@@ -17,6 +17,16 @@ const HERO_SHEETS = {
 
 const ENEMY_ATLAS = new URL('../assets/sprites/enemies/atlas.png', import.meta.url).href;
 const TERRAIN = new URL('../assets/sprites/terrain/ground.png', import.meta.url).href;
+const TERRAIN_BIOMES = {
+  grassland: new URL('../assets/sprites/terrain/grassland.png', import.meta.url).href,
+  fortress: new URL('../assets/sprites/terrain/fortress.png', import.meta.url).href,
+  scorched: new URL('../assets/sprites/terrain/scorched.png', import.meta.url).href,
+  warship: new URL('../assets/sprites/terrain/warship.png', import.meta.url).href,
+  snowfield: new URL('../assets/sprites/terrain/snowfield.png', import.meta.url).href,
+  flooded: new URL('../assets/sprites/terrain/flooded.png', import.meta.url).href,
+  magma: new URL('../assets/sprites/terrain/magma.png', import.meta.url).href,
+  star_altar: new URL('../assets/sprites/terrain/star_altar.png', import.meta.url).href,
+};
 const PROPS_ATLAS = new URL('../assets/sprites/terrain/props.png', import.meta.url).href;
 const PROP_IDS = ['tree', 'pine', 'rock', 'grass', 'mountain', 'banner', 'house', 'watchtower', 'castle', 'tent'];
 const VIGNETTE = new URL('../assets/sprites/ui/vignette.png', import.meta.url).href;
@@ -27,6 +37,8 @@ const PET_IDS = ['redhare', 'vermilion', 'white_tiger', 'qilin'];
 const ICON_IDS = [
   'blade', 'spear', 'bow', 'fan', 'halberd', 'daggers',
   'flying_blades', 'bagua_shields',
+  'crossbow', 'fire_flask', 'meteor_chain', 'wooden_ox',
+  'thunder_talisman', 'caltrops', 'war_drum', 'shadow_clone',
   'might', 'armor', 'swiftness', 'cooldown', 'area', 'growth', 'heal',
   'sound_on', 'sound_off',
   'redhare', 'vermilion', 'white_tiger', 'qilin',
@@ -147,6 +159,10 @@ export async function loadSpriteAssets() {
   }
 
   const terrain = nearest(await Assets.load(TERRAIN));
+  const terrainBiomes = {};
+  await Promise.all(Object.entries(TERRAIN_BIOMES).map(async ([k, url]) => {
+    terrainBiomes[k] = nearest(await Assets.load(url));
+  }));
   const propsBase = nearest(await Assets.load(PROPS_ATLAS));
   const seasonNames = ['spring', 'summer', 'autumn', 'winter'];
   const props = {};
@@ -204,13 +220,14 @@ export async function loadSpriteAssets() {
     pets[PET_IDS[r]] = list;
   }
 
-  return { heroFrames, heroAttackFrames, enemyFrames, terrain, props, propsBase, vignette, icons, stages, effects: effectFrames, vfx, pets, enemyBase };
+  return { heroFrames, heroAttackFrames, enemyFrames, terrain, terrainBiomes, props, propsBase, vignette, icons, stages, effects: effectFrames, vfx, pets, enemyBase };
 }
 
 export const SPRITE_MANIFEST = {
   heroes: HERO_SHEETS,
   enemies: ENEMY_ATLAS,
   terrain: TERRAIN,
+  terrains: TERRAIN_BIOMES,
   vignette: VIGNETTE,
   effects: EFFECTS,
 };

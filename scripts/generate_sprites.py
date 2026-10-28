@@ -398,6 +398,139 @@ def make_terrain():
     return image
 
 
+def make_terrain_biomes():
+    """Generate 8 distinct 128x128 pixel-art Three Kingdoms terrain biome tilesets."""
+    size = 128
+    biomes = {}
+
+    # 1. grassland: Peach Blossom Grasslands & Cobblestone Path
+    img = Image.new("RGBA", (size, size), (36, 62, 34, 255))
+    d = ImageDraw.Draw(img)
+    rng = random.Random(101)
+    for gy in range(0, size, 32):
+        for gx in range(0, size, 32):
+            shade = rng.choice(((42, 72, 38, 255), (32, 56, 30, 255), (46, 78, 42, 255)))
+            d.rounded_rectangle((gx + 2, gy + 2, gx + 29, gy + 29), radius=5, fill=shade)
+    # Diagonal cobblestone road band + pink peach blossom petals
+    for step in range(0, size, 16):
+        rx = (step + 16) % size
+        ry = step
+        d.rounded_rectangle((rx, ry, rx + 14, ry + 11), radius=3, fill=(92, 86, 74, 255), outline=(52, 48, 42, 255))
+        d.rounded_rectangle(((rx + 18) % size, ry + 4, (rx + 18) % size + 12, ry + 14), radius=3, fill=(108, 100, 86, 255), outline=(52, 48, 42, 255))
+    for _ in range(42):
+        px, py = rng.randrange(size), rng.randrange(size)
+        d.line((px, py, px, py - 3), fill=(74, 128, 58, 255))
+    for _ in range(24):
+        px, py = rng.randrange(size), rng.randrange(size)
+        d.rectangle((px, py, px + 2, py + 2), fill=(244, 142, 182, 255))
+    biomes["grassland"] = img
+
+    # 2. fortress: Hulao Fortress Chiseled Flagstones & Bronze Grates
+    img = Image.new("RGBA", (size, size), (42, 46, 54, 255))
+    d = ImageDraw.Draw(img)
+    for r in range(0, size, 32):
+        offset = 16 if (r // 32) % 2 == 1 else 0
+        for c in range(-16, size, 32):
+            x0, y0 = c + offset, r
+            col = (52, 58, 68, 255) if ((r + c) // 32) % 2 == 0 else (46, 52, 62, 255)
+            d.rectangle((x0 + 1, y0 + 1, x0 + 30, y0 + 30), fill=col, outline=(26, 30, 36, 255))
+            d.line((x0 + 2, y0 + 2, x0 + 28, y0 + 2), fill=(68, 76, 88, 255))
+    # Ornate bronze drainage grate in tile corner
+    d.rectangle((48, 48, 80, 80), fill=(28, 30, 36, 255), outline=(184, 138, 68, 255), width=2)
+    for gx in range(54, 78, 6):
+        d.line((gx, 50, gx, 78), fill=(146, 108, 52, 255), width=2)
+    biomes["fortress"] = img
+
+    # 3. scorched: Guandu Scorched Earth, Siege Craters & Trench Duckboards
+    img = Image.new("RGBA", (size, size), (54, 38, 28, 255))
+    d = ImageDraw.Draw(img)
+    rng = random.Random(303)
+    for _ in range(18):
+        cx, cy = rng.randrange(12, size - 12), rng.randrange(12, size - 12)
+        r = rng.randint(6, 14)
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(42, 28, 20, 255), outline=(72, 50, 36, 255))
+    # Wooden trench duckboard planks
+    for py in range(16, 112, 12):
+        d.rectangle((14, py, 42, py + 7), fill=(104, 68, 38, 255), outline=(44, 28, 16, 255))
+    # Glowing siege crater
+    d.ellipse((74, 72, 112, 108), fill=(28, 20, 18, 255), outline=(148, 64, 32, 255), width=2)
+    d.ellipse((84, 82, 102, 98), fill=(234, 88, 12, 255))
+    biomes["scorched"] = img
+
+    # 4. warship: Chibi Chained Warship Timber Deck & Blazing River Seams
+    img = Image.new("RGBA", (size, size), (68, 42, 24, 255))
+    d = ImageDraw.Draw(img)
+    for py in range(0, size, 16):
+        plank_col = (82, 50, 28, 255) if (py // 16) % 2 == 0 else (72, 44, 24, 255)
+        d.rectangle((0, py, size, py + 15), fill=plank_col, outline=(38, 22, 12, 255))
+        for nx in (16, 64, 112):
+            d.ellipse((nx - 2, py + 4, nx + 2, py + 8), fill=(168, 176, 188, 255))
+            d.ellipse((nx - 2, py + 10, nx + 2, py + 14), fill=(168, 176, 188, 255))
+    # Glowing river-fire channel seam & iron chain links on right edge
+    d.rectangle((108, 0, 124, size), fill=(14, 78, 118, 255), outline=(249, 115, 22, 255))
+    for cy in range(8, size, 24):
+        d.ellipse((102, cy, 126, cy + 10), outline=(192, 204, 218, 255), width=2)
+    biomes["warship"] = img
+
+    # 5. snowfield: Tong Pass Frozen Snowfield & Crystalline Blue Ice Sheets
+    img = Image.new("RGBA", (size, size), (186, 208, 228, 255))
+    d = ImageDraw.Draw(img)
+    # Crystalline blue ice patch in center
+    d.polygon([(18, 24), (78, 14), (112, 54), (96, 108), (32, 114), (12, 68)], fill=(125, 188, 236, 255), outline=(224, 242, 254, 255))
+    d.line([(28, 42), (64, 58), (88, 44)], fill=(240, 249, 255, 255), width=2)
+    d.line([(44, 78), (76, 86), (92, 70)], fill=(240, 249, 255, 255), width=1)
+    for sx, sy, sr in ((22, 18, 10), (104, 26, 12), (20, 104, 11), (106, 102, 10)):
+        d.ellipse((sx - sr, sy - sr, sx + sr, sy + sr), fill=(228, 240, 250, 255))
+    biomes["snowfield"] = img
+
+    # 6. flooded: Fan Castle Flooded Stone Causeway & Rippling Water Puddles
+    img = Image.new("RGBA", (size, size), (24, 62, 78, 255))
+    d = ImageDraw.Draw(img)
+    # Submerged stone causeway slabs
+    for gy in range(8, size, 32):
+        for gx in range(8, size, 32):
+            if (gx + gy) % 64 == 0:
+                d.rounded_rectangle((gx, gy, gx + 24, gy + 24), radius=4, fill=(52, 82, 92, 255), outline=(34, 56, 66, 255))
+    # Turquoise water ripples
+    for rx, ry in ((26, 52), (86, 24), (58, 92), (102, 84)):
+        d.arc((rx - 14, ry - 6, rx + 14, ry + 6), 0, 180, fill=(103, 232, 249, 200), width=1)
+        d.arc((rx - 9, ry - 3, rx + 9, ry + 3), 180, 360, fill=(165, 243, 252, 220), width=1)
+    biomes["flooded"] = img
+
+    # 7. magma: Yiling Blazing Forest & Glowing Orange Magma Fissures
+    img = Image.new("RGBA", (size, size), (34, 22, 24, 255))
+    d = ImageDraw.Draw(img)
+    for bx, by in ((22, 28), (78, 24), (48, 76), (96, 88), (20, 96)):
+        d.ellipse((bx - 16, by - 12, bx + 16, by + 12), fill=(46, 28, 30, 255))
+    # Glowing orange-gold magma veins
+    veins = [
+        [(8, 18), (42, 36), (68, 28), (118, 48)],
+        [(16, 88), (54, 72), (86, 96), (120, 82)],
+        [(42, 36), (54, 72)],
+    ]
+    for v in veins:
+        d.line(v, fill=(185, 28, 28, 255), width=6)
+        d.line(v, fill=(249, 115, 22, 255), width=3)
+        d.line(v, fill=(254, 240, 138, 255), width=1)
+    biomes["magma"] = img
+
+    # 8. star_altar: Wuzhang Obsidian Star-Altar & Golden Eight-Trigram (Bagua) Runes
+    img = Image.new("RGBA", (size, size), (24, 20, 38, 255))
+    d = ImageDraw.Draw(img)
+    for r in range(0, size, 32):
+        for c in range(0, size, 32):
+            d.rectangle((c, r, c + 31, r + 31), outline=(44, 36, 68, 255))
+    # Central golden Bagua octagon & constellation nodes
+    pts = [(64, 18), (96, 32), (110, 64), (96, 96), (64, 110), (32, 96), (18, 64), (32, 32)]
+    d.polygon(pts, outline=(212, 160, 23, 210), width=2)
+    d.ellipse((42, 42, 86, 86), outline=(192, 132, 252, 190), width=2)
+    for vx, vy in pts:
+        d.ellipse((vx - 2, vy - 2, vx + 2, vy + 2), fill=(254, 240, 138, 255))
+    biomes["star_altar"] = img
+
+    return biomes
+
+
 def make_props_atlas():
     prop_kinds = (
         "tree", "pine", "rock", "grass", "mountain", "banner",
@@ -753,6 +886,8 @@ def make_effects():
     icon_ids = (
         "blade", "spear", "bow", "fan", "halberd", "daggers",
         "flying_blades", "bagua_shields",
+        "crossbow", "fire_flask", "meteor_chain", "wooden_ox",
+        "thunder_talisman", "caltrops", "war_drum", "shadow_clone",
         "might", "armor", "swiftness", "cooldown", "area", "growth", "heal",
         "sound_on", "sound_off",
         "redhare", "vermilion", "white_tiger", "qilin",
@@ -789,6 +924,34 @@ def make_effects():
             polygon(cd, [(5, 2), (11, 2), (14, 5), (14, 11), (11, 14), (5, 14), (2, 11), (2, 5)], (251, 191, 36, 255))
             polygon(cd, [(6, 4), (10, 4), (12, 6), (12, 10), (10, 12), (6, 12), (4, 10), (4, 6)], (146, 64, 14, 255), outline=None)
             cd.ellipse((6, 6, 10, 10), fill=(254, 240, 138, 255))
+        elif kind == "crossbow":
+            rect(cd, (3, 6, 13, 10), (146, 64, 14, 255))
+            cd.arc((5, 2, 14, 14), 270, 90, fill=(250, 204, 21, 255), width=2)
+            line(cd, [(4, 8), (15, 8)], (56, 189, 248, 255), width=2)
+        elif kind == "fire_flask":
+            ellipse(cd, (4, 6, 12, 14), (234, 88, 12, 255))
+            rect(cd, (6, 3, 10, 7), (180, 83, 9, 255))
+            polygon(cd, [(8, 0), (11, 4), (8, 5), (5, 4)], (254, 240, 138, 255))
+        elif kind == "meteor_chain":
+            line(cd, [(2, 13), (10, 6)], (203, 213, 225, 255), width=2)
+            ellipse(cd, (8, 2, 15, 9), (249, 115, 22, 255))
+        elif kind == "wooden_ox":
+            rect(cd, (3, 5, 13, 11), (180, 83, 9, 255))
+            ellipse(cd, (3, 10, 7, 14), (250, 204, 21, 255))
+            ellipse(cd, (9, 10, 13, 14), (250, 204, 21, 255))
+        elif kind == "thunder_talisman":
+            rect(cd, (4, 2, 12, 14), (250, 204, 21, 255))
+            polygon(cd, [(9, 3), (6, 8), (9, 8), (7, 13), (11, 7), (8, 7)], (56, 189, 248, 255))
+        elif kind == "caltrops":
+            for cx, cy in ((5, 6), (11, 6), (8, 11)):
+                polygon(cd, [(cx, cy - 3), (cx + 3, cy + 2), (cx - 3, cy + 2)], (148, 163, 184, 255))
+        elif kind == "war_drum":
+            ellipse(cd, (2, 3, 14, 13), (220, 38, 38, 255))
+            ellipse(cd, (4, 5, 12, 11), (254, 240, 138, 255))
+        elif kind == "shadow_clone":
+            ellipse(cd, (3, 3, 9, 9), (168, 85, 247, 200))
+            ellipse(cd, (7, 4, 13, 10), (216, 180, 254, 255))
+            rect(cd, (6, 9, 12, 14), (147, 51, 234, 255))
         elif kind == "might":
             polygon(cd, [(8, 2), (13, 7), (10, 7), (10, 13), (6, 13), (6, 7), (3, 7)], (255, 107, 107, 255))
         elif kind == "armor":
@@ -973,10 +1136,11 @@ HEROES = {
 
 def main():
     save(make_terrain(), "terrain/ground.png")
+    for b_id, b_img in make_terrain_biomes().items():
+        save(b_img, f"terrain/{b_id}.png")
     save(make_props_atlas(), "terrain/props.png")
     make_effects()
-    print(f"Generated terrain, props (with buildings), UI, and effects in {OUT}")
-
+    print(f"Generated terrain, 8 biomes, props (with buildings), UI, and effects in {OUT}")
 
 if __name__ == "__main__":
     main()
