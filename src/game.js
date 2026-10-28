@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, HEIRLOOM_GEAR, STRATAGEMS, VANGUARD_SQUADS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -116,6 +116,11 @@ export class Game {
     this.activeFormation = 'eight_gates';
     this.formationSprite = null;
     this.socketedGems = new Set(['fire_ruby']);
+    this.equippedGear = { helm: 'helm_redmane', weapon_relic: 'sword_sevenstar' };
+    this.activeStratagem = 'empty_fort';
+    this.stratagemCd = 0;
+    this.vanguardSquadId = 'white_feather';
+    this.vanguardUnits = [];
     this.warlordDuel = null;
     this.loadShopUpgrades();
     this.loadCampaignProgress();
@@ -138,6 +143,9 @@ export class Game {
       if (e.key === 'm' || e.key === 'M') this.toggleSound();
       if ((e.key === 'r' || e.key === 'R' || e.key === ' ') && this.state === 'playing') {
         this.triggerMusouUltimate();
+      }
+      if ((e.key === 'e' || e.key === 'E') && this.state === 'playing') {
+        this.triggerStratagem();
       }
     });
     window.addEventListener('keyup', (e) => { this.keys[e.key] = false; });
@@ -539,18 +547,19 @@ export class Game {
     this.menuContainer.addChild(codexBtn);
 
     const isEndless = this.gameMode === 'endless';
+    const isTitanClash = this.gameMode === 'titan_clash';
     const modeBtn = new Container();
     const modeW = Math.round(126 * s), modeH = Math.round(20 * s);
     const modeBg = new Graphics();
     modeBg.roundRect(0, 0, modeW, modeH, 4)
-      .fill({ color: isEndless ? 0x3b1219 : 0x16202b, alpha: 0.96 })
-      .stroke({ color: isEndless ? 0xff5f5f : 0x6bffb0, width: 1.3 });
+      .fill({ color: isTitanClash ? 0x311042 : (isEndless ? 0x3b1219 : 0x16202b), alpha: 0.96 })
+      .stroke({ color: isTitanClash ? 0x00f5d4 : (isEndless ? 0xff5f5f : 0x6bffb0), width: 1.3 });
     modeBtn.addChild(modeBg);
     const modeTxt = new Text({
-      text: isEndless
-        ? `ENDLESS (BEST W${this.endlessBestWave || 1})`
-        : 'MODE: CAMPAIGN',
-      style: new TextStyle({ fill: isEndless ? 0xff9e80 : 0x6bffb0, fontSize: Math.round(7.2 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+      text: isTitanClash
+        ? 'MODE: TITAN CLASH'
+        : (isEndless ? `ENDLESS (BEST W${this.endlessBestWave || 1})` : 'MODE: CAMPAIGN'),
+      style: new TextStyle({ fill: isTitanClash ? 0x00f5d4 : (isEndless ? 0xff9e80 : 0x6bffb0), fontSize: Math.round(7.2 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     modeTxt.anchor.set(0.5);
     modeTxt.x = Math.round(modeW / 2);
@@ -563,7 +572,8 @@ export class Game {
     modeBtn.on('pointertap', () => {
       this.sfx.unlock();
       this.sfx.play('select');
-      this.gameMode = this.gameMode === 'endless' ? 'campaign' : 'endless';
+      const modes = ['campaign', 'endless', 'titan_clash'];
+      this.gameMode = modes[(modes.indexOf(this.gameMode) + 1) % modes.length];
       this.buildMenu();
     });
     this.menuContainer.addChild(modeBtn);
@@ -1703,6 +1713,11 @@ export class Game {
     this.activeFireTornado = null;
     this.playerFrostSlowTimer = 0;
     this.warlordDuel = null;
+    this.stratagemCd = 0;
+    for (const vu of (this.vanguardUnits || [])) {
+      if (vu.sprite) vu.sprite.destroy();
+    }
+    this.vanguardUnits = [];
     this.partnerTimer = 7.5;
     this.mythicFusion = null;
     this.activeWaveEvent = null;
@@ -2053,19 +2068,33 @@ export class Game {
         gemDmg += ELEMENTAL_GEMS[gid]?.dmgBonus || 0;
       }
     }
+    let gearHp = 0, gearArmor = 0, gearDmg = 0, gearCd = 0, gearXp = 0, gearSpd = 0, gearMag = 0;
+    if (this.equippedGear) {
+      for (const gid of Object.values(this.equippedGear)) {
+        const gItem = HEIRLOOM_GEAR[gid];
+        if (!gItem) continue;
+        gearHp += gItem.hpBonus || 0;
+        gearArmor += gItem.armorBonus || 0;
+        gearDmg += gItem.dmgBonus || 0;
+        gearCd += gItem.cdBonus || 0;
+        gearXp += gItem.xpBonus || 0;
+        gearSpd += gItem.speedBonus || 0;
+        gearMag += gItem.magnetBonus || 0;
+      }
+    }
 
-    const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp;
+    const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp + gearHp;
     if (nextMaxHp > this.player.maxHp) {
       this.player.hp += (nextMaxHp - this.player.maxHp);
     }
     this.player.maxHp = nextMaxHp;
-    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
-    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + fSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.42, 1 - permCd - relicCd - bloodMoonCd - tCd - fCd);
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + gearDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + gearArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + fSpd + gearSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.40, 1 - permCd - relicCd - bloodMoonCd - tCd - fCd - gearCd);
     this.player.areaMul = (1 + relicArea + tArea + fArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
-    this.player.magnetBonus = (su.magnet_perm || 0) * 30 + (fSpec.magnetBonus || 0);
+    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + gearXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.magnetBonus = (su.magnet_perm || 0) * 30 + (fSpec.magnetBonus || 0) + gearMag;
   }
 
   setFormation(formationId = 'eight_gates') {
@@ -2093,6 +2122,110 @@ export class Game {
       this.showFloatText(this.player.x, this.player.y - 32, `💎 GEM SOCKETED: ${gSpec.name.toUpperCase()} (${gSpec.desc})!`, gSpec.color);
     }
     return gSpec;
+  }
+
+  equipHeirloomGear(gearId = 'sword_sevenstar') {
+    const gSpec = HEIRLOOM_GEAR[gearId];
+    if (!gSpec) return null;
+    this.equippedGear = this.equippedGear || {};
+    this.equippedGear[gSpec.slot] = gearId;
+    this.recomputeStats();
+    if (this.player) {
+      this.sfx.play('levelup');
+      this.showFloatText(this.player.x, this.player.y - 34, `🛡 HEIRLOOM EQUIPPED: ${gSpec.name.toUpperCase()} (${gSpec.desc})!`, gSpec.color);
+    }
+    return gSpec;
+  }
+
+  triggerStratagem(forceId = null) {
+    if (!this.player) return null;
+    if (!forceId && (this.stratagemCd || 0) > 0) return null;
+    const p = this.player;
+    const stratKeys = Object.keys(STRATAGEMS);
+    const sId = (forceId && STRATAGEMS[forceId]) ? forceId : (this.activeStratagem || 'empty_fort');
+    const sSpec = STRATAGEMS[sId] || STRATAGEMS.empty_fort;
+    this.stratagemCd = sSpec.cd || 15.0;
+    this.activeStratagem = stratKeys[(stratKeys.indexOf(sId) + 1) % stratKeys.length];
+    this.sfx.play('evolve');
+    this.flashScreen(sSpec.color, 0.25);
+    this.spawnShockwave(p.x, p.y, sSpec.color, 0.55, 4.2, 0.35);
+    this.showFloatText(p.x, p.y - 40, `📜 STRATAGEM [E]: ${sSpec.name.toUpperCase()}!`, sSpec.color);
+
+    if (sId === 'empty_fort') {
+      p.invuln = Math.max(p.invuln || 0, 4.5);
+      for (const e of this.enemies) {
+        if (e.active && !e.isUfo && dist2(e.x, e.y, p.x, p.y) <= 240 * 240) {
+          e.speed *= 0.45;
+        }
+      }
+    } else if (sId === 'borrow_arrows') {
+      for (const pr of this.projectiles) {
+        if (pr.active && pr.fromEnemy) pr.life = 0;
+      }
+      for (let i = 0; i < 24; i++) {
+        const a = (i * Math.PI * 2) / 24;
+        this.spawnProjectile(p.x, p.y, a, 95 * (p.dmgMul || 1), 1.25, 0x38bdf8, null, true, 4, true, true, true);
+      }
+    } else if (sId === 'chibi_fire') {
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        const fx = Math.round(p.x + Math.cos(a) * 110);
+        const fy = Math.round(p.y + Math.sin(a) * 110);
+        this.spawnExplosion(fx, fy, 0.65, 2.2, 0xef4444, 0.35);
+        this.groundZones.push({
+          kind: 'fire_pool',
+          x: fx,
+          y: fy,
+          radius: 46,
+          dmg: 75 * (p.dmgMul || 1),
+          area: 1.2,
+          life: 4.5,
+          tickCd: 0.1,
+          color: 0xef4444,
+        });
+      }
+    } else if (sId === 'chain_link') {
+      const targets = this.nearestEnemies(p.x, p.y, 16);
+      if (targets.length) {
+        const points = [{ x: p.x, y: p.y }];
+        for (const t of targets) {
+          points.push({ x: t.x, y: t.y });
+          this.damageEnemy(t, 145 * (p.dmgMul || 1), p.x, p.y);
+        }
+        this.lightningArcs.push({ points, color: 0xfde047, life: 0.35 });
+      }
+    }
+    return sSpec;
+  }
+
+  summonVanguardSquad(squadId = 'white_feather') {
+    const vSpec = VANGUARD_SQUADS[squadId] || VANGUARD_SQUADS.white_feather;
+    this.vanguardSquadId = vSpec.id;
+    for (const vu of (this.vanguardUnits || [])) {
+      if (vu.sprite) vu.sprite.destroy();
+    }
+    this.vanguardUnits = [];
+    const p = this.player || { x: 0, y: 0 };
+    const texList = this.enemyTextures?.[vSpec.unitType] || this.enemyTextures?.soldier;
+    for (let i = 0; i < vSpec.count; i++) {
+      const sp = new Sprite(texList?.[0] || this.effectTextures.impact);
+      sp.anchor.set(0.5, 0.6);
+      sp.scale.set(0.84);
+      sp.tint = vSpec.color;
+      this.petLayer.addChild(sp);
+      this.vanguardUnits.push({
+        idx: i,
+        spec: vSpec,
+        x: p.x,
+        y: p.y,
+        cdTimer: 0.3 + i * 0.15,
+        sprite: sp,
+      });
+    }
+    if (this.player) {
+      this.showFloatText(p.x, p.y - 30, `⚔ VANGUARD RETINUE: ${vSpec.name.toUpperCase()} DEPLOYED!`, vSpec.color);
+    }
+    return this.vanguardUnits;
   }
 
   getWeaponStats(w) {
@@ -2622,10 +2755,18 @@ export class Game {
 
   startWave(waveNum = 1) {
     const { map, stage } = this.getStageSpec();
-    const isEndless = this.gameMode === 'endless';
+    const isEndless = this.gameMode === 'endless' || this.gameMode === 'titan_clash';
+    const isTitanClash = this.gameMode === 'titan_clash';
     this.currentWave = isEndless ? Math.max(1, waveNum) : clamp(waveNum, 1, stage.waves);
     const isEarlyCampaign = this.mapIndex === 0 && !isEndless;
     this.finalWaveSpawned = isEndless ? (this.currentWave % 5 === 0) : (this.currentWave >= stage.waves);
+    if (isTitanClash) {
+      const titanCycle = ['kaiju', 'ghidorah', 'mothra', 'rodan', 'mechagodzilla', 'biollante'];
+      const t1 = titanCycle[(this.currentWave * 2 - 2) % titanCycle.length];
+      const t2 = titanCycle[(this.currentWave * 2 - 1) % titanCycle.length];
+      this.spawnKaijuBoss(t1);
+      this.spawnKaijuBoss(t2);
+    }
     const waveCurve = isEarlyCampaign
       ? ([9, 13, 18, 24, 300][this.currentWave - 1] || 14)
       : ([14, 24, 36, 50, 300][(this.currentWave - 1) % 5] || 20);
@@ -3264,7 +3405,10 @@ export class Game {
   spawnKaijuBoss(forceKind = null) {
     if (!this.player) return null;
     const { stage } = this.getStageSpec();
-    const kind = forceKind || (Math.random() < 0.45 ? 'ghidorah' : 'kaiju');
+    const titanKinds = ['kaiju', 'ghidorah', 'mothra', 'rodan', 'mechagodzilla', 'biollante'];
+    const kind = (forceKind && ENEMY_TYPES[forceKind])
+      ? forceKind
+      : titanKinds[Math.floor(Math.random() * titanKinds.length)];
     const isGhidorah = kind === 'ghidorah';
     const d = ENEMY_TYPES[kind] || ENEMY_TYPES.kaiju;
     const ang = Math.random() * Math.PI * 2;
@@ -3292,7 +3436,7 @@ export class Game {
     e.dmg = d.dmg * (stage.dmgMul || 1);
     e.size = 52;
     e.xp = d.xp || 250;
-    e.color = isGhidorah ? 0xfde047 : 0x00f5d4;
+    e.color = d.color || (isGhidorah ? 0xfde047 : 0x00f5d4);
     e.ranged = true;
     e.explosive = true;
     e.isCatapult = false;
@@ -3310,7 +3454,7 @@ export class Game {
     e.isBoss = true;
     e.isMapBoss = false;
     e.enraged = false;
-    e.bossName = isGhidorah ? 'KING GHIDORAH' : 'KAIJU GODZILLA';
+    e.bossName = (d.name || 'KAIJU TITAN').toUpperCase();
     e.hitFlash = 0;
     e.knock = 0;
     e.kx = 0;
@@ -3323,7 +3467,7 @@ export class Game {
     this.showFloatText(
       this.player.x,
       this.player.y - 42,
-      isGhidorah ? '⚠ RARE 3-HEADED KING GHIDORAH EMERGED!' : '⚠ RARE KAIJU GODZILLA EMERGED!',
+      `⚠ RARE TITAN EMERGED: ${e.bossName}!`,
       e.color,
     );
     const luckBonus = (this.shopUpgrades?.luck_perm || 0) * 0.06;
@@ -3407,9 +3551,9 @@ export class Game {
     if (!this.player) return null;
     const p = this.player;
     const guardians = [
-      { id: 'ultraman', name: 'ULTRAMAN', ray: 'SPECIUM RAY', color: 0x38bdf8, tint: 0xffffff },
-      { id: 'mecha', name: 'COLOSSAL MECHA-GENERAL', ray: 'HEAVEN HALBERD BEAM', color: 0xfde047, tint: 0xffe066 },
-      { id: 'dragon', name: 'CELESTIAL GOLDEN DRAGON', ray: 'IMPERIAL DRAGON BREATH', color: 0x4ade80, tint: 0x86efac },
+      { id: 'ultraman', spriteKey: 'ultraman', name: 'ULTRAMAN', ray: 'SPECIUM RAY', color: 0x38bdf8, tint: 0xffffff },
+      { id: 'mecha', spriteKey: 'guardian_mecha', name: 'COLOSSAL MECHA-GENERAL', ray: 'HEAVEN HALBERD BEAM', color: 0xfde047, tint: 0xffffff },
+      { id: 'dragon', spriteKey: 'guardian_dragon', name: 'CELESTIAL GOLDEN DRAGON', ray: 'IMPERIAL DRAGON BREATH', color: 0x4ade80, tint: 0xffffff },
     ];
     const gSpec = forceGuardian
       ? (guardians.find((g) => g.id === forceGuardian) || guardians[0])
@@ -3427,13 +3571,14 @@ export class Game {
       this.ultraman.timer = duration;
       this.ultraman.maxTimer = duration;
       this.ultraman.guardian = gSpec;
+      this.ultraman.sprite.texture = this.effectTextures[gSpec.spriteKey] || this.effectTextures.ultraman;
       this.ultraman.sprite.tint = gSpec.tint;
       return this.ultraman;
     }
     const shadow = new Graphics();
     shadow.ellipse(0, 32, 26, 9).fill({ color: 0x000000, alpha: 0.45 });
     this.petLayer.addChild(shadow);
-    const sprite = new Sprite(this.effectTextures.ultraman || this.effectTextures.impact);
+    const sprite = new Sprite(this.effectTextures[gSpec.spriteKey] || this.effectTextures.ultraman || this.effectTextures.impact);
     sprite.anchor.set(0.5, 0.62);
     sprite.scale.set(2.85);
     sprite.tint = gSpec.tint;
@@ -3484,7 +3629,8 @@ export class Game {
     u.sprite.x = Math.round(u.x);
     u.sprite.y = Math.round(u.y + bob);
     // Animate across the 4 SD Ultra Battle Ultraman frames (Frame 3 = Specium/Wide-Shot L-Arm pose during beam fire!)
-    const uFrames = this.effectTextures.ultramanFrames;
+    const fKey = `${u.guardian?.spriteKey || 'ultraman'}Frames`;
+    const uFrames = this.effectTextures[fKey] || this.effectTextures.ultramanFrames;
     if (uFrames && uFrames.length === 4) {
       const uFrameIdx = u.cdTimer > 0.32 ? 3 : (Math.floor(this.animTime * 6) % 3);
       u.sprite.texture = uFrames[uFrameIdx];
@@ -3861,6 +4007,34 @@ export class Game {
       }
       this.musouBtnTxt.text = ready ? '★ MUSOU [R] ★' : `MUSOU ${pct}%`;
       this.musouBtnTxt.style.fill = ready ? 0xfde047 : 0xcbd5e1;
+    }
+    if (this.stratagemCd > 0) {
+      this.stratagemCd = Math.max(0, this.stratagemCd - dt);
+    }
+    // Feature 5: Update 4-Man Sworn Vanguard Retinue Squad
+    if (this.vanguardUnits?.length) {
+      const frame = Math.floor(this.animTime * 8) % 4;
+      for (let i = 0; i < this.vanguardUnits.length; i++) {
+        const vu = this.vanguardUnits[i];
+        const ang = (i * Math.PI) / 2 + 0.4;
+        const tx = p.x + Math.cos(ang) * 38;
+        const ty = p.y + Math.sin(ang) * 32;
+        vu.x += (tx - vu.x) * Math.min(1, dt * 10);
+        vu.y += (ty - vu.y) * Math.min(1, dt * 10);
+        vu.sprite.x = Math.round(vu.x);
+        vu.sprite.y = Math.round(vu.y);
+        const texList = this.enemyTextures?.[vu.spec.unitType];
+        if (texList?.[frame]) vu.sprite.texture = texList[frame];
+        vu.cdTimer -= dt;
+        if (vu.cdTimer <= 0) {
+          vu.cdTimer = 0.95;
+          const ne = this.nearestEnemy(vu.x, vu.y);
+          if (ne && dist2(vu.x, vu.y, ne.x, ne.y) <= 210 * 210) {
+            const a = angleTo(vu.x, vu.y, ne.x, ne.y);
+            this.spawnProjectile(vu.x, vu.y, a, vu.spec.dmg * (p.dmgMul || 1), 0.9, vu.spec.color, null, false, 2, false, false, true);
+          }
+        }
+      }
     }
 
     // Feature 2: Update Sworn Partner General Assist

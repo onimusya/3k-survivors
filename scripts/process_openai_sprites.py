@@ -241,9 +241,33 @@ def process_gems_and_forts():
         print(f"Saved OpenAI Gem/Formation sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
 
 
+def make_4frame_from_single(sprite_img: Image.Image) -> Image.Image:
+    """Build a 256x64 4-frame animated sheet from a cropped transparent sprite with 4-phase stride/wing bob."""
+    sheet = Image.new("RGBA", (256, 64), (0, 0, 0, 0))
+    scale = min(60 / max(1, sprite_img.width), 60 / max(1, sprite_img.height))
+    bw = max(1, int(round(sprite_img.width * scale)))
+    bh = max(1, int(round(sprite_img.height * scale)))
+    for f_idx, (dw, dh, dy) in enumerate(((0, 0, 0), (2, -2, -1), (0, 0, 1), (-2, 2, -1))):
+        cell = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        nw = max(1, min(62, bw + dw))
+        nh = max(1, min(62, bh + dh))
+        resized = sprite_img.resize((nw, nh), Image.Resampling.NEAREST)
+        cx = (64 - nw) // 2
+        cy = max(0, min(64 - nh, (64 - nh) // 2 + dy))
+        cell.paste(resized, (cx, cy))
+        sheet.paste(cell, (f_idx * 64, 0))
+    return sheet
+
+
 def process_titans():
     atlas_path = OUT_DIR / "enemies" / "atlas.png"
     atlas = Image.open(atlas_path).convert("RGBA") if atlas_path.exists() else None
+    # Ensure atlas is 26 rows tall (256 x 1664) so rows 22..25 hold mothra, rodan, mechagodzilla, biollante
+    if atlas is not None and atlas.height < 26 * 64:
+        expanded = Image.new("RGBA", (256, 26 * 64), (0, 0, 0, 0))
+        expanded.paste(atlas, (0, 0))
+        atlas = expanded
+
     titan_specs = [
         ("kaiju", MEDIA_DIR / "openai_godzilla.png", 10, 6, False),
         ("ghidorah", MEDIA_DIR / "openai_ghidorah.png", 12, 14, True),
@@ -277,13 +301,100 @@ def process_titans():
         sheet.save(out_path, format="PNG", optimize=True)
         print(f"Saved OpenAI 4-frame Titan sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
         if atlas is not None:
-            # Clear row in atlas first, then paste the 4-frame 256x64 sheet
             atlas.paste((0, 0, 0, 0), (0, atlas_row * 64, 256, (atlas_row + 1) * 64))
             atlas.alpha_composite(sheet, (0, atlas_row * 64))
 
+    # Process 4 New v0.6.0 Titans (mothra=row 22, rodan=row 23, mechagodzilla=row 24, biollante=row 25)
+    v060_path = MEDIA_DIR / "openai_titans_v060.png"
+    if v060_path.exists():
+        img = Image.open(v060_path).convert("RGBA")
+        w, h = img.size
+        hw, hh = w // 2, h // 2
+        new_titans = [
+            ("mothra", (0, 0, hw, hh), 22, 12, False),
+            ("rodan", (hw, 0, w, hh), 23, 12, False),
+            ("mechagodzilla", (0, hh, hw, h), 24, 10, False),
+            ("biollante", (hw, hh, w, h), 25, 10, False),
+        ]
+        for t_key, box, row_idx, thresh, clear_int in new_titans:
+            q = remove_black_bg(img.crop(box), threshold=thresh, clear_interior=clear_int)
+            bbox = q.getbbox()
+            if bbox:
+                q = q.crop(bbox)
+            sheet = make_4frame_from_single(q)
+            out_path = OUT_DIR / "enemies" / f"{t_key}.png"
+            sheet.save(out_path, format="PNG", optimize=True)
+            print(f"Saved OpenAI v0.6.0 Titan sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
+            if atlas is not None:
+                atlas.paste((0, 0, 0, 0), (0, row_idx * 64, 256, (row_idx + 1) * 64))
+                atlas.alpha_composite(sheet, (0, row_idx * 64))
+
+    # Process 3 Guardians + Cosmic UFO (openai_guardians_ufo.png)
+    g_path = MEDIA_DIR / "openai_guardians_ufo.png"
+    if g_path.exists():
+        img = Image.open(g_path).convert("RGBA")
+        w, h = img.size
+        hw, hh = w // 2, h // 2
+        g_quads = [
+            ("ultraman", (0, 0, hw, hh), True),
+            ("guardian_mecha", (hw, 0, w, hh), False),
+            ("guardian_dragon", (0, hh, hw, h), False),
+            ("ufo", (hw, hh, w, h), True),
+        ]
+        for g_key, box, is_sheet in g_quads:
+            q = remove_black_bg(img.crop(box), threshold=12, clear_interior=False)
+            bbox = q.getbbox()
+            if bbox:
+                q = q.crop(bbox)
+            sheet = make_4frame_from_single(q)
+            if g_key == "ufo":
+                ufo_path = OUT_DIR / "enemies" / "ufo.png"
+                sheet.save(ufo_path, format="PNG", optimize=True)
+                if atlas is not None:
+                    atlas.paste((0, 0, 0, 0), (0, 11 * 64, 256, 12 * 64))
+                    atlas.alpha_composite(sheet, (0, 11 * 64))
+                print(f"Saved OpenAI 4-frame Cosmic UFO sheet: {ufo_path.relative_to(ROOT)} ({sheet.size})")
+            elif g_key == "ultraman":
+                u_path = OUT_DIR / "effects" / "ultraman.png"
+                sheet.save(u_path, format="PNG", optimize=True)
+                print(f"Saved OpenAI 4-frame Ultraman Guardian sheet: {u_path.relative_to(ROOT)} ({sheet.size})")
+            else:
+                g_out = OUT_DIR / "effects" / f"{g_key}.png"
+                sheet.save(g_out, format="PNG", optimize=True)
+                print(f"Saved OpenAI 4-frame Guardian sheet: {g_out.relative_to(ROOT)} ({sheet.size})")
+
     if atlas is not None:
         atlas.save(atlas_path, format="PNG", optimize=True)
-        print(f"Updated combined enemy atlas with OpenAI Titans: {atlas_path.relative_to(ROOT)} ({atlas.size})")
+        print(f"Updated combined enemy atlas with all 6 Titans + UFO: {atlas_path.relative_to(ROOT)} ({atlas.size})")
+
+
+def process_gear_and_stratagems():
+    src_path = MEDIA_DIR / "openai_gear_stratagems.png"
+    if not src_path.exists():
+        return
+    img = Image.open(src_path).convert("RGBA")
+    w, h = img.size
+    cw, ch = w // 4, h // 2
+    names = [
+        "gear_helm", "gear_armor", "gear_sword", "gear_scroll",
+        "gear_boots", "gear_pendant", "stratagem_seal", "tiger_tally",
+    ]
+    for idx, name in enumerate(names):
+        col = idx % 4
+        row = idx // 4
+        cell = remove_black_bg(img.crop((col * cw + 4, row * ch + 4, (col + 1) * cw - 4, (row + 1) * ch - 4)), threshold=16, clear_interior=True)
+        bbox = cell.getbbox()
+        if bbox:
+            cell = cell.crop(bbox)
+        canvas = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+        scale = min(44 / max(1, cell.width), 44 / max(1, cell.height))
+        nw = max(1, int(round(cell.width * scale)))
+        nh = max(1, int(round(cell.height * scale)))
+        resized = cell.resize((nw, nh), Image.Resampling.NEAREST)
+        canvas.paste(resized, ((48 - nw) // 2, (48 - nh) // 2))
+        out_path = OUT_DIR / "effects" / f"{name}.png"
+        canvas.save(out_path, format="PNG", optimize=True)
+        print(f"Saved OpenAI Heirloom Gear/Stratagem sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
 
 
 if __name__ == "__main__":
@@ -293,3 +404,4 @@ if __name__ == "__main__":
     process_mounts()
     process_gems_and_forts()
     process_titans()
+    process_gear_and_stratagems()

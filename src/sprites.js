@@ -77,6 +77,16 @@ const EFFECTS = {
   gem_ice: new URL('../assets/sprites/effects/gem_ice.png', import.meta.url).href,
   gem_thunder: new URL('../assets/sprites/effects/gem_thunder.png', import.meta.url).href,
   formation_bagua: new URL('../assets/sprites/effects/formation_bagua.png', import.meta.url).href,
+  guardian_mecha: new URL('../assets/sprites/effects/guardian_mecha.png', import.meta.url).href,
+  guardian_dragon: new URL('../assets/sprites/effects/guardian_dragon.png', import.meta.url).href,
+  gear_helm: new URL('../assets/sprites/effects/gear_helm.png', import.meta.url).href,
+  gear_armor: new URL('../assets/sprites/effects/gear_armor.png', import.meta.url).href,
+  gear_sword: new URL('../assets/sprites/effects/gear_sword.png', import.meta.url).href,
+  gear_scroll: new URL('../assets/sprites/effects/gear_scroll.png', import.meta.url).href,
+  gear_boots: new URL('../assets/sprites/effects/gear_boots.png', import.meta.url).href,
+  gear_pendant: new URL('../assets/sprites/effects/gear_pendant.png', import.meta.url).href,
+  stratagem_seal: new URL('../assets/sprites/effects/stratagem_seal.png', import.meta.url).href,
+  tiger_tally: new URL('../assets/sprites/effects/tiger_tally.png', import.meta.url).href,
 };
 const VFX_SHEETS = {
   explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
@@ -108,6 +118,7 @@ const ENEMY_TYPES = [
   'boss_chengyuanzhi', 'boss_dengmao', 'elite',
   'boss_huzhen', 'boss_lijue', 'boss_huaxiong',
   'boss_caimao', 'boss_zhangyun', 'boss_caoren',
+  'mothra', 'rodan', 'mechagodzilla', 'biollante',
 ];
 
 function nearest(texture) {
@@ -236,13 +247,13 @@ export async function loadSpriteAssets(onProgress = null) {
   const effectFrames = {};
   await Promise.all(effectEntries.map(async ([id, url]) => {
     const tex = nearest(await Assets.load(url));
-    if (id === 'ultraman' && tex.width >= 256) {
+    if ((id === 'ultraman' || id === 'guardian_mecha' || id === 'guardian_dragon') && tex.width >= 256) {
       const uFrames = [];
       for (let c = 0; c < 4; c++) {
-        uFrames.push(frame(tex.source, c * 64, 0, 64, 64, `ultraman-${c}`));
+        uFrames.push(frame(tex.source, c * 64, 0, 64, 64, `${id}-${c}`));
       }
-      effectFrames.ultramanFrames = uFrames;
-      effectFrames.ultraman = uFrames[0];
+      effectFrames[`${id}Frames`] = uFrames;
+      effectFrames[id] = uFrames[0];
     } else {
       effectFrames[id] = tex;
     }

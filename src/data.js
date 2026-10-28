@@ -256,6 +256,28 @@ export const ELEMENTAL_GEMS = {
   poison_jade: { id: 'poison_jade', name: 'Venomous Serpent Jade', sprite: 'gem_fire', tint: 0x4ade80, color: 0x4ade80, dmgBonus: 0.20, desc: '+20% Corrosive Venom Damage' },
   blood_garnet: { id: 'blood_garnet', name: 'Vampiric Bloodstone', sprite: 'gem_fire', tint: 0xf43f5e, color: 0xf43f5e, lifesteal: 3, desc: 'Restores +3 HP every 6 enemy kills' },
 };
+export const HEIRLOOM_GEAR = {
+  helm_redmane: { id: 'helm_redmane', slot: 'helm', name: 'Phoenix-Plume War Helm', sprite: 'gear_helm', color: 0xfde047, hpBonus: 35, armorBonus: 2, desc: '+35 Max HP & +2 Armor' },
+  armor_brightsilver: { id: 'armor_brightsilver', slot: 'armor', name: 'Bright Silver Scale Mail', sprite: 'gear_armor', color: 0x38bdf8, armorBonus: 3, hpBonus: 25, desc: '+3 Armor & +25 Max HP' },
+  sword_sevenstar: { id: 'sword_sevenstar', slot: 'weapon_relic', name: 'Seven-Star Jeweled Blade', sprite: 'gear_sword', color: 0xf97316, dmgBonus: 0.25, desc: '+25% All Weapon Damage' },
+  scroll_artofwar: { id: 'scroll_artofwar', slot: 'tome', name: 'Sun Tzu Art of War Scroll', sprite: 'gear_scroll', color: 0x4ade80, cdBonus: 0.12, xpBonus: 0.25, desc: '-12% Cooldown & +25% XP Gain' },
+  boots_cloudstep: { id: 'boots_cloudstep', slot: 'boots', name: 'Cloud-Stepping Silk Boots', sprite: 'gear_boots', color: 0x7dd3fc, speedBonus: 0.20, desc: '+20% Move Speed & Evasion' },
+  pendant_imperial: { id: 'pendant_imperial', slot: 'pendant', name: 'Imperial Dragon Jade Pendant', sprite: 'gear_pendant', color: 0x10b981, hpRegen: 2.5, magnetBonus: 50, desc: '+2.5 HP/s Regen & +50px Magnet' },
+};
+
+export const STRATAGEMS = {
+  empty_fort: { id: 'empty_fort', name: 'Empty Fort Strategy', sprite: 'stratagem_seal', color: 0xc084fc, cd: 16.0, desc: '4.5s Invulnerability + Decoy Taunt Freeze!' },
+  borrow_arrows: { id: 'borrow_arrows', name: 'Borrowing Arrows (Straw Boats)', sprite: 'stratagem_seal', color: 0x38bdf8, cd: 15.0, desc: 'Absorbs enemy bolts & fires 24 Homing Arrows!' },
+  chibi_fire: { id: 'chibi_fire', name: 'Fire Attack at Chibi', sprite: 'stratagem_seal', color: 0xef4444, cd: 16.0, desc: 'Ignites the battlefield with 8 Blazing Fire Pools!' },
+  chain_link: { id: 'chain_link', name: 'Iron Chain Stratagem', sprite: 'tiger_tally', color: 0xfde047, cd: 15.0, desc: 'Chains lightning across 16 foes for massive damage!' },
+};
+
+export const VANGUARD_SQUADS = {
+  white_feather: { id: 'white_feather', name: 'White-Feathered Guards', unitType: 'soldier', color: 0x4ade80, count: 4, dmg: 26, desc: '4 Shu Elite Guards march & thrust in formation' },
+  tiger_leopard: { id: 'tiger_leopard', name: 'Tiger & Leopard Cavalry', unitType: 'cavalry', color: 0x38bdf8, count: 4, dmg: 32, desc: '4 Wei Heavy Cavalry charge nearby enemies' },
+  xiliang_iron: { id: 'xiliang_iron', name: 'Xiliang Iron Lancers', unitType: 'halberdier', color: 0xfde047, count: 4, dmg: 30, desc: '4 Western Halberdiers cleave surrounding foes' },
+  rattan_guard: { id: 'rattan_guard', name: 'Nanman Rattan Vanguard', unitType: 'shield', color: 0xf97316, count: 4, dmg: 28, desc: '4 Armored Shield-Guards bash & block bolts' },
+};
 
 export const ENEMY_TYPES = {
   soldier: { name:'Militia Spearman', color:0x7a8a9a, hp:8, speed:60, dmg:6, size:14, xp:1, weight:50 },
@@ -281,6 +303,10 @@ export const ENEMY_TYPES = {
   boss_caimao: { name:'Cai Mao', color:0x5ca8ff, hp:185, speed:84, dmg:13, size:24, xp:42, weight:0, boss:true },
   boss_zhangyun: { name:'Zhang Yun', color:0x7cb8ff, hp:205, speed:88, dmg:14, size:25, xp:45, weight:0, boss:true },
   boss_caoren: { name:'Cao Ren', color:0x6b9fff, hp:230, speed:90, dmg:15, size:25, xp:50, weight:0, boss:true },
+  mothra:        { name:'Queen Mothra Titan',   color:0x38bdf8, hp:11000, speed:48, dmg:27, size:30, xp:260, weight:0, boss:true, isKaiju:true, isMothra:true, knockResist:0.99 },
+  rodan:         { name:'Fire Demon Rodan',     color:0xf97316, hp:11800, speed:52, dmg:28, size:30, xp:270, weight:0, boss:true, isKaiju:true, isRodan:true, knockResist:0.99 },
+  mechagodzilla: { name:'Mecha-Godzilla Kiryu', color:0x94a3b8, hp:14000, speed:44, dmg:32, size:32, xp:320, weight:0, boss:true, isKaiju:true, isMechaG:true, knockResist:0.99 },
+  biollante:     { name:'Abyssal Biollante',    color:0x4ade80, hp:12800, speed:40, dmg:30, size:32, xp:290, weight:0, boss:true, isKaiju:true, isBiollante:true, knockResist:0.99 },
 };
 
 export const LEVEL_XP = (lvl) => Math.floor(20 * Math.pow(1.15, lvl - 1));
