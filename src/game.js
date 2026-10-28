@@ -3045,10 +3045,6 @@ export class Game {
     for (const e of this.enemies) {
       if (!e.active) continue;
       if (dist2(e.x, e.y, x, y) <= blastRadius2) {
-        if (e.isKaiju) {
-          this.showFloatText(e.x, e.y - 28, 'BOMB IMMUNE!', 0x00f5d4);
-          continue;
-        }
         this.damageEnemy(e, blastDmg, x, y, false, true);
       }
     }
@@ -4439,7 +4435,7 @@ export class Game {
           this.showFloatText(hz.x, hz.y - 24, '💥 OIL BARREL DETONATED!', 0xffae42);
           const barrelDmg = 165 * (p.dmgMul || 1);
           for (const e of this.enemies) {
-            if (!e.active || e.isKaiju) continue;
+            if (!e.active) continue;
             if (dist2(e.x, e.y, hz.x, hz.y) <= 230 * 230) {
               this.damageEnemy(e, barrelDmg, hz.x, hz.y, false, true);
             }
@@ -5418,7 +5414,7 @@ export class Game {
             this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.7, 3.2, 0.36);
             this.spawnExplosion(e.x, e.y, 0.7, 2.4, 0x00f5d4, 0.32);
             if (d <= 140) {
-              this.damagePlayerPercent(0.35, 0.50, 'KAIJU STOMP', {
+              this.damagePlayerPercent(0.25, 0.40, 'KAIJU STOMP', {
                 name: 'Kaiju Godzilla Titan',
                 spriteType: 'kaiju',
                 attack: 'Seismic Stomp (AoE)',
@@ -5497,7 +5493,7 @@ export class Game {
         this.spawnExplosion(gx, gy, 0.6, 2.1, 0x00f5d4, 0.36);
         this.spawnShockwave(gx, gy, 0x7dd3fc, 0.45, 2.1, 0.28);
         if (dist2(gx, gy, p.x, p.y) <= 82 * 82) {
-          this.damagePlayerPercent(0.35, 0.50, 'KAIJU ATOMIC BREATH', kaijuKiller);
+          this.damagePlayerPercent(0.25, 0.40, 'KAIJU ATOMIC BREATH', kaijuKiller);
         }
       }
       for (let i = -2; i <= 2; i++) {
@@ -5749,7 +5745,7 @@ export class Game {
           tint: 0xffffff,
         };
         if (pr.isKaijuBolt) {
-          this.damagePlayerPercent(0.35, 0.50, 'KAIJU BOLT', bKiller);
+          this.damagePlayerPercent(0.25, 0.40, 'KAIJU BOLT', bKiller);
         } else {
           this.damagePlayer(pr.dmg, bKiller);
         }
@@ -5767,7 +5763,7 @@ export class Game {
           tint: e.baseTint || 0xffffff,
         };
         if (e.isKaiju) {
-          this.damagePlayerPercent(0.35, 0.50, 'KAIJU SLAM', cKiller);
+          this.damagePlayerPercent(0.25, 0.40, 'KAIJU SLAM', cKiller);
         } else {
           this.damagePlayer(e.dmg * dt * 2, cKiller); // per second
         }
@@ -5887,11 +5883,16 @@ export class Game {
         dmg = e.maxHp * 0.005;
       }
     } else if (e.isKaiju && e.hp > 0) {
-      // Colossal Kaiju Godzilla Titan has 85% Titan Scales Defence + 0.08s armor tick throttle + 0.045% Max-HP cap
-      // -> requires 2-5 minutes (120s-300s) of sustained player attacks to kill unless Ultraman is summoned!
-      if ((e._kaijuArmorCd || 0) > 0) return;
-      e._kaijuArmorCd = 0.08;
-      dmg = Math.min(dmg * 0.15, e.maxHp * 0.00045);
+      if (isBomb) {
+        // Kaiju is 90% immune to Bombs (takes 10% of Bomb/Barrel blast damage, bypassing normal weapon tick throttle)
+        dmg = dmg * 0.10;
+        this.showFloatText(e.x, e.y - 28, `BOMB 90% RESIST (-${Math.max(1, Math.round(dmg))})!`, 0x00f5d4);
+      } else {
+        // Colossal Kaiju Godzilla Titan has 85% Titan Scales Defence + 0.08s armor tick throttle + 0.045% Max-HP cap
+        if ((e._kaijuArmorCd || 0) > 0) return;
+        e._kaijuArmorCd = 0.08;
+        dmg = Math.min(dmg * 0.15, e.maxHp * 0.00045);
+      }
     } else if (e.isMapBoss) {
       // Stage & Campaign Bosses have 15% Warlord Armor Mitigation + 30% Max-HP single-hit cap
       dmg = Math.min(dmg * 0.85, e.maxHp * 0.30);
