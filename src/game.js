@@ -1341,7 +1341,7 @@ export class Game {
         { key: 'catapult', title: 'Siege Catapult', role: 'Explosive Artillery' },
         { key: 'firebird', title: 'Feather-Storm Hawk', role: '5-Way Aerial Volley' },
         { key: 'elite', title: 'Warlord Zhang Jiao', role: 'Campaign Boss' },
-        { key: 'kaiju', title: 'Kaiju Godzilla', role: 'Bomb-Immune Titan' },
+        { key: 'kaiju', title: 'Kaiju Godzilla', role: '90% Bomb-Resist' },
         { key: 'ghidorah', title: 'King Ghidorah', role: '3-Headed Dragon' },
         { key: 'ufo', title: 'Cosmic UFO Saucer', role: '80% HP Lightning' },
       ];
@@ -7040,7 +7040,7 @@ export class Game {
         const bw = e.isKaiju ? 68 : (e.isUfo ? 34 : (e.isBoss ? 36 : 20));
         const bh = e.isKaiju ? 5 : (e.isUfo ? 3.5 : (e.isBoss ? 4 : 2.5));
         const bx = Math.round(e.x - bw / 2);
-        const by = Math.round(e.y - e.size - (e.isKaiju ? 22 : (e.isBoss ? 14 : 9)));
+        const by = Math.round(e.y - e.size - (e.isKaiju ? 44 : (e.isBoss ? 14 : 9)));
         const barCol = e.isKaiju
           ? 0x00f5d4
           : (e.isBoss ? 0xff3b3b : (ratio > 0.55 ? 0x4ade80 : (ratio > 0.25 ? 0xfbbf24 : 0xef4444)));

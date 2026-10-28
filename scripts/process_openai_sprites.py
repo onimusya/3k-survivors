@@ -10,7 +10,7 @@ MEDIA_DIR = ROOT / "assets" / "sprites" / "media_gen"
 OUT_DIR = ROOT / "assets" / "sprites"
 
 
-def remove_black_bg(img: Image.Image, threshold: int = 18) -> Image.Image:
+def remove_black_bg(img: Image.Image, threshold: int = 18, clear_interior: bool = True) -> Image.Image:
     """Remove solid black background (#000000) while preserving dark interior details and crisp pixel edges."""
     rgba = img.convert("RGBA")
     w, h = rgba.size
@@ -40,12 +40,13 @@ def remove_black_bg(img: Image.Image, threshold: int = 18) -> Image.Image:
         elif max(r, g, b) <= threshold + 16:
             # Soft edge feathering for dark rim pixels adjacent to background
             px[x, y] = (r, g, b, 210)
-    # Also clear any enclosed pure-black pockets (e.g., inside bow strings or ring daggers)
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if a > 0 and max(r, g, b) <= 12:
-                px[x, y] = (0, 0, 0, 0)
+    # Optionally clear any enclosed pure-black pockets (e.g., inside bow strings or ring daggers)
+    if clear_interior:
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = px[x, y]
+                if a > 0 and max(r, g, b) <= 12:
+                    px[x, y] = (0, 0, 0, 0)
     return rgba
 
 def make_tile_seamless(tile: Image.Image, size: int = 256) -> Image.Image:
@@ -240,9 +241,55 @@ def process_gems_and_forts():
         print(f"Saved OpenAI Gem/Formation sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
 
 
+def process_titans():
+    atlas_path = OUT_DIR / "enemies" / "atlas.png"
+    atlas = Image.open(atlas_path).convert("RGBA") if atlas_path.exists() else None
+    titan_specs = [
+        ("kaiju", MEDIA_DIR / "openai_godzilla.png", 10, 6, False),
+        ("ghidorah", MEDIA_DIR / "openai_ghidorah.png", 12, 14, True),
+    ]
+    for enemy_key, src_path, atlas_row, thresh, clear_int in titan_specs:
+        if not src_path.exists():
+            continue
+        img = Image.open(src_path).convert("RGBA")
+        w, h = img.size
+        hw, hh = w // 2, h // 2
+        boxes = [
+            (0, 0, hw, hh),
+            (hw, 0, w, hh),
+            (0, hh, hw, h),
+            (hw, hh, w, h),
+        ]
+        sheet = Image.new("RGBA", (256, 64), (0, 0, 0, 0))
+        for f_idx, box in enumerate(boxes):
+            q = remove_black_bg(img.crop(box), threshold=thresh, clear_interior=clear_int)
+            bbox = q.getbbox()
+            if bbox:
+                q = q.crop(bbox)
+            cell = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+            scale = min(62 / max(1, q.width), 62 / max(1, q.height))
+            nw = max(1, int(round(q.width * scale)))
+            nh = max(1, int(round(q.height * scale)))
+            resized = q.resize((nw, nh), Image.Resampling.NEAREST)
+            cell.paste(resized, ((64 - nw) // 2, (64 - nh) // 2))
+            sheet.paste(cell, (f_idx * 64, 0))
+        out_path = OUT_DIR / "enemies" / f"{enemy_key}.png"
+        sheet.save(out_path, format="PNG", optimize=True)
+        print(f"Saved OpenAI 4-frame Titan sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
+        if atlas is not None:
+            # Clear row in atlas first, then paste the 4-frame 256x64 sheet
+            atlas.paste((0, 0, 0, 0), (0, atlas_row * 64, 256, (atlas_row + 1) * 64))
+            atlas.alpha_composite(sheet, (0, atlas_row * 64))
+
+    if atlas is not None:
+        atlas.save(atlas_path, format="PNG", optimize=True)
+        print(f"Updated combined enemy atlas with OpenAI Titans: {atlas_path.relative_to(ROOT)} ({atlas.size})")
+
+
 if __name__ == "__main__":
     process_terrains()
     process_meteors()
     process_weapons()
     process_mounts()
     process_gems_and_forts()
+    process_titans()
