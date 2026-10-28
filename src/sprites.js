@@ -69,6 +69,12 @@ const VFX_SHEETS = {
   hit: { url: new URL('../assets/sprites/vfx/hit.png', import.meta.url).href, w: 32, h: 32, frames: 6 },
   heal: { url: new URL('../assets/sprites/vfx/heal.png', import.meta.url).href, w: 48, h: 48, frames: 10 },
   levelup: { url: new URL('../assets/sprites/vfx/levelup.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
+  volcano: { url: new URL('../assets/sprites/vfx/volcano.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
+  meteor: { url: new URL('../assets/sprites/vfx/meteor.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
+  hailstorm: { url: new URL('../assets/sprites/vfx/hailstorm.png', import.meta.url).href, w: 64, h: 64, frames: 10 },
+  lightning: { url: new URL('../assets/sprites/vfx/lightning.png', import.meta.url).href, w: 64, h: 64, frames: 10 },
+  earthquake: { url: new URL('../assets/sprites/vfx/earthquake.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
+  fire_tornado: { url: new URL('../assets/sprites/vfx/fire-tornado.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
 };
 
 const HERO_FRAME_W = 64;

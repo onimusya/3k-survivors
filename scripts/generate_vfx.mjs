@@ -144,15 +144,136 @@ const RECIPES = {
       { type: 'flash', ramp: '$spark', r: 0.45, dur: 0.1 },
     ],
   },
+  volcano: {
+    name: 'volcano',
+    w: 64,
+    h: 64,
+    frames: 12,
+    fps: 18,
+    loop: false,
+    seed: 31,
+    ramps: { main: 'lava', alt: 'fire', spark: 'solar', smoke: 'ash' },
+    outline: 'outside',
+    dither: 0.1,
+    pivot: [0.5, 0.5],
+    layers: [
+      { type: 'puffs', ramp: '$smoke', y: 0.2, t0: 0.12, t1: 1.0, count: 8, spread: 0.5, rise: 0.65, r0: 0.16, r1: 0.38, gain: 0.72, dissolve: 1 },
+      { type: 'cracks', ramp: '$main', y: 0.28, t0: 0.0, t1: 0.88, count: 7, len: 0.9, squash: 0.42, gain: 0.92 },
+      { type: 'pillar', ramp: '$main', y: 0.36, t0: 0.04, t1: 0.82, w: 0.38, hgt: 1.45, grow: 0.18, rough: 0.6, gain: 0.95 },
+      { type: 'burst', ramp: '$alt', y: 0.22, t0: 0.0, t1: 0.85, r0: 0.15, r1: 0.78, grow: 0.35, rough: 0.62, erode: 1, gain: 0.9 },
+      { type: 'particles', ramp: '$spark', y: 0.15, mode: 'burst', count: 18, speed: [1.6, 3.0], gravity: 2.2, shape: 'chunk', size: [2, 1], gain: 1.0 },
+      { type: 'flash', ramp: '$spark', y: 0.22, r: 0.5, dur: 0.12 },
+    ],
+  },
+  meteor: {
+    name: 'meteor',
+    w: 64,
+    h: 64,
+    frames: 12,
+    fps: 18,
+    loop: false,
+    seed: 37,
+    ramps: { main: 'fire', alt: 'lava', spark: 'solar', smoke: 'smoke' },
+    outline: 'outside',
+    dither: 0.1,
+    pivot: [0.5, 0.5],
+    layers: [
+      { type: 'comet', ramp: '$main', x: 0, y: 0.22, from: [0.85, -0.92], until: 0.38, r: 0.26, len: 1.25, rough: 0.62, gain: 1.0 },
+      { type: 'puffs', ramp: '$smoke', y: 0.22, t0: 0.36, t1: 1.0, count: 8, spread: 0.52, r0: 0.16, r1: 0.38, gain: 0.72, dissolve: 1 },
+      { type: 'cracks', ramp: '$alt', y: 0.26, t0: 0.34, t1: 0.95, count: 7, len: 0.92, squash: 0.42, gain: 0.9 },
+      { type: 'burst', ramp: '$main', y: 0.2, t0: 0.34, t1: 0.96, r0: 0.14, r1: 0.88, grow: 0.32, rough: 0.6, erode: 1, gain: 0.95 },
+      { type: 'ring', ramp: '$spark', y: 0.24, squash: 0.42, t0: 0.34, t1: 0.88, r0: 0.12, r1: 0.96, th: 0.22, breakup: 0.68, gain: 1.0 },
+      { type: 'particles', ramp: '$spark', y: 0.2, t0: 0.34, mode: 'burst', count: 18, speed: [1.8, 3.2], shape: 'streak', size: [2, 1] },
+      { type: 'flash', ramp: '$spark', y: 0.2, t0: 0.34, r: 0.58, dur: 0.12 },
+    ],
+  },
+  hailstorm: {
+    name: 'hailstorm',
+    w: 64,
+    h: 64,
+    frames: 10,
+    fps: 18,
+    loop: false,
+    seed: 41,
+    ramps: { main: 'ice', alt: 'frost', spark: 'white' },
+    outline: 'outside',
+    dither: 0,
+    pivot: [0.5, 0.5],
+    layers: [
+      { type: 'ring', ramp: '$alt', y: 0.28, squash: 0.4, r0: 0.12, r1: 0.94, th: 0.2, breakup: 0.65, gain: 0.88 },
+      { type: 'spikes', ramp: '$main', y: 0.32, count: 6, spread: 0.82, hgt: [0.55, 0.98], width: [0.12, 0.18], fan: 16, grow: 0.22, hold: 0.56, gain: 0.96 },
+      { type: 'rays', ramp: '$spark', y: 0.18, count: 8, r: 0.82, width: 0.16, t0: 0.04, t1: 0.65, gain: 0.85 },
+      { type: 'particles', ramp: '$spark', mode: 'burst', count: 16, speed: [1.5, 2.8], shape: 'shard', size: [2, 1], gain: 1.0 },
+      { type: 'flash', ramp: '$main', y: 0.2, r: 0.48, dur: 0.1 },
+    ],
+  },
+  lightning: {
+    name: 'lightning',
+    w: 64,
+    h: 64,
+    frames: 10,
+    fps: 20,
+    loop: false,
+    seed: 43,
+    ramps: { main: 'lightning', alt: 'plasma', spark: 'thunder' },
+    outline: 'outside',
+    dither: 0,
+    pivot: [0.5, 0.5],
+    layers: [
+      { type: 'ring', ramp: '$alt', y: 0.34, squash: 0.38, r0: 0.12, r1: 0.92, th: 0.2, breakup: 0.7, gain: 0.9 },
+      { type: 'burst', ramp: '$alt', y: 0.3, t0: 0.04, t1: 0.78, r0: 0.12, r1: 0.62, grow: 0.28, erode: 1, gain: 0.88 },
+      { type: 'bolt', ramp: '$main', y: 0.34, mode: 'strike', count: 3, jag: 0.38, depth: 5, branch: 0.35, thick: 2, hold: 2, fadeStart: 0.55, gain: 1.0 },
+      { type: 'particles', ramp: '$spark', y: 0.3, mode: 'burst', count: 16, speed: [1.6, 3.0], shape: 'streak', size: [2, 1], gain: 1.0 },
+      { type: 'flash', ramp: '$spark', y: 0.28, r: 0.55, dur: 0.14 },
+    ],
+  },
+  earthquake: {
+    name: 'earthquake',
+    w: 64,
+    h: 64,
+    frames: 12,
+    fps: 18,
+    loop: false,
+    seed: 47,
+    ramps: { main: 'earth', alt: 'lava', spark: 'gold', smoke: 'dust' },
+    outline: 'outside',
+    dither: 0.08,
+    pivot: [0.5, 0.5],
+    layers: [
+      { type: 'puffs', ramp: '$smoke', y: 0.26, t0: 0.1, t1: 1.0, count: 8, spread: 0.58, flat: 0.65, r0: 0.16, r1: 0.36, gain: 0.75, dissolve: 1 },
+      { type: 'cracks', ramp: '$alt', y: 0.28, count: 8, len: 0.96, squash: 0.42, grow: 0.18, fadeStart: 0.6, gain: 0.95 },
+      { type: 'ring', ramp: '$spark', y: 0.28, squash: 0.36, r0: 0.14, r1: 0.96, th: 0.2, breakup: 0.72, gain: 0.9 },
+      { type: 'spikes', ramp: '$main', y: 0.32, count: 7, spread: 0.86, hgt: [0.48, 0.88], width: [0.12, 0.18], fan: 18, grow: 0.2, hold: 0.55, gain: 0.95 },
+      { type: 'particles', ramp: '$spark', y: 0.24, mode: 'burst', count: 16, speed: [1.5, 2.8], gravity: 2.4, shape: 'chunk', size: [2, 1], gain: 1.0 },
+    ],
+  },
+  fire_tornado: {
+    name: 'fire_tornado',
+    w: 64,
+    h: 64,
+    frames: 12,
+    fps: 18,
+    loop: true,
+    seed: 53,
+    ramps: { main: 'fire', alt: 'lava', spark: 'solar' },
+    outline: 'outside',
+    dither: 0.08,
+    pivot: [0.5, 0.5],
+    layers: [
+      { type: 'ring', ramp: '$alt', y: 0.38, squash: 0.38, r0: 0.28, r1: 0.82, th: 0.18, breakup: 0.6, gain: 0.85 },
+      { type: 'tornado', ramp: '$main', y: 0.42, w0: 0.16, w1: 0.68, hgt: 1.62, twist: 3, spin: 2, sway: 0.08, rough: 0.52, gain: 0.98 },
+      { type: 'particles', ramp: '$spark', mode: 'orbit', count: 14, orbitR: 0.52, turns: 2, life: [0.45, 0.85], shape: 'diamond', size: [2, 1], gain: 1.0 },
+    ],
+  },
 };
 
 for (const [id, recipe] of Object.entries(RECIPES)) {
   const recipePath = join(TMP_DIR, `${id}.recipe.json`);
   writeFileSync(recipePath, JSON.stringify(recipe, null, 2));
   execFileSync('node', [RENDER_SCRIPT, recipePath, '--out', OUT_DIR, '--force'], { stdio: 'inherit' });
-  // Keep only the PNG sprite sheet to keep repo clean
-  rmSync(join(OUT_DIR, `${id}.json`), { force: true });
-  rmSync(join(OUT_DIR, `${id}@4x.gif`), { force: true });
+  const slug = recipe.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  rmSync(join(OUT_DIR, `${slug}.json`), { force: true });
+  rmSync(join(OUT_DIR, `${slug}@4x.gif`), { force: true });
 }
 
-console.log(`Generated 7 multi-frame scenario-pixel-vfx sprite sheets in ${OUT_DIR}`);
+console.log(`Generated ${Object.keys(RECIPES).length} multi-frame scenario-pixel-vfx sprite sheets in ${OUT_DIR}`);

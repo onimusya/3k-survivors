@@ -1673,6 +1673,9 @@ export class Game {
     this.lightningArcs = [];
     this.disasterTimer = 11.0;
     this.disasterStrikes = [];
+    if (this.activeFireTornado?.sprite) {
+      this.activeFireTornado.sprite.destroy();
+    }
     this.activeFireTornado = null;
     this.playerFrostSlowTimer = 0;
     this.partnerTimer = 7.5;
@@ -3771,15 +3774,32 @@ export class Game {
     );
 
     if (kind === 'fire_tornado') {
+      if (this.activeFireTornado?.sprite) {
+        this.activeFireTornado.sprite.destroy();
+      }
+      const tornadoFrames = this.vfxFrames?.fire_tornado || this.vfxFrames?.whirlwind || [this.effectTextures.whirlwind];
+      const sp = new AnimatedSprite({
+        textures: tornadoFrames,
+        animationSpeed: 0.3,
+        autoPlay: true,
+      });
+      sp.anchor.set(0.5, 0.72);
+      sp.scale.set(2.15);
+      const fx = Math.round(p.x + (Math.random() < 0.5 ? -120 : 120));
+      const fy = Math.round(p.y - 55);
+      sp.x = fx;
+      sp.y = fy;
+      this.fxLayer.addChild(sp);
       this.activeFireTornado = {
-        x: p.x + (Math.random() < 0.5 ? -135 : 135),
-        y: p.y - 65,
+        x: fx,
+        y: fy,
         vx: 78,
         vy: 54,
         radius: spec.radius,
         timer: 7.5,
         tickCd: 0.15,
         spec,
+        sprite: sp,
       };
       return this.activeFireTornado;
     }
@@ -3838,18 +3858,17 @@ export class Game {
       ft.vy = Math.sin(angToP) * 74 + Math.sin(this.time * 3) * 32;
       ft.x += ft.vx * dt;
       ft.y += ft.vy * dt;
+      if (ft.sprite) {
+        ft.sprite.x = Math.round(ft.x);
+        ft.sprite.y = Math.round(ft.y);
+      }
       if (g) {
-        for (let r = 0; r < 3; r++) {
-          const rad = ft.radius * (1 - r * 0.25);
-          g.circle(Math.round(ft.x + Math.sin(this.time * 12 + r) * 5), Math.round(ft.y + Math.cos(this.time * 12 + r) * 5), rad)
-            .fill({ color: r === 2 ? 0xfef08a : 0xf97316, alpha: 0.28 + r * 0.12 })
-            .stroke({ color: 0xef4444, width: 2.2, alpha: 0.85 });
-        }
+        g.circle(Math.round(ft.x), Math.round(ft.y), ft.radius)
+          .stroke({ color: 0xf97316, width: 2.0, alpha: 0.75 });
       }
       ft.tickCd -= dt;
       if (ft.tickCd <= 0) {
         ft.tickCd = 0.45;
-        this.spawnSpin(ft.x, ft.y, 1.15, 0xf97316);
         const r2 = (ft.radius + 10) ** 2;
         if (dist2(p.x, p.y, ft.x, ft.y) <= r2) {
           this.damagePlayerPercent(ft.spec.minPct, ft.spec.maxPct, 'FIRE CYCLONE', {
@@ -3866,6 +3885,7 @@ export class Game {
         }
       }
       if (ft.timer <= 0) {
+        if (ft.sprite) ft.sprite.destroy();
         this.activeFireTornado = null;
       }
     }
@@ -3901,10 +3921,25 @@ export class Game {
         }
       }
 
+      // Pre-spawn the meteor comet VFX 0.25s before impact so frames 0..4 fly down into frame 5 crater impact!
+      if (st.kind === 'meteor_shower' && !st._spawnedMeteorVfx && st.timer <= 0.25) {
+        st._spawnedMeteorVfx = true;
+        this.spawnDisasterVfx('meteor', st.x, st.y, 2.15, 0.68);
+      }
+
       if (st.timer <= 0) {
         this.sfx.play(st.kind === 'hailstorm' ? 'hit' : 'bomb');
         this.shake = Math.max(this.shake, st.kind === 'meteor_shower' ? 18 : 12);
-        this.spawnExplosion(st.x, st.y, 0.55, (st.radius / 26), st.spec.color, 0.34);
+        const vfxMap = {
+          volcano: 'volcano',
+          meteor_shower: 'meteor',
+          hailstorm: 'hailstorm',
+          lightning_storm: 'lightning',
+          earthquake: 'earthquake',
+        };
+        if (st.kind !== 'meteor_shower' || !st._spawnedMeteorVfx) {
+          this.spawnDisasterVfx(vfxMap[st.kind] || 'explosion', st.x, st.y, 2.05, 0.62);
+        }
         this.spawnShockwave(st.x, st.y, st.spec.color, 0.45, (st.radius / 18), 0.28);
 
         if (st.kind === 'lightning_storm') {
@@ -6554,6 +6589,27 @@ export class Game {
     this.particles.push({
       g: s, x, y, vx: 0, vy: 0, life, maxLife: life,
       frames, lastFrame: 0, startAlpha: 0.98, spin: 0,
+      pooled: 'explosion', poolObject: entry,
+    });
+  }
+
+  spawnDisasterVfx(vfxKey, x, y, scale = 2.0, life = 0.62) {
+    if (!this.explosionPool || this.explosionPool.active.length >= 16) return;
+    const entry = this.explosionPool.acquire();
+    entry.active = true;
+    const frames = this.vfxFrames?.[vfxKey] || this.vfxFrames?.explosion;
+    const s = entry.sprite;
+    if (frames?.[0]) s.texture = frames[0];
+    s.visible = true;
+    s.alpha = 1.0;
+    s.tint = 0xffffff;
+    s.scale.set(scale);
+    s.rotation = 0;
+    s.x = Math.round(x);
+    s.y = Math.round(y);
+    this.particles.push({
+      g: s, x, y, vx: 0, vy: 0, life, maxLife: life,
+      frames, lastFrame: 0, startAlpha: 1.0, spin: 0,
       pooled: 'explosion', poolObject: entry,
     });
   }
