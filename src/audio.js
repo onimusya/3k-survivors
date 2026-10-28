@@ -110,9 +110,17 @@ export class SoundManager {
     });
   }
 
-  async preload() {
+  async preload(onProgress = null) {
+    const sfxEntries = Object.entries(SFX_URLS);
+    const bgmEntries = Object.entries(BGM_URLS);
+    const total = sfxEntries.length + bgmEntries.length;
+    let done = 0;
+    const tick = (label) => {
+      done++;
+      if (onProgress) onProgress(done, total, label);
+    };
     await Promise.all([
-      ...Object.entries(SFX_URLS).map(async ([key, url]) => {
+      ...sfxEntries.map(async ([key, url]) => {
         try {
           const res = await fetch(url);
           if (res.ok) {
@@ -122,8 +130,9 @@ export class SoundManager {
         } catch {
           // Ignore network/fetch errors
         }
+        tick(`Loading Audio Cue: ${key.toUpperCase()}...`);
       }),
-      ...Object.entries(BGM_URLS).map(async ([key, url]) => {
+      ...bgmEntries.map(async ([key, url]) => {
         try {
           const res = await fetch(url);
           if (res.ok) {
@@ -133,6 +142,7 @@ export class SoundManager {
         } catch {
           // Ignore network/fetch errors
         }
+        tick(`Loading Campaign BGM: ${key.toUpperCase()}...`);
       }),
     ]);
   }

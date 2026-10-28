@@ -125,9 +125,24 @@ function frame(source, x, y, width, height, label) {
   });
 }
 
-export async function loadSpriteAssets() {
+export async function loadSpriteAssets(onProgress = null) {
+  const heroEntries = Object.entries(HERO_SHEETS);
+  const terrainEntries = Object.entries(TERRAIN_BIOMES);
+  const effectEntries = Object.entries(EFFECTS);
+  const vfxEntries = Object.entries(VFX_SHEETS);
+  const totalSteps = heroEntries.length + 2 + terrainEntries.length + 5 + effectEntries.length + vfxEntries.length;
+  let completedSteps = 0;
+  const step = (label) => {
+    completedSteps++;
+    if (onProgress) onProgress(completedSteps, totalSteps, label);
+  };
+
   const heroBases = await Promise.all(
-    Object.entries(HERO_SHEETS).map(async ([id, url]) => [id, nearest(await Assets.load(url))]),
+    heroEntries.map(async ([id, url]) => {
+      const tex = nearest(await Assets.load(url));
+      step(`Summoning Warrior: ${id.toUpperCase()}...`);
+      return [id, tex];
+    }),
   );
   const heroFrames = {};
   const heroAttackFrames = {};
@@ -165,6 +180,7 @@ export async function loadSpriteAssets() {
   }
 
   const enemyBase = nearest(await Assets.load(ENEMY_ATLAS));
+  step('Loading Horde & Warlord Atlas...');
   const enemyFrames = {};
   for (let typeIndex = 0; typeIndex < ENEMY_TYPES.length; typeIndex++) {
     const frames = [];
@@ -182,11 +198,14 @@ export async function loadSpriteAssets() {
   }
 
   const terrain = nearest(await Assets.load(TERRAIN));
+  step('Loading Base Battlefield Ground...');
   const terrainBiomes = {};
-  await Promise.all(Object.entries(TERRAIN_BIOMES).map(async ([k, url]) => {
+  await Promise.all(terrainEntries.map(async ([k, url]) => {
     terrainBiomes[k] = nearest(await Assets.load(url));
+    step(`Forging Terrain Biome: ${k.toUpperCase()}...`);
   }));
   const propsBase = nearest(await Assets.load(PROPS_ATLAS));
+  step('Loading Four Seasons Props & Buildings...');
   const seasonNames = ['spring', 'summer', 'autumn', 'winter'];
   const props = {};
   for (let s = 0; s < seasonNames.length; s++) {
@@ -200,19 +219,22 @@ export async function loadSpriteAssets() {
     props[PROP_IDS[i]] = props.summer[PROP_IDS[i]];
   }
   const vignette = nearest(await Assets.load(VIGNETTE));
+  step('Loading UI Vignette...');
   const iconsBase = nearest(await Assets.load(ICONS_ATLAS));
+  step('Loading 32x32 Weapon & Skill Icons...');
   const iconSize = iconsBase.height || 32;
   const icons = {};
   for (let i = 0; i < ICON_IDS.length; i++) {
     icons[ICON_IDS[i]] = frame(iconsBase.source, i * iconSize, 0, iconSize, iconSize, `icon-${ICON_IDS[i]}`);
   }
   const stagesBase = nearest(await Assets.load(STAGES_ATLAS));
+  step('Loading Campaign Stage Dioramas...');
   const stages = [];
   for (let i = 0; i < 9; i++) {
     stages.push(frame(stagesBase.source, i * 56, 0, 56, 32, `stage-${i}`));
   }
   const effectFrames = {};
-  await Promise.all(Object.entries(EFFECTS).map(async ([id, url]) => {
+  await Promise.all(effectEntries.map(async ([id, url]) => {
     const tex = nearest(await Assets.load(url));
     if (id === 'ultraman' && tex.width >= 256) {
       const uFrames = [];
@@ -224,17 +246,20 @@ export async function loadSpriteAssets() {
     } else {
       effectFrames[id] = tex;
     }
+    step(`Loading Sprite Asset: ${id.toUpperCase()}...`);
   }));
   const vfx = {};
-  await Promise.all(Object.entries(VFX_SHEETS).map(async ([id, spec]) => {
+  await Promise.all(vfxEntries.map(async ([id, spec]) => {
     const base = nearest(await Assets.load(spec.url));
     const list = [];
     for (let i = 0; i < spec.frames; i++) {
       list.push(frame(base.source, i * spec.w, 0, spec.w, spec.h, `vfx-${id}-${i}`));
     }
     vfx[id] = list;
+    step(`Awakening Pixel VFX: ${id.toUpperCase()}...`);
   }));
   const petsBase = nearest(await Assets.load(PETS_ATLAS));
+  step('Summoning 4 Mythic Companions...');
   const pets = {};
   for (let r = 0; r < PET_IDS.length; r++) {
     const list = [];

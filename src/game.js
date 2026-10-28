@@ -158,13 +158,29 @@ export class Game {
     window.__game = this;
   }
 
-  async start() {
-    const [assets] = await Promise.all([loadSpriteAssets(), this.sfx.preload()]);
+  async start(onProgress = null) {
+    let spriteFrac = 0;
+    let audioFrac = 0;
+    const report = (label) => {
+      if (onProgress) onProgress(spriteFrac * 0.72 + audioFrac * 0.28, label);
+    };
+    const [assets] = await Promise.all([
+      loadSpriteAssets((done, total, label) => {
+        spriteFrac = done / Math.max(1, total);
+        report(label);
+      }),
+      this.sfx.preload((done, total, label) => {
+        audioFrac = done / Math.max(1, total);
+        report(label);
+      }),
+    ]);
     this.assets = assets;
+    if (onProgress) onProgress(0.96, 'BUILDING OBJECT POOLS & BATTLE MENU...');
     this.setupTextures();
     this.setupPools();
     this.buildMenu();
     this.app.ticker.add((t) => this.tick(t.deltaTime));
+    if (onProgress) onProgress(1.0, 'BATTLEFIELD READY!');
   }
 
   toggleSound() {
