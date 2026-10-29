@@ -290,9 +290,9 @@ export const ENEMY_TYPES = {
   halberdier: { name:'Imperial Halberdier', color:0xe07a5f, hp:24, speed:66, dmg:14, size:16, xp:4, weight:16, knockResist:0.4 },
   catapult:   { name:'Siege Catapult',     color:0xd97706, hp:36, speed:26, dmg:9,  size:21, xp:8, weight:8, ranged:true, isCatapult:true, knockResist:0.9 },
   firebird:   { name:'Feather-Storm Hawk',color:0xef4444, hp:12, speed:240, dmg:5,  size:14, xp:5, weight:0, isBird:true },
-  kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:12000, speed:42, dmg:29, size:30, xp:250, weight:0, boss:true, isKaiju:true, knockResist:0.99 },
+  kaiju:      { name:'Kaiju Godzilla Titan',color:0x00f5d4, hp:12000, speed:42, dmg:12, size:30, xp:250, weight:0, boss:true, isKaiju:true, knockResist:0.99 },
   ufo:        { name:'Cosmic UFO Saucer',   color:0x38bdf8, hp:95,  speed:190, dmg:0, size:20, xp:60,  weight:0, isUfo:true },
-  ghidorah:   { name:'King Ghidorah Titan',color:0xfde047, hp:13500, speed:44, dmg:31, size:32, xp:300, weight:0, boss:true, isKaiju:true, isGhidorah:true, knockResist:0.99 },
+  ghidorah:   { name:'King Ghidorah Titan',color:0xfde047, hp:13500, speed:44, dmg:13, size:32, xp:300, weight:0, boss:true, isKaiju:true, isGhidorah:true, knockResist:0.99 },
   caravan:    { name:'Golden Supply Cart', color:0xfacc15, hp:85, speed:48, dmg:0, size:20, xp:30, weight:0, isCaravan:true, knockResist:0.95 },
   boss_chengyuanzhi: { name:'Cheng Yuanzhi', color:0xe2b04a, hp:90, speed:68, dmg:7, size:22, xp:22, weight:0, boss:true },
   boss_dengmao: { name:'Deng Mao', color:0xe8833a, hp:105, speed:72, dmg:8, size:22, xp:25, weight:0, boss:true },
@@ -303,10 +303,10 @@ export const ENEMY_TYPES = {
   boss_caimao: { name:'Cai Mao', color:0x5ca8ff, hp:185, speed:84, dmg:13, size:24, xp:42, weight:0, boss:true },
   boss_zhangyun: { name:'Zhang Yun', color:0x7cb8ff, hp:205, speed:88, dmg:14, size:25, xp:45, weight:0, boss:true },
   boss_caoren: { name:'Cao Ren', color:0x6b9fff, hp:230, speed:90, dmg:15, size:25, xp:50, weight:0, boss:true },
-  mothra:        { name:'Queen Mothra Titan',   color:0x38bdf8, hp:11000, speed:48, dmg:27, size:30, xp:260, weight:0, boss:true, isKaiju:true, isMothra:true, knockResist:0.99 },
-  rodan:         { name:'Fire Demon Rodan',     color:0xf97316, hp:11800, speed:52, dmg:28, size:30, xp:270, weight:0, boss:true, isKaiju:true, isRodan:true, knockResist:0.99 },
-  mechagodzilla: { name:'Mecha-Godzilla Kiryu', color:0x94a3b8, hp:14000, speed:44, dmg:32, size:32, xp:320, weight:0, boss:true, isKaiju:true, isMechaG:true, knockResist:0.99 },
-  biollante:     { name:'Abyssal Biollante',    color:0x4ade80, hp:12800, speed:40, dmg:30, size:32, xp:290, weight:0, boss:true, isKaiju:true, isBiollante:true, knockResist:0.99 },
+  mothra:        { name:'Queen Mothra Titan',   color:0x38bdf8, hp:11000, speed:48, dmg:10, size:30, xp:260, weight:0, boss:true, isKaiju:true, isMothra:true, knockResist:0.99 },
+  rodan:         { name:'Fire Demon Rodan',     color:0xf97316, hp:11800, speed:52, dmg:11, size:30, xp:270, weight:0, boss:true, isKaiju:true, isRodan:true, knockResist:0.99 },
+  mechagodzilla: { name:'Mecha-Godzilla Kiryu', color:0x94a3b8, hp:14000, speed:44, dmg:13, size:32, xp:320, weight:0, boss:true, isKaiju:true, isMechaG:true, knockResist:0.99 },
+  biollante:     { name:'Abyssal Biollante',    color:0x4ade80, hp:12800, speed:40, dmg:12, size:32, xp:290, weight:0, boss:true, isKaiju:true, isBiollante:true, knockResist:0.99 },
 };
 
 export const LEVEL_XP = (lvl) => Math.floor(20 * Math.pow(1.15, lvl - 1));

@@ -5583,14 +5583,14 @@ export class Game {
           if (e._kaijuArmorCd > 0) e._kaijuArmorCd -= dt;
           e.stompTimer = (e.stompTimer ?? 1.5) - dt;
           if (e.stompTimer <= 0) {
-            e.stompTimer = 1.65;
-            this.shake = Math.max(this.shake, 11);
+            e.stompTimer = 2.4;
+            this.shake = Math.max(this.shake, 9);
             this.spawnShockwave(e.x, e.y, 0x00f5d4, 0.7, 3.2, 0.36);
             this.spawnExplosion(e.x, e.y, 0.7, 2.4, 0x00f5d4, 0.32);
-            if (d <= 140) {
-              this.damagePlayerPercent(0.25, 0.40, 'KAIJU STOMP', {
-                name: 'Kaiju Godzilla Titan',
-                spriteType: 'kaiju',
+            if (d <= 125) {
+              this.damagePlayerPercent(0.06, 0.10, 'TITAN STOMP', {
+                name: e.bossName || 'Kaiju Godzilla Titan',
+                spriteType: e.type || 'kaiju',
                 attack: 'Seismic Stomp (AoE)',
                 tint: 0xffffff,
               });
@@ -5610,7 +5610,7 @@ export class Game {
           e.shootCd -= dt;
           if (e.shootCd <= 0) {
             e.shootCd = e.isKaiju
-              ? 1.7
+              ? 2.3
               : (e.isMapBoss
                 ? (e.enraged ? 1.25 : 1.65)
                 : (e.isCatapult ? 2.8 + e.phase * 0.8 : 1.85 + e.phase * 0.7));
@@ -5651,23 +5651,22 @@ export class Game {
     }
     if (e.isKaiju) {
       const kaijuKiller = {
-        name: 'Kaiju Godzilla Titan',
-        spriteType: 'kaiju',
+        name: e.bossName || 'Kaiju Godzilla Titan',
+        spriteType: e.type || 'kaiju',
         attack: 'Atomic Breath (AoE)',
         tint: 0xffffff,
       };
       this._currentShooter = kaijuKiller;
-      // Colossal Kaiju Godzilla Atomic Breath Beam + 3-Zone Area Damage (1 hit damages 35%-50% of Player HP)!
       this.sfx.play('bomb');
-      this.shake = Math.max(this.shake, 11);
-      this.spawnThrust(e.x, e.y, baseAng, 195, 0x00f5d4);
+      this.shake = Math.max(this.shake, 9);
+      this.spawnThrust(e.x, e.y, baseAng, 195, e.color || 0x00f5d4);
       for (const distStep of [85, 160, 235]) {
         const gx = e.x + Math.cos(baseAng) * distStep;
         const gy = e.y + Math.sin(baseAng) * distStep;
-        this.spawnExplosion(gx, gy, 0.6, 2.1, 0x00f5d4, 0.36);
+        this.spawnExplosion(gx, gy, 0.6, 2.1, e.color || 0x00f5d4, 0.36);
         this.spawnShockwave(gx, gy, 0x7dd3fc, 0.45, 2.1, 0.28);
-        if (dist2(gx, gy, p.x, p.y) <= 82 * 82) {
-          this.damagePlayerPercent(0.25, 0.40, 'KAIJU ATOMIC BREATH', kaijuKiller);
+        if (dist2(gx, gy, p.x, p.y) <= 62 * 62) {
+          this.damagePlayerPercent(0.06, 0.10, 'TITAN BREATH', kaijuKiller);
         }
       }
       for (let i = -2; i <= 2; i++) {
@@ -5919,7 +5918,7 @@ export class Game {
           tint: 0xffffff,
         };
         if (pr.isKaijuBolt) {
-          this.damagePlayerPercent(0.25, 0.40, 'KAIJU BOLT', bKiller);
+          this.damagePlayerPercent(0.05, 0.08, 'TITAN BOLT', bKiller);
         } else {
           this.damagePlayer(pr.dmg, bKiller);
         }
@@ -5937,7 +5936,7 @@ export class Game {
           tint: e.baseTint || 0xffffff,
         };
         if (e.isKaiju) {
-          this.damagePlayerPercent(0.25, 0.40, 'KAIJU SLAM', cKiller);
+          this.damagePlayerPercent(0.06, 0.10, 'TITAN SLAM', cKiller);
         } else {
           this.damagePlayer(e.dmg * dt * 2, cKiller); // per second
         }
@@ -6014,29 +6013,52 @@ export class Game {
     if (killer) this.lastKiller = killer;
     const actual = Math.max(1, dmg - p.armor);
     p.hp -= actual;
-    p.invuln = 0.35;
+    p.invuln = 0.45;
     this.shake = 10;
     this.sfx.play('hurt');
     this.flashScreen(0xff0000, 0.25);
     if (p.hp <= 0) {
+      if ((this.revivesLeft || 0) > 0) {
+        this.revivesLeft--;
+        p.hp = Math.round(p.maxHp * 0.6);
+        p.invuln = 2.5;
+        this.sfx.play('evolve');
+        this.spawnLevelUpVfx(p.x, p.y);
+        this.spawnShockwave(p.x, p.y, 0xfde047, 0.6, 3.6, 0.35);
+        this.showFloatText(p.x, p.y - 36, '🔥 PHOENIX MANDATE REVIVE! +60% HP!', 0xfde047);
+        return;
+      }
       p.hp = 0;
       this.gameOver();
     }
   }
 
-  damagePlayerPercent(minPct = 0.30, maxPct = 0.50, label = 'CRITICAL HIT', killer = null) {
+  damagePlayerPercent(minPct = 0.06, maxPct = 0.10, label = 'CRITICAL HIT', killer = null) {
     const p = this.player;
     if (!p || p.invuln > 0) return 0;
     if (killer) this.lastKiller = killer;
     const pct = minPct + Math.random() * Math.max(0, maxPct - minPct);
-    const loss = Math.max(1, Math.round(p.maxHp * pct));
+    const rawLoss = Math.round(p.maxHp * pct);
+    const armorMitigation = minPct >= 0.7 ? 0 : Math.floor((p.armor || 0) * 1.2);
+    const loss = Math.max(1, rawLoss - armorMitigation);
     p.hp -= loss;
-    p.invuln = 0.65;
-    this.shake = 16;
+    p.invuln = 0.95;
+    this.shake = 12;
     this.sfx.play('hurt');
-    this.flashScreen(0xff0000, 0.32);
-    this.showFloatText(p.x, p.y - 24, `${label}: -${Math.round(pct * 100)}% HP (-${loss})!`, 0xff4d4d);
+    this.flashScreen(0xff0000, 0.26);
+    const actualPct = Math.max(1, Math.round((loss / Math.max(1, p.maxHp)) * 100));
+    this.showFloatText(p.x, p.y - 24, `${label}: -${actualPct}% HP (-${loss})!`, 0xff4d4d);
     if (p.hp <= 0) {
+      if ((this.revivesLeft || 0) > 0) {
+        this.revivesLeft--;
+        p.hp = Math.round(p.maxHp * 0.6);
+        p.invuln = 2.5;
+        this.sfx.play('evolve');
+        this.spawnLevelUpVfx(p.x, p.y);
+        this.spawnShockwave(p.x, p.y, 0xfde047, 0.6, 3.6, 0.35);
+        this.showFloatText(p.x, p.y - 36, '🔥 PHOENIX MANDATE REVIVE! +60% HP!', 0xfde047);
+        return loss;
+      }
       p.hp = 0;
       this.gameOver();
     }
