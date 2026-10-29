@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, HEIRLOOM_GEAR, STRATAGEMS, VANGUARD_SQUADS, FACTION_TALENTS, NPC_ENCOUNTERS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, HEIRLOOM_GEAR, STRATAGEMS, VANGUARD_SQUADS, FACTION_TALENTS, NPC_ENCOUNTERS, TIME_OF_DAY_SPECS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -122,6 +122,9 @@ export class Game {
     this.vanguardSquadId = 'white_feather';
     this.vanguardUnits = [];
     this.unlockedTalents = new Set(['shu_benevolence']);
+    this.titanForm = null;
+    this.timeOfDay = 'noon';
+    this.timeOfDayTimer = 18.0;
     this.warlordDuel = null;
     this.loadShopUpgrades();
     this.loadCampaignProgress();
@@ -152,6 +155,9 @@ export class Game {
       }
       if ((e.key === 'e' || e.key === 'E') && this.state === 'playing') {
         this.triggerStratagem();
+      }
+      if ((e.key === 't' || e.key === 'T') && this.state === 'playing') {
+        this.transformIntoTitan(15.0);
       }
     });
     window.addEventListener('keyup', (e) => { this.keys[e.key] = false; });
@@ -596,7 +602,7 @@ export class Game {
 
     const curPage = this.heroRosterPage || 1;
     const section = new Text({
-      text: `1. WARRIOR ROSTER (${curPage}/2)`,
+      text: `1. WARRIOR ROSTER (${curPage}/3)`,
       style: new TextStyle({ fill:0xe7e2d2, fontSize:Math.round((landscape ? 9.5 : 10.5) * s), fontFamily:'monospace', fontWeight:'bold', letterSpacing:0.8 }),
     });
     section.anchor.set(0, 0.5);
@@ -604,17 +610,22 @@ export class Game {
     section.y = Math.round(bannerH + extraY + (landscape ? 12 : 34) * s);
     this.menuContainer.addChild(section);
 
-    // Roster Page Switcher Button (Page 1: Shu/Han <-> Page 2: Wei/Wu/Legends)
+    // Roster Page Switcher Button (Page 1: Shu/Han <-> Page 2: Wei/Wu <-> Page 3: Mythic Legends)
     const rosterBtn = new Container();
-    const rBtnW = Math.round(138 * s), rBtnH = Math.round(17 * s);
+    const rBtnW = Math.round(142 * s), rBtnH = Math.round(17 * s);
     const rBtnBg = new Graphics();
+    const pageColors = {
+      1: { fill: 0x172554, stroke: 0x38bdf8, text: 0xbae6fd, label: 'ROSTER 2: WEI/WU WARLORDS ▸' },
+      2: { fill: 0x2e1065, stroke: 0xf472b6, text: 0xfbcfe8, label: 'ROSTER 3: MYTHIC LEGENDS ▸' },
+      3: { fill: 0x3b1d0a, stroke: 0xfde047, text: 0xfef08a, label: '◂ ROSTER 1: SHU/HAN HEROES' },
+    }[curPage] || { fill: 0x172554, stroke: 0x38bdf8, text: 0xbae6fd, label: 'NEXT ROSTER ▸' };
     rBtnBg.roundRect(0, 0, rBtnW, rBtnH, 4)
-      .fill({ color: curPage === 2 ? 0x2e1065 : 0x172554, alpha: 0.95 })
-      .stroke({ color: curPage === 2 ? 0xf472b6 : 0x38bdf8, width: 1.2 });
+      .fill({ color: pageColors.fill, alpha: 0.95 })
+      .stroke({ color: pageColors.stroke, width: 1.2 });
     rosterBtn.addChild(rBtnBg);
     const rBtnTxt = new Text({
-      text: curPage === 1 ? 'ROSTER 2: WEI/WU/LEGENDS ▸' : '◂ ROSTER 1: SHU/HAN HEROES',
-      style: new TextStyle({ fill: curPage === 2 ? 0xfbcfe8 : 0xbae6fd, fontSize: Math.round(7.0 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
+      text: pageColors.label,
+      style: new TextStyle({ fill: pageColors.text, fontSize: Math.round(6.8 * s), fontFamily: 'monospace', fontWeight: 'bold' }),
     });
     rBtnTxt.anchor.set(0.5);
     rBtnTxt.x = Math.round(rBtnW / 2);
@@ -627,7 +638,7 @@ export class Game {
     rosterBtn.on('pointertap', () => {
       this.sfx.unlock();
       this.sfx.play('select');
-      this.heroRosterPage = curPage === 1 ? 2 : 1;
+      this.heroRosterPage = (curPage % 3) + 1;
       const pageList = HEROES.filter((h) => (h.roster || 1) === this.heroRosterPage);
       if (pageList.length && !pageList.some((h) => h.id === this.selectedHero.id)) {
         this.selectedHero = pageList[0];
@@ -2101,18 +2112,21 @@ export class Game {
         talXp += tNode.xpBonus || 0;
       }
     }
+    const titanFormDmg = this.titanForm && this.titanForm.timer > 0 ? 1.20 : 0;
+    const titanFormArmor = this.titanForm && this.titanForm.timer > 0 ? 8 : 0;
+    const todBonus = TIME_OF_DAY_SPECS[this.timeOfDay]?.xpBonus || 0;
 
     const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp + gearHp;
     if (nextMaxHp > this.player.maxHp) {
       this.player.hp += (nextMaxHp - this.player.maxHp);
     }
     this.player.maxHp = nextMaxHp;
-    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + gearDmg + talDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + gearArmor + talArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + gearDmg + talDmg + titanFormDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + gearArmor + talArmor + titanFormArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
     this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + fSpd + gearSpd + talSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
     this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.38, 1 - permCd - relicCd - bloodMoonCd - tCd - fCd - gearCd - talCd);
     this.player.areaMul = (1 + relicArea + tArea + fArea + talArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + gearXp + talXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + gearXp + talXp + todBonus + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
     this.player.magnetBonus = (su.magnet_perm || 0) * 30 + (fSpec.magnetBonus || 0) + gearMag;
   }
 
@@ -2168,6 +2182,47 @@ export class Game {
     if (this.player) {
       this.sfx.play('levelup');
       this.showFloatText(this.player.x, this.player.y - 36, `🌟 FACTION TALENT UNLOCKED: ${spec.name.toUpperCase()} (${spec.desc})!`, spec.color);
+    }
+    return spec;
+  }
+
+  transformIntoTitan(duration = 15.0, titanKind = null) {
+    if (!this.player) return null;
+    const p = this.player;
+    const choices = ['kaiju', 'ghidorah', 'mechagodzilla', 'gamera', 'king_kong', 'destoroyah', 'gigan'];
+    const kind = (titanKind && this.enemyTextures?.[titanKind])
+      ? titanKind
+      : choices[Math.floor(Math.random() * choices.length)];
+    const d = ENEMY_TYPES[kind] || ENEMY_TYPES.kaiju;
+    this.titanForm = {
+      kind,
+      name: d.name || 'Kaiju Godzilla Titan',
+      color: d.color || 0x00f5d4,
+      timer: duration,
+      maxTimer: duration,
+      stompCd: 0.15,
+    };
+    p.invuln = Math.max(p.invuln || 0, 2.0);
+    this.recomputeStats();
+    this.sfx.play('evolve');
+    this.sfx.play('voice_titan');
+    this.shake = Math.max(this.shake, 20);
+    this.flashScreen(this.titanForm.color, 0.3);
+    this.spawnShockwave(p.x, p.y, this.titanForm.color, 0.65, 4.8, 0.38);
+    this.showFloatText(p.x, p.y - 42, `🦖 TITAN AWAKENING [T]: TRANSFORMED INTO ${this.titanForm.name.toUpperCase()} (15S)!`, this.titanForm.color);
+    return this.titanForm;
+  }
+
+  setTimeOfDay(phase = 'midnight') {
+    if (!TIME_OF_DAY_SPECS[phase]) return null;
+    this.timeOfDay = phase;
+    const spec = TIME_OF_DAY_SPECS[phase];
+    if (this.terrainTiling) {
+      this.terrainTiling.tint = spec.tint;
+    }
+    this.recomputeStats();
+    if (this.player) {
+      this.showFloatText(this.player.x, this.player.y - 30, `🏮 TIME OF DAY: ${spec.name.toUpperCase()}!`, 0xfde047);
     }
     return spec;
   }
@@ -2525,6 +2580,9 @@ export class Game {
       this.triggerMusouUltimate();
     });
     this.hud.addChild(this.musouBtn);
+    // Feature 2 (v0.8.0): Interactive Mini-Map & Tactical Radar Overlay!
+    this.radarGfx = new Graphics();
+    this.hud.addChild(this.radarGfx);
     // joystick base
     if (this.joyBase) this.joyBase.destroy();
     if (this.joyKnob) this.joyKnob.destroy();
@@ -4302,8 +4360,90 @@ export class Game {
         this.recomputeStats();
       }
     }
+    // Feature 4 (v0.8.0): Update Player-Controllable Colossal Titan Transformation!
+    if (this.titanForm) {
+      const tf = this.titanForm;
+      tf.timer -= dt;
+      if (tf.timer <= 0) {
+        this.titanForm = null;
+        if (this.playerSprite) this.playerSprite.scale.set(1.05);
+        this.recomputeStats();
+        this.showFloatText(p.x, p.y - 28, 'TITAN FORM ENDED', 0xcbd5e1);
+      } else {
+        if (this.orbitLayer) {
+          this.orbitLayer.circle(Math.round(p.x), Math.round(p.y + 8), 46)
+            .stroke({ color: tf.color, width: 2.6, alpha: 0.78 });
+        }
+        tf.stompCd -= dt;
+        if (tf.stompCd <= 0) {
+          tf.stompCd = 0.48;
+          this.spawnShockwave(p.x, p.y, tf.color, 0.45, 2.8, 0.25);
+          const stompDmg = 135 * (p.dmgMul || 1);
+          for (const e of this.enemies) {
+            if (!e.active || e.isUfo) continue;
+            if (dist2(e.x, e.y, p.x, p.y) <= 135 * 135) {
+              this.damageEnemy(e, stompDmg, p.x, p.y, true, true);
+            }
+          }
+        }
+      }
+    }
+
+    // Feature 6 (v0.8.0): Dynamic Day / Dusk / Night & Paper War Lantern Glow Cycle!
+    this.timeOfDayTimer = (this.timeOfDayTimer ?? 18.0) - dt;
+    if (this.timeOfDayTimer <= 0) {
+      this.timeOfDayTimer = 18.0;
+      const phases = ['dawn', 'noon', 'dusk', 'midnight'];
+      const nextP = phases[(phases.indexOf(this.timeOfDay || 'noon') + 1) % phases.length];
+      this.setTimeOfDay(nextP);
+    }
+    const todSpec = TIME_OF_DAY_SPECS[this.timeOfDay || 'noon'];
+    if (todSpec?.lanternAlpha > 0 && this.orbitLayer) {
+      this.orbitLayer.circle(Math.round(p.x), Math.round(p.y), 68)
+        .fill({ color: 0xfde047, alpha: todSpec.lanternAlpha * 0.18 })
+        .stroke({ color: 0xf59e0b, width: 1.5, alpha: todSpec.lanternAlpha * 0.65 });
+    }
+
     this.updateGroundZonesAndArcs(dt);
     this.updateDisasters(dt);
+    this.renderRadar();
+  }
+
+  renderRadar() {
+    const rg = this.radarGfx;
+    if (!rg || !this.player) return;
+    rg.clear();
+    const p = this.player;
+    const rw = 58, rh = 58;
+    const rx = (this.hudX ?? 12) + (this.hudW ?? 350) - rw - 6;
+    const ry = (this.hudTop ?? 34) + 98;
+    const cx = rx + rw / 2;
+    const cy = ry + rh / 2;
+    const scale = (rw / 2 - 4) / 360;
+
+    rg.roundRect(rx, ry, rw, rh, 6)
+      .fill({ color: 0x070d16, alpha: 0.86 })
+      .stroke({ color: 0x38bdf8, width: 1.4, alpha: 0.85 });
+    rg.circle(cx, cy, 20).stroke({ color: 0x1e293b, width: 1 });
+
+    for (const hz of (this.hazards || [])) {
+      if (!hz.active) continue;
+      const bx = clamp(cx + (hz.x - p.x) * scale, rx + 3, rx + rw - 3);
+      const by = clamp(cy + (hz.y - p.y) * scale, ry + 3, ry + rh - 3);
+      const col = hz.kind === 'npc' ? 0xc084fc : (hz.captured ? 0x4ade80 : 0xf97316);
+      rg.rect(bx - 2, by - 2, 4, 4).fill(col);
+    }
+    for (const e of this.enemies) {
+      if (!e.active) continue;
+      const bx = clamp(cx + (e.x - p.x) * scale, rx + 3, rx + rw - 3);
+      const by = clamp(cy + (e.y - p.y) * scale, ry + 3, ry + rh - 3);
+      if (e.isKaiju || e.isBoss) {
+        rg.circle(bx, by, e.isKaiju ? 3.2 : 2.4).fill(e.isKaiju ? 0x00f5d4 : 0xef4444);
+      } else {
+        rg.rect(bx - 1, by - 1, 2, 2).fill({ color: 0xf87171, alpha: 0.7 });
+      }
+    }
+    rg.circle(cx, cy, 2.8).fill(0xfde047);
   }
 
   triggerDisaster(forceKind = null) {
@@ -7429,23 +7569,35 @@ export class Game {
     const p = this.player;
     const sprite = this.playerSprite;
     if (!sprite) return;
-    const attacking = p.attackTimer > 0;
-    const direction = attacking ? p.attackDirection : p.direction;
-    const dirIndex = { down:0, left:1, right:2, up:3 }[direction] ?? 0;
-    const frames = attacking
-      ? this.heroAttackFrames[this.hero.id][dirIndex]
-      : this.heroFrames[this.hero.id][dirIndex];
-    if (sprite.textures !== frames) {
-      sprite.textures = frames;
-      sprite.currentFrame = 0;
-    }
-    if (attacking) {
-      const progress = 1 - p.attackTimer / p.attackDuration;
-      sprite.currentFrame = Math.min(frames.length - 1, Math.floor(progress * frames.length));
-    } else if (p.moving) {
-      sprite.currentFrame = Math.floor(this.animTime * 9) % frames.length;
+    if (this.titanForm && this.titanForm.timer > 0) {
+      const tFrames = this.enemyTextures?.[this.titanForm.kind] || this.enemyTextures?.kaiju;
+      if (tFrames && sprite.textures !== tFrames) {
+        sprite.textures = tFrames;
+        sprite.currentFrame = 0;
+      }
+      sprite.currentFrame = Math.floor(this.animTime * 8) % (tFrames?.length || 1);
+      const sc = 2.45;
+      sprite.scale.set(p.direction === 'left' ? -sc : sc, sc);
     } else {
-      sprite.currentFrame = 0;
+      const attacking = p.attackTimer > 0;
+      const direction = attacking ? p.attackDirection : p.direction;
+      const dirIndex = { down:0, left:1, right:2, up:3 }[direction] ?? 0;
+      const frames = attacking
+        ? this.heroAttackFrames[this.hero.id][dirIndex]
+        : this.heroFrames[this.hero.id][dirIndex];
+      if (sprite.textures !== frames) {
+        sprite.textures = frames;
+        sprite.currentFrame = 0;
+      }
+      if (attacking) {
+        const progress = 1 - p.attackTimer / p.attackDuration;
+        sprite.currentFrame = Math.min(frames.length - 1, Math.floor(progress * frames.length));
+      } else if (p.moving) {
+        sprite.currentFrame = Math.floor(this.animTime * 9) % frames.length;
+      } else {
+        sprite.currentFrame = 0;
+      }
+      sprite.scale.set(1.05);
     }
     sprite.x = Math.round(p.x);
     sprite.y = Math.round(p.y);

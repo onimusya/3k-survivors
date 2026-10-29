@@ -489,6 +489,7 @@ def process_heroes_v070():
     batches = [
         (MEDIA_DIR / "openai_heroes_shu.png", ["guanyu", "zhangfei", "zhaoyun", "zhugeliang", "lubu", "sunshangxiang"]),
         (MEDIA_DIR / "openai_heroes_legends.png", ["caocao", "zhouyu", "diaochan", "machao", "simayi", "menghuo"]),
+        (MEDIA_DIR / "openai_heroes_mythic.png", ["liubei", "huangzhong", "ganning", "zhurong", "zuoci", "wukong"]),
     ]
     for src_path, hero_ids in batches:
         if not src_path.exists():
@@ -536,6 +537,141 @@ def process_heroes_v070():
             print(f"Saved OpenAI 512x256 Hero sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
 
 
+def process_minions_and_bosses_v080():
+    atlas_path = OUT_DIR / "enemies" / "atlas.png"
+    atlas = Image.open(atlas_path).convert("RGBA") if atlas_path.exists() else None
+    batches = [
+        (
+            MEDIA_DIR / "openai_minions_v080.png",
+            [
+                ("soldier", 0), ("archer", 1), ("cavalry", 2),
+                ("shield", 3), ("assassin", 4), ("bomber", 5),
+                ("sorcerer", 6), ("halberdier", 7), ("catapult", 8),
+            ],
+        ),
+        (
+            MEDIA_DIR / "openai_bosses_v080.png",
+            [
+                ("boss_chengyuanzhi", 13), ("boss_dengmao", 14), ("elite", 15),
+                ("boss_huzhen", 16), ("boss_lijue", 17), ("boss_huaxiong", 18),
+                ("boss_caimao", 19), ("boss_zhangyun", 20), ("boss_caoren", 21),
+            ],
+        ),
+    ]
+    for src_path, entries in batches:
+        if not src_path.exists():
+            continue
+        img = Image.open(src_path).convert("RGBA")
+        w, h = img.size
+        cw, ch = w // 3, h // 3
+        for idx, (e_key, row_idx) in enumerate(entries):
+            col = idx % 3
+            row = idx // 3
+            q = remove_black_bg(img.crop((col * cw + 4, row * ch + 4, (col + 1) * cw - 4, (row + 1) * ch - 4)), threshold=10, clear_interior=False)
+            bbox = q.getbbox()
+            if bbox:
+                q = q.crop(bbox)
+            sheet = make_4frame_from_single(q)
+            out_path = OUT_DIR / "enemies" / f"{e_key}.png"
+            sheet.save(out_path, format="PNG", optimize=True)
+            if atlas is not None:
+                atlas.paste((0, 0, 0, 0), (0, row_idx * 64, 256, (row_idx + 1) * 64))
+                atlas.alpha_composite(sheet, (0, row_idx * 64))
+            print(f"Saved OpenAI v0.8.0 Enemy/Boss sheet: {out_path.relative_to(ROOT)} (row {row_idx})")
+
+    if atlas is not None:
+        atlas.save(atlas_path, format="PNG", optimize=True)
+
+
+def tint_season(img: Image.Image, season: str) -> Image.Image:
+    """Apply subtle seasonal color grading for spring, summer, autumn, and winter prop rows."""
+    if season == "spring":
+        return img
+    rgba = img.copy()
+    px = rgba.load()
+    w, h = rgba.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            if season == "summer":
+                r = min(255, int(r * 0.94))
+                g = min(255, int(g * 1.12))
+                b = min(255, int(b * 0.92))
+            elif season == "autumn":
+                r = min(255, int(r * 1.18))
+                g = min(255, int(g * 0.92))
+                b = min(255, int(b * 0.78))
+            elif season == "winter":
+                avg = (r + g + b) // 3
+                r = min(255, int(r * 0.65 + avg * 0.35 + 24))
+                g = min(255, int(g * 0.72 + avg * 0.35 + 32))
+                b = min(255, int(b * 0.85 + avg * 0.35 + 48))
+            px[x, y] = (r, g, b, a)
+    return rgba
+
+
+def process_props_v080():
+    src_path = MEDIA_DIR / "openai_props_v080.png"
+    if not src_path.exists():
+        return
+    img = Image.open(src_path).convert("RGBA")
+    w, h = img.size
+    cw, ch = w // 4, h // 3
+    prop_ids = ["tree", "pine", "rock", "grass", "mountain", "banner", "house", "watchtower", "castle", "tent"]
+    seasons = ["spring", "summer", "autumn", "winter"]
+    props_sheet = Image.new("RGBA", (48 * 10, 48 * 4), (0, 0, 0, 0))
+
+    for idx, pid in enumerate(prop_ids):
+        col = idx % 4
+        row = idx // 4
+        q = remove_black_bg(img.crop((col * cw + 4, row * ch + 4, (col + 1) * cw - 4, (row + 1) * ch - 4)), threshold=12, clear_interior=False)
+        bbox = q.getbbox()
+        if bbox:
+            q = q.crop(bbox)
+        cell = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+        scale = min(46 / max(1, q.width), 46 / max(1, q.height))
+        nw = max(1, int(round(q.width * scale)))
+        nh = max(1, int(round(q.height * scale)))
+        resized = q.resize((nw, nh), Image.Resampling.NEAREST)
+        cell.paste(resized, ((48 - nw) // 2, (48 - nh) // 2))
+        for s_idx, s_name in enumerate(seasons):
+            props_sheet.paste(tint_season(cell, s_name), (idx * 48, s_idx * 48))
+
+    props_out = OUT_DIR / "terrain" / "props.png"
+    props_sheet.save(props_out, format="PNG", optimize=True)
+    print(f"Saved OpenAI 10x4 Seasonal Props & Buildings atlas: {props_out.relative_to(ROOT)} ({props_sheet.size})")
+
+    # Cell 10 (col=2, row=2): firebird (Feather-Storm War Hawk -> row 9 of atlas.png)
+    fb_q = remove_black_bg(img.crop((2 * cw + 4, 2 * ch + 4, 3 * cw - 4, 3 * ch - 4)), threshold=12, clear_interior=False)
+    if fb_q.getbbox():
+        fb_q = fb_q.crop(fb_q.getbbox())
+    fb_sheet = make_4frame_from_single(fb_q)
+    fb_path = OUT_DIR / "enemies" / "firebird.png"
+    fb_sheet.save(fb_path, format="PNG", optimize=True)
+    atlas_path = OUT_DIR / "enemies" / "atlas.png"
+    if atlas_path.exists():
+        atlas = Image.open(atlas_path).convert("RGBA")
+        atlas.paste((0, 0, 0, 0), (0, 9 * 64, 256, 10 * 64))
+        atlas.alpha_composite(fb_sheet, (0, 9 * 64))
+        atlas.save(atlas_path, format="PNG", optimize=True)
+    print(f"Saved OpenAI Feather-Storm Hawk sheet: {fb_path.relative_to(ROOT)} ({fb_sheet.size})")
+
+    # Cell 11 (col=3, row=2): titan_core (Primordial Titan Core pickup -> 48x48 effects/titan_core.png)
+    tc_q = remove_black_bg(img.crop((3 * cw + 4, 2 * ch + 4, 4 * cw - 4, 3 * ch - 4)), threshold=12, clear_interior=False)
+    if tc_q.getbbox():
+        tc_q = tc_q.crop(tc_q.getbbox())
+    tc_canvas = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+    tc_scale = min(44 / max(1, tc_q.width), 44 / max(1, tc_q.height))
+    tw = max(1, int(round(tc_q.width * tc_scale)))
+    th = max(1, int(round(tc_q.height * tc_scale)))
+    tc_canvas.paste(tc_q.resize((tw, th), Image.Resampling.NEAREST), ((48 - tw) // 2, (48 - th) // 2))
+    tc_path = OUT_DIR / "effects" / "titan_core.png"
+    tc_canvas.save(tc_path, format="PNG", optimize=True)
+    print(f"Saved OpenAI Primordial Titan Core sprite: {tc_path.relative_to(ROOT)} ({tc_canvas.size})")
+
+
 if __name__ == "__main__":
     process_terrains()
     process_meteors()
@@ -547,3 +683,5 @@ if __name__ == "__main__":
     process_npcs_and_banners()
     process_pets_v070()
     process_heroes_v070()
+    process_minions_and_bosses_v080()
+    process_props_v080()

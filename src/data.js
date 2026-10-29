@@ -13,6 +13,13 @@ export const HEROES = [
   { id:'machao', name:'Ma Chao', roster:2, color:0x2dd4bf, hp:180, armor:3, dmgBonus:0.37, speed:1.25, weapon:'crossbow', desc:'Repeating Bolt Crossbow' },
   { id:'simayi', name:'Sima Yi', roster:2, color:0xa855f7, hp:145, armor:3, dmgBonus:0.39, speed:1.08, weapon:'thunder_talisman', desc:'Five-Thunder Talisman' },
   { id:'menghuo', name:'Meng Huo', roster:2, color:0xf97316, hp:225, armor:4, dmgBonus:0.42, speed:0.95, weapon:'war_drum', desc:'Nanman Thunder War Drum' },
+  // Roster 3: Mythic & Celestial Legends (v0.8.0!)
+  { id:'liubei', name:'Liu Bei', roster:3, color:0x10b981, hp:185, armor:4, dmgBonus:0.38, speed:1.15, weapon:'flying_blades', desc:'Twin Benevolence Swords' },
+  { id:'huangzhong', name:'Huang Zhong', roster:3, color:0xf59e0b, hp:160, armor:3, dmgBonus:0.44, speed:1.12, weapon:'crossbow', desc:'Heaven-Piercing Great Bow' },
+  { id:'ganning', name:'Gan Ning', roster:3, color:0x38bdf8, hp:175, armor:3, dmgBonus:0.42, speed:1.28, weapon:'meteor_chain', desc:'Bell-Ringing Naval Anchor' },
+  { id:'zhurong', name:'Lady Zhurong', roster:3, color:0xef4444, hp:155, armor:3, dmgBonus:0.41, speed:1.32, weapon:'fire_flask', desc:'Blazing Fire Boomerangs' },
+  { id:'zuoci', name:'Immortal Zuo Ci', roster:3, color:0xc084fc, hp:150, armor:3, dmgBonus:0.45, speed:1.18, weapon:'thunder_talisman', desc:'Nine-Skies Mystic Talismans' },
+  { id:'wukong', name:'Monkey King Wukong', roster:3, color:0xfde047, hp:215, armor:4, dmgBonus:0.48, speed:1.38, weapon:'shadow_clone', desc:'Golden Ruyi Jingu Bang' },
 ];
 
 export const STARTING_PERKS = [
@@ -184,6 +191,12 @@ export const MUSOU_ULTIMATES = {
   machao: { name: 'Xiliang Thunder Stampede', color: 0x2dd4bf, desc: '10 Piercing Lightning Lances + 12s Red Hare Mount' },
   simayi: { name: 'Dark Starfall Singularity', color: 0xa855f7, desc: '10 Void Gravity Novas + 14 Homing Phantom Blades' },
   menghuo: { name: 'Nanman Savage Cataclysm', color: 0xf97316, desc: '10 Volcanic Quake Eruptions + Dual Beast Whirlwinds' },
+  liubei: { name: 'Imperial Benevolence Trinity', color: 0x10b981, desc: '12 Twin-Dragon Sword Waves + +60 HP Royal Blessing' },
+  huangzhong: { name: 'Hundred-Step Heaven Snipe', color: 0xf59e0b, desc: '24 Piercing Golden Supernova Arrows Across Screen' },
+  ganning: { name: 'Scarlet Bell Tidal Maelstrom', color: 0x38bdf8, desc: '10 Naval Anchor Vortexes + Chibi Wave Detonations' },
+  zhurong: { name: 'Southern Fire-Goddess Eruption', color: 0xef4444, desc: '12 Blazing Boomerang Rings + 8 Magma Fire Pools' },
+  zuoci: { name: 'Nine-Heavens Immortal Array', color: 0xc084fc, desc: '16 Mystic Talisman Thunder Pillars + 5s Invulnerability' },
+  wukong: { name: 'Great Sage Equal to Heaven', color: 0xfde047, desc: '72-Transformations Clone Barrage + Giant Golden Staff Slam' },
 };
 
 export const SWORN_BONDS = {
@@ -199,6 +212,12 @@ export const SWORN_BONDS = {
   machao: { partner: 'zhaoyun', title: 'XILIANG SPEAR STORM', color: 0x2dd4bf },
   simayi: { partner: 'caocao', title: 'SHADOW PHANTASM PACT', color: 0xc084fc },
   menghuo: { partner: 'zhangfei', title: 'TITAN WARLORD ROAR', color: 0xfb923c },
+  liubei: { partner: 'guanyu', title: 'EMPEROR OF HAN OATH', color: 0x10b981 },
+  huangzhong: { partner: 'zhaoyun', title: 'FIVE TIGER ARCHERS', color: 0xf59e0b },
+  ganning: { partner: 'zhouyu', title: 'SCARLET SAIL CORSAIRS', color: 0x38bdf8 },
+  zhurong: { partner: 'menghuo', title: 'SOUTHERN FLAME & BEAST', color: 0xef4444 },
+  zuoci: { partner: 'zhugeliang', title: 'CELESTIAL TAOIST PACT', color: 0xc084fc },
+  wukong: { partner: 'lubu', title: 'HEAVEN-SHATTERING GODS', color: 0xfde047 },
 };
 
 export const CODEX_RELICS = [
@@ -291,6 +310,12 @@ export const NPC_ENCOUNTERS = {
   npc_merchant: { id: 'npc_merchant', name: 'Xiliang Caravan Merchant', sprite: 'npc_merchant', color: 0xfde047, desc: 'Gifts Heirloom Gear & Rare Golden Egg!' },
   npc_blacksmith: { id: 'npc_blacksmith', name: 'Master Blacksmith Pu Yuan', sprite: 'npc_blacksmith', color: 0xf97316, desc: 'Forges +1 Lv on All Weapons & Gem!' },
   npc_sage: { id: 'npc_sage', name: 'Immortal Sage Zuo Ci', sprite: 'npc_sage', color: 0x4ade80, desc: 'Unlocks Faction Talent, +60 HP & 100% Musou!' },
+};
+export const TIME_OF_DAY_SPECS = {
+  dawn: { id: 'dawn', name: 'Golden Dawn', tint: 0xfffbeb, lanternAlpha: 0.15, xpBonus: 0.05 },
+  noon: { id: 'noon', name: 'High Noon', tint: 0xffffff, lanternAlpha: 0.0, xpBonus: 0.0 },
+  dusk: { id: 'dusk', name: 'Crimson Sunset', tint: 0xfed7aa, lanternAlpha: 0.42, xpBonus: 0.20 },
+  midnight: { id: 'midnight', name: 'Lantern Midnight', tint: 0x93c5fd, lanternAlpha: 0.72, xpBonus: 0.50 },
 };
 
 export const ENEMY_TYPES = {

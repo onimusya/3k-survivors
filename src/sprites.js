@@ -13,6 +13,12 @@ const HERO_SHEETS = {
   machao: new URL('../assets/sprites/heroes/machao.png', import.meta.url).href,
   simayi: new URL('../assets/sprites/heroes/simayi.png', import.meta.url).href,
   menghuo: new URL('../assets/sprites/heroes/menghuo.png', import.meta.url).href,
+  liubei: new URL('../assets/sprites/heroes/liubei.png', import.meta.url).href,
+  huangzhong: new URL('../assets/sprites/heroes/huangzhong.png', import.meta.url).href,
+  ganning: new URL('../assets/sprites/heroes/ganning.png', import.meta.url).href,
+  zhurong: new URL('../assets/sprites/heroes/zhurong.png', import.meta.url).href,
+  zuoci: new URL('../assets/sprites/heroes/zuoci.png', import.meta.url).href,
+  wukong: new URL('../assets/sprites/heroes/wukong.png', import.meta.url).href,
 };
 
 const ENEMY_ATLAS = new URL('../assets/sprites/enemies/atlas.png', import.meta.url).href;
@@ -91,6 +97,7 @@ const EFFECTS = {
   npc_blacksmith: new URL('../assets/sprites/effects/npc_blacksmith.png', import.meta.url).href,
   npc_sage: new URL('../assets/sprites/effects/npc_sage.png', import.meta.url).href,
   allied_banner: new URL('../assets/sprites/effects/allied_banner.png', import.meta.url).href,
+  titan_core: new URL('../assets/sprites/effects/titan_core.png', import.meta.url).href,
 };
 const VFX_SHEETS = {
   explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
