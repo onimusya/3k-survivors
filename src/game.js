@@ -1,5 +1,5 @@
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, Particle, ParticleContainer, TilingSprite } from 'pixi.js';
-import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, HEIRLOOM_GEAR, STRATAGEMS, VANGUARD_SQUADS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
+import { HEROES, STARTING_PERKS, CAMPAIGN_MAPS, TERRAIN_BIOME_SPECS, DISASTER_SPECS, WAR_FORMATIONS, MOUNT_SPECS, ELEMENTAL_GEMS, HEIRLOOM_GEAR, STRATAGEMS, VANGUARD_SQUADS, FACTION_TALENTS, NPC_ENCOUNTERS, WEATHER_TYPES, SEASONS, PETS, SHOP_UPGRADES, MUSOU_ULTIMATES, SWORN_BONDS, CODEX_RELICS, MYTHIC_FUSIONS, WEAPONS, EVOLUTIONS, PASSIVES, ENEMY_TYPES, LEVEL_XP } from './data.js';
 import { clamp, dist2, rand, randInt, pick, angleTo, Pool } from './utils.js';
 import { SpatialHash } from './spatial.js';
 import { loadSpriteAssets, SPRITE_MANIFEST } from './sprites.js';
@@ -121,6 +121,7 @@ export class Game {
     this.stratagemCd = 0;
     this.vanguardSquadId = 'white_feather';
     this.vanguardUnits = [];
+    this.unlockedTalents = new Set(['shu_benevolence']);
     this.warlordDuel = null;
     this.loadShopUpgrades();
     this.loadCampaignProgress();
@@ -141,6 +142,11 @@ export class Game {
       this.keys[e.key] = true;
       this.sfx.unlock();
       if (e.key === 'm' || e.key === 'M') this.toggleSound();
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        if (this.state === 'playing' || this.state === 'paused') {
+          this.togglePauseMenu();
+        }
+      }
       if ((e.key === 'r' || e.key === 'R' || e.key === ' ') && this.state === 'playing') {
         this.triggerMusouUltimate();
       }
@@ -2082,18 +2088,31 @@ export class Game {
         gearMag += gItem.magnetBonus || 0;
       }
     }
+    let talDmg = 0, talArmor = 0, talSpd = 0, talArea = 0, talCd = 0, talXp = 0;
+    if (this.unlockedTalents) {
+      for (const tid of this.unlockedTalents) {
+        const tNode = FACTION_TALENTS[tid];
+        if (!tNode) continue;
+        talDmg += tNode.dmgBonus || 0;
+        talArmor += tNode.armorBonus || 0;
+        talSpd += tNode.speedBonus || 0;
+        talArea += tNode.areaBonus || 0;
+        talCd += tNode.cdBonus || 0;
+        talXp += tNode.xpBonus || 0;
+      }
+    }
 
     const nextMaxHp = (this.hero?.hp || 150) + (pk.hpBonus || 0) + permHp + relicHp + gearHp;
     if (nextMaxHp > this.player.maxHp) {
       this.player.hp += (nextMaxHp - this.player.maxHp);
     }
     this.player.maxHp = nextMaxHp;
-    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + gearDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
-    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + gearArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
-    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + fSpd + gearSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
-    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.40, 1 - permCd - relicCd - bloodMoonCd - tCd - fCd - gearCd);
-    this.player.areaMul = (1 + relicArea + tArea + fArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
-    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + gearXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
+    this.player.dmgMul = (1 + heroDmgBonus + permMight + relicDmg + fusionBonus + duelBonus + shrineBonus + tDmg + fDmg + gemDmg + gearDmg + talDmg + (ps.might || 0) * PASSIVES.might.val) * (1 + (pk.dmgBonus || 0) + (sSpec.dmgBonus || 0));
+    this.player.armor = heroArmor + permArmor + relicArmor + tArmor + fArmor + mArmor + gearArmor + talArmor + (ps.armor || 0) * PASSIVES.armor.val + (pk.armorBonus || 0);
+    this.player.speedMul = Math.max(0.45, (1 + permSpd + mountSpdBonus + tSpd + fSpd + gearSpd + talSpd + frostPenalty + (ps.swiftness || 0) * PASSIVES.swiftness.val) * (1 + (pk.speedBonus || 0)));
+    this.player.cdMul = Math.pow(1 - PASSIVES.cooldown.val, ps.cooldown || 0) * (1 - (pk.cdBonus || 0)) * (1 - (sSpec.cdBonus || 0)) * Math.max(0.38, 1 - permCd - relicCd - bloodMoonCd - tCd - fCd - gearCd - talCd);
+    this.player.areaMul = (1 + relicArea + tArea + fArea + talArea + (ps.area || 0) * PASSIVES.area.val) * (1 + (pk.areaBonus || 0));
+    this.player.xpMul = (1 + permXp + relicXp + tXp + fXp + gearXp + talXp + (ps.growth || 0) * PASSIVES.growth.val) * (1 + (pk.xpBonus || 0) + (sSpec.xpBonus || 0));
     this.player.magnetBonus = (su.magnet_perm || 0) * 30 + (fSpec.magnetBonus || 0) + gearMag;
   }
 
@@ -2135,6 +2154,176 @@ export class Game {
       this.showFloatText(this.player.x, this.player.y - 34, `🛡 HEIRLOOM EQUIPPED: ${gSpec.name.toUpperCase()} (${gSpec.desc})!`, gSpec.color);
     }
     return gSpec;
+  }
+
+  unlockFactionTalent(talentId = null) {
+    this.unlockedTalents = this.unlockedTalents || new Set();
+    const allIds = Object.keys(FACTION_TALENTS);
+    const targetId = (talentId && FACTION_TALENTS[talentId])
+      ? talentId
+      : (allIds.find((k) => !this.unlockedTalents.has(k)) || allIds[0]);
+    this.unlockedTalents.add(targetId);
+    const spec = FACTION_TALENTS[targetId];
+    this.recomputeStats();
+    if (this.player) {
+      this.sfx.play('levelup');
+      this.showFloatText(this.player.x, this.player.y - 36, `🌟 FACTION TALENT UNLOCKED: ${spec.name.toUpperCase()} (${spec.desc})!`, spec.color);
+    }
+    return spec;
+  }
+
+  togglePauseMenu() {
+    if (this.state === 'paused') {
+      this.state = 'playing';
+      if (this.pauseContainer) {
+        this.pauseContainer.destroy({ children: true });
+        this.pauseContainer = null;
+      }
+      return false;
+    }
+    if (this.state !== 'playing') return false;
+    this.state = 'paused';
+    this.showPauseModal();
+    return true;
+  }
+
+  showPauseModal() {
+    if (this.pauseContainer) this.pauseContainer.destroy({ children: true });
+    this.pauseContainer = new Container();
+    this.uiLayer.addChild(this.pauseContainer);
+
+    const W = this.W, H = this.H;
+    const panelW = Math.min(352, W - 20);
+    const panelH = Math.min(410, H - 32);
+    const panelX = Math.round((W - panelW) / 2);
+    const panelY = Math.round((H - panelH) / 2);
+
+    const bg = new Graphics();
+    bg.rect(0, 0, W, H).fill({ color: 0x05080d, alpha: 0.82 });
+    bg.eventMode = 'static';
+    this.pauseContainer.addChild(bg);
+
+    const panel = new Graphics();
+    panel.roundRect(panelX, panelY, panelW, panelH, 8)
+      .fill({ color: 0x101824, alpha: 0.98 })
+      .stroke({ color: 0xfde047, width: 2.2 });
+    this.pauseContainer.addChild(panel);
+
+    const title = new Text({
+      text: `⏸ TACTICAL COMMAND • ${this.hero?.name?.toUpperCase() || 'WARRIOR'}`,
+      style: new TextStyle({ fill: 0xfde047, fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    title.anchor.set(0.5);
+    title.x = Math.round(W / 2);
+    title.y = panelY + 20;
+    this.pauseContainer.addChild(title);
+
+    const p = this.player || { hp: 150, maxHp: 150, armor: 5, dmgMul: 1.5, speedMul: 1.2 };
+    const fSpec = WAR_FORMATIONS[this.activeFormation] || WAR_FORMATIONS.eight_gates;
+    const sSpec = STRATAGEMS[this.activeStratagem] || STRATAGEMS.empty_fort;
+    const gearNames = Object.values(this.equippedGear || {}).map((id) => HEIRLOOM_GEAR[id]?.name || id).join(', ') || 'None';
+    const gemNames = Array.from(this.socketedGems || []).map((id) => ELEMENTAL_GEMS[id]?.name || id).join(', ') || 'None';
+    const talentNames = Array.from(this.unlockedTalents || []).map((id) => FACTION_TALENTS[id]?.name || id).join(', ') || 'None';
+
+    const rows = [
+      { label: 'WARRIOR STATS', val: `HP ${Math.round(p.hp)}/${p.maxHp} • ARMOR ${p.armor} • DMG x${p.dmgMul.toFixed(2)}`, col: 0x6bffb0 },
+      { label: 'WAR FORMATION (ZHENFA)', val: `${fSpec.name} (${fSpec.desc})`, col: fSpec.color },
+      { label: 'ACTIVE STRATAGEM [E]', val: `${sSpec.name} (${sSpec.desc})`, col: sSpec.color },
+      { label: 'HEIRLOOM GEAR (6-SLOT)', val: gearNames, col: 0x38bdf8 },
+      { label: 'ELEMENTAL SOUL GEMS', val: gemNames, col: 0xf97316 },
+      { label: `FACTION TALENTS (${this.unlockedTalents?.size || 0}/6)`, val: talentNames, col: 0xc084fc },
+    ];
+
+    rows.forEach((r, idx) => {
+      const ry = panelY + 42 + idx * 46;
+      const box = new Graphics();
+      box.roundRect(panelX + 12, ry, panelW - 24, 40, 5)
+        .fill({ color: 0x162232 })
+        .stroke({ color: r.col, width: 1.2, alpha: 0.85 });
+      this.pauseContainer.addChild(box);
+
+      const lbl = new Text({
+        text: r.label,
+        style: new TextStyle({ fill: r.col, fontSize: 8.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+      });
+      lbl.x = panelX + 20;
+      lbl.y = ry + 6;
+      this.pauseContainer.addChild(lbl);
+
+      const val = new Text({
+        text: r.val.length > 46 ? r.val.slice(0, 44) + '...' : r.val,
+        style: new TextStyle({ fill: 0xf8fafc, fontSize: 8.0, fontFamily: 'monospace' }),
+      });
+      val.x = panelX + 20;
+      val.y = ry + 22;
+      this.pauseContainer.addChild(val);
+    });
+
+    const formBtn = new Container();
+    const fbW = Math.floor((panelW - 30) / 2);
+    const fbBg = new Graphics();
+    fbBg.roundRect(0, 0, fbW, 32, 5).fill({ color: 0x1e3a8a }).stroke({ color: 0x38bdf8, width: 1.5 });
+    formBtn.addChild(fbBg);
+    const fbTxt = new Text({
+      text: 'CYCLE FORMATION ▸',
+      style: new TextStyle({ fill: 0xffffff, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    fbTxt.anchor.set(0.5);
+    fbTxt.x = Math.round(fbW / 2);
+    fbTxt.y = 16;
+    formBtn.addChild(fbTxt);
+    formBtn.x = panelX + 12;
+    formBtn.y = panelY + panelH - 80;
+    formBtn.eventMode = 'static';
+    formBtn.cursor = 'pointer';
+    formBtn.on('pointertap', () => {
+      const fKeys = Object.keys(WAR_FORMATIONS);
+      const nextF = fKeys[(fKeys.indexOf(this.activeFormation) + 1) % fKeys.length];
+      this.setFormation(nextF);
+      this.showPauseModal();
+    });
+    this.pauseContainer.addChild(formBtn);
+
+    const talBtn = new Container();
+    const tbBg = new Graphics();
+    tbBg.roundRect(0, 0, fbW, 32, 5).fill({ color: 0x581c87 }).stroke({ color: 0xc084fc, width: 1.5 });
+    talBtn.addChild(tbBg);
+    const tbTxt = new Text({
+      text: 'UNLOCK TALENT ★',
+      style: new TextStyle({ fill: 0xffffff, fontSize: 9, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    tbTxt.anchor.set(0.5);
+    tbTxt.x = Math.round(fbW / 2);
+    tbTxt.y = 16;
+    talBtn.addChild(tbTxt);
+    talBtn.x = panelX + 18 + fbW;
+    talBtn.y = panelY + panelH - 80;
+    talBtn.eventMode = 'static';
+    talBtn.cursor = 'pointer';
+    talBtn.on('pointertap', () => {
+      this.unlockFactionTalent();
+      this.showPauseModal();
+    });
+    this.pauseContainer.addChild(talBtn);
+
+    const resBtn = new Container();
+    const resBg = new Graphics();
+    resBg.roundRect(0, 0, panelW - 24, 34, 5).fill({ color: 0x15803d }).stroke({ color: 0x86efac, width: 1.6 });
+    resBtn.addChild(resBg);
+    const resTxt = new Text({
+      text: '▶ RESUME BATTLE [P / ESC]',
+      style: new TextStyle({ fill: 0xffffff, fontSize: 10.5, fontFamily: 'monospace', fontWeight: 'bold' }),
+    });
+    resTxt.anchor.set(0.5);
+    resTxt.x = Math.round((panelW - 24) / 2);
+    resTxt.y = 17;
+    resBtn.addChild(resTxt);
+    resBtn.x = panelX + 12;
+    resBtn.y = panelY + panelH - 42;
+    resBtn.eventMode = 'static';
+    resBtn.cursor = 'pointer';
+    resBtn.on('pointertap', () => this.togglePauseMenu());
+    this.pauseContainer.addChild(resBtn);
   }
 
   triggerStratagem(forceId = null) {
@@ -2761,7 +2950,10 @@ export class Game {
     const isEarlyCampaign = this.mapIndex === 0 && !isEndless;
     this.finalWaveSpawned = isEndless ? (this.currentWave % 5 === 0) : (this.currentWave >= stage.waves);
     if (isTitanClash) {
-      const titanCycle = ['kaiju', 'ghidorah', 'mothra', 'rodan', 'mechagodzilla', 'biollante'];
+      const titanCycle = [
+        'kaiju', 'ghidorah', 'mothra', 'rodan', 'mechagodzilla',
+        'biollante', 'gamera', 'king_kong', 'destoroyah', 'gigan',
+      ];
       const t1 = titanCycle[(this.currentWave * 2 - 2) % titanCycle.length];
       const t2 = titanCycle[(this.currentWave * 2 - 1) % titanCycle.length];
       this.spawnKaijuBoss(t1);
@@ -3405,7 +3597,10 @@ export class Game {
   spawnKaijuBoss(forceKind = null) {
     if (!this.player) return null;
     const { stage } = this.getStageSpec();
-    const titanKinds = ['kaiju', 'ghidorah', 'mothra', 'rodan', 'mechagodzilla', 'biollante'];
+    const titanKinds = [
+      'kaiju', 'ghidorah', 'mothra', 'rodan', 'mechagodzilla',
+      'biollante', 'gamera', 'king_kong', 'destoroyah', 'gigan',
+    ];
     const kind = (forceKind && ENEMY_TYPES[forceKind])
       ? forceKind
       : titanKinds[Math.floor(Math.random() * titanKinds.length)];
@@ -4523,31 +4718,38 @@ export class Game {
       { kind: 'ballista', x: -195, y: 25 },
       { kind: 'shrine', x: 0, y: -195 },
       { kind: 'naval_river', x: 130, y: -18 },
-      // Feature 5: 4 OpenAI Destructible Enemy Fortresses!
+      // Feature 5: 4 OpenAI Destructible & Capturable Enemy Fortresses!
       { kind: 'fortress', fortKey: 'fort_gatehouse', name: 'Iron Siege Gatehouse', x: -135, y: -145, hp: 260 },
       { kind: 'fortress', fortKey: 'fort_beacon', name: 'Watchtower Flame Beacon', x: 145, y: -135, hp: 240 },
       { kind: 'fortress', fortKey: 'fort_depot', name: 'Imperial Supply Granary', x: -155, y: 120, hp: 250 },
       { kind: 'fortress', fortKey: 'fort_citadel', name: 'Warlord Command Keep', x: 155, y: 120, hp: 320 },
+      // Feature 2: 3 Interactive Wandering Three Kingdoms NPCs!
+      { kind: 'npc', npcId: 'npc_merchant', name: 'Xiliang Caravan Merchant', x: -85, y: 165 },
+      { kind: 'npc', npcId: 'npc_blacksmith', name: 'Master Blacksmith Pu Yuan', x: 175, y: -25 },
+      { kind: 'npc', npcId: 'npc_sage', name: 'Immortal Sage Zuo Ci', x: 0, y: 185 },
     ];
     for (const sp of specs) {
       const ring = new Graphics();
       this.propLayer.addChild(ring);
-      const tex = sp.kind === 'fortress'
-        ? (this.effectTextures?.[sp.fortKey] || this.effectTextures.chest)
-        : (sp.kind === 'oil_barrel'
-          ? (this.effectTextures.barrel || this.effectTextures.bomb)
-          : (sp.kind === 'ballista'
-            ? (this.enemyTextures.catapult?.[0] || this.effectTextures.impact)
-            : (this.effectTextures.heart || this.effectTextures.impact)));
+      const tex = sp.kind === 'npc'
+        ? (this.effectTextures?.[sp.npcId] || this.effectTextures.heart)
+        : (sp.kind === 'fortress'
+          ? (this.effectTextures?.[sp.fortKey] || this.effectTextures.chest)
+          : (sp.kind === 'oil_barrel'
+            ? (this.effectTextures.barrel || this.effectTextures.bomb)
+            : (sp.kind === 'ballista'
+              ? (this.enemyTextures.catapult?.[0] || this.effectTextures.impact)
+              : (this.effectTextures.heart || this.effectTextures.impact))));
       const sprite = new Sprite(tex);
       sprite.anchor.set(0.5, 0.6);
-      sprite.scale.set(sp.kind === 'fortress' ? 0.88 : (sp.kind === 'ballista' ? 1.1 : 1.4));
+      sprite.scale.set((sp.kind === 'fortress' || sp.kind === 'npc') ? 0.88 : (sp.kind === 'ballista' ? 1.1 : 1.4));
       sprite.x = sp.x;
       sprite.y = sp.y;
       this.propLayer.addChild(sprite);
       this.hazards.push({
         kind: sp.kind,
         fortKey: sp.fortKey,
+        npcId: sp.npcId,
         name: sp.name,
         hp: sp.hp || 260,
         maxHp: sp.hp || 260,
@@ -4679,8 +4881,60 @@ export class Game {
             this.damageEnemy(e, e.hp + 999, hz.x, hz.y, false, true);
           }
         }
+      } else if (hz.kind === 'npc') {
+        // Feature 2: Interactive Wandering Three Kingdoms NPC Encounter!
+        const npcSpec = NPC_ENCOUNTERS[hz.npcId] || NPC_ENCOUNTERS.npc_merchant;
+        hz.ring.circle(hz.x, hz.y, 42).stroke({ color: npcSpec.color, width: 2.0, alpha: 0.75 });
+        if (d <= 46) {
+          hz.active = false;
+          hz.sprite.visible = false;
+          hz.respawnTimer = 26.0;
+          if (hz.npcId === 'npc_merchant') {
+            const gearIds = Object.keys(HEIRLOOM_GEAR);
+            this.equipHeirloomGear(gearIds[Math.floor(Math.random() * gearIds.length)]);
+            this.spawnItem('golden_egg', hz.x, hz.y);
+          } else if (hz.npcId === 'npc_blacksmith') {
+            for (const w of this.weapons) {
+              if (w.level < 8) w.level++;
+              if (w.level >= 8) {
+                w.evo = true;
+                w.evoId = WEAPONS[w.id]?.evo;
+              }
+            }
+            this._loadoutDirty = true;
+            this.socketElementalGem('thunder_topaz');
+            this.showFloatText(p.x, p.y - 38, '🔨 MASTER PU YUAN: ALL WEAPONS FORGED +1 LV!', 0xf97316);
+          } else {
+            this.unlockFactionTalent();
+            p.hp = Math.min(p.maxHp, p.hp + 60);
+            this.musou = 100;
+          }
+        }
       } else if (hz.kind === 'fortress') {
-        // Feature 5: Destructible Enemy Fortress with Overhead Siege HP Bar!
+        if (hz.captured) {
+          // Feature 5: Captured Allied Garrison Fortress raising the Allied Dragon Banner!
+          hz.ring.circle(hz.x, hz.y, 115).stroke({ color: 0x4ade80, width: 2.2, alpha: 0.65 });
+          if (d <= 115 && p.hp < p.maxHp) {
+            p.hp = Math.min(p.maxHp, p.hp + 4.0 * dt);
+          }
+          hz.shootCd -= dt;
+          if (hz.shootCd <= 0) {
+            hz.shootCd = 0.65;
+            const ne = this.nearestEnemy(hz.x, hz.y);
+            if (ne && dist2(hz.x, hz.y, ne.x, ne.y) <= 360 * 360) {
+              const ang = angleTo(hz.x, hz.y, ne.x, ne.y);
+              this.spawnProjectile(hz.x, hz.y, ang, 85 * (p.dmgMul || 1), 1.25, 0x4ade80, null, true, 4, true, true, true);
+            }
+          }
+          hz.activeTimer -= dt;
+          if (hz.activeTimer <= 0) {
+            hz.captured = false;
+            hz.hp = hz.maxHp;
+            hz.sprite.texture = this.effectTextures?.[hz.fortKey] || this.effectTextures.chest;
+          }
+          continue;
+        }
+        // Destructible Enemy Fortress with Overhead Siege HP Bar!
         const bw = 44, bh = 4.5;
         const bx = Math.round(hz.x - bw / 2);
         const by = Math.round(hz.y - 46);
@@ -4688,7 +4942,6 @@ export class Game {
         hz.ring.rect(bx - 1, by - 1, bw + 2, bh + 2).fill(0x090d14);
         hz.ring.rect(bx, by, Math.max(1, Math.round(bw * ratio)), bh).fill(0xef4444);
 
-        // Take damage from player melee attacks or player projectiles!
         let hitDmg = 0;
         if (p.attackTimer > 0.16 && d <= 92) {
           hitDmg += 38 * (p.dmgMul || 1) * dt * 8;
@@ -4703,9 +4956,12 @@ export class Game {
         if (hitDmg > 0) {
           hz.hp -= hitDmg;
           if (hz.hp <= 0) {
-            hz.active = false;
-            hz.sprite.visible = false;
-            hz.respawnTimer = 28.0;
+            // Convert defeated Fortress into a Captured Allied Dragon Garrison for 30s!
+            hz.captured = true;
+            hz.activeTimer = 30.0;
+            if (this.effectTextures?.allied_banner) {
+              hz.sprite.texture = this.effectTextures.allied_banner;
+            }
             this.sfx.play('bomb');
             this.shake = Math.max(this.shake, 18);
             this.spawnDisasterVfx('volcano', hz.x, hz.y, 2.1, 0.65);
@@ -4715,7 +4971,7 @@ export class Game {
             const gemKinds = ['gem_fire', 'gem_ice', 'gem_thunder'];
             this.spawnItem(gemKinds[Math.floor(Math.random() * gemKinds.length)], hz.x - 24, hz.y + 14);
             this.spawnItem('saddle', hz.x + 24, hz.y + 14);
-            this.showFloatText(hz.x, hz.y - 32, `🏰 ${hz.name.toUpperCase()} DESTROYED! +45G, CHEST, GEM & SADDLE!`, 0xfde047);
+            this.showFloatText(hz.x, hz.y - 32, `🚩 ${hz.name.toUpperCase()} CAPTURED AS ALLIED GARRISON! +45G & CHEST!`, 0x4ade80);
           }
         }
       }

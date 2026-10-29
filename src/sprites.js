@@ -87,6 +87,10 @@ const EFFECTS = {
   gear_pendant: new URL('../assets/sprites/effects/gear_pendant.png', import.meta.url).href,
   stratagem_seal: new URL('../assets/sprites/effects/stratagem_seal.png', import.meta.url).href,
   tiger_tally: new URL('../assets/sprites/effects/tiger_tally.png', import.meta.url).href,
+  npc_merchant: new URL('../assets/sprites/effects/npc_merchant.png', import.meta.url).href,
+  npc_blacksmith: new URL('../assets/sprites/effects/npc_blacksmith.png', import.meta.url).href,
+  npc_sage: new URL('../assets/sprites/effects/npc_sage.png', import.meta.url).href,
+  allied_banner: new URL('../assets/sprites/effects/allied_banner.png', import.meta.url).href,
 };
 const VFX_SHEETS = {
   explosion: { url: new URL('../assets/sprites/vfx/explosion.png', import.meta.url).href, w: 64, h: 64, frames: 12 },
@@ -119,6 +123,7 @@ const ENEMY_TYPES = [
   'boss_huzhen', 'boss_lijue', 'boss_huaxiong',
   'boss_caimao', 'boss_zhangyun', 'boss_caoren',
   'mothra', 'rodan', 'mechagodzilla', 'biollante',
+  'gamera', 'king_kong', 'destoroyah', 'gigan',
 ];
 
 function nearest(texture) {

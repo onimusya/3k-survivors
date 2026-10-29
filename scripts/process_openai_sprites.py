@@ -262,12 +262,11 @@ def make_4frame_from_single(sprite_img: Image.Image) -> Image.Image:
 def process_titans():
     atlas_path = OUT_DIR / "enemies" / "atlas.png"
     atlas = Image.open(atlas_path).convert("RGBA") if atlas_path.exists() else None
-    # Ensure atlas is 26 rows tall (256 x 1664) so rows 22..25 hold mothra, rodan, mechagodzilla, biollante
-    if atlas is not None and atlas.height < 26 * 64:
-        expanded = Image.new("RGBA", (256, 26 * 64), (0, 0, 0, 0))
+    # Ensure atlas is 30 rows tall (256 x 1920) so rows 22..25 hold v0.6.0 Titans and rows 26..29 hold v0.7.0 Titans
+    if atlas is not None and atlas.height < 30 * 64:
+        expanded = Image.new("RGBA", (256, 30 * 64), (0, 0, 0, 0))
         expanded.paste(atlas, (0, 0))
         atlas = expanded
-
     titan_specs = [
         ("kaiju", MEDIA_DIR / "openai_godzilla.png", 10, 6, False),
         ("ghidorah", MEDIA_DIR / "openai_ghidorah.png", 12, 14, True),
@@ -325,6 +324,31 @@ def process_titans():
             out_path = OUT_DIR / "enemies" / f"{t_key}.png"
             sheet.save(out_path, format="PNG", optimize=True)
             print(f"Saved OpenAI v0.6.0 Titan sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
+            if atlas is not None:
+                atlas.paste((0, 0, 0, 0), (0, row_idx * 64, 256, (row_idx + 1) * 64))
+                atlas.alpha_composite(sheet, (0, row_idx * 64))
+
+    # Process 4 New v0.7.0 Mythic Titans (gamera=row 26, king_kong=row 27, destoroyah=row 28, gigan=row 29)
+    v070_path = MEDIA_DIR / "openai_titans_v070.png"
+    if v070_path.exists():
+        img = Image.open(v070_path).convert("RGBA")
+        w, h = img.size
+        hw, hh = w // 2, h // 2
+        v070_titans = [
+            ("gamera", (0, 0, hw, hh), 26, 10, False),
+            ("king_kong", (hw, 0, w, hh), 27, 10, False),
+            ("destoroyah", (0, hh, hw, h), 28, 10, False),
+            ("gigan", (hw, hh, w, h), 29, 10, False),
+        ]
+        for t_key, box, row_idx, thresh, clear_int in v070_titans:
+            q = remove_black_bg(img.crop(box), threshold=thresh, clear_interior=clear_int)
+            bbox = q.getbbox()
+            if bbox:
+                q = q.crop(bbox)
+            sheet = make_4frame_from_single(q)
+            out_path = OUT_DIR / "enemies" / f"{t_key}.png"
+            sheet.save(out_path, format="PNG", optimize=True)
+            print(f"Saved OpenAI v0.7.0 Titan sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
             if atlas is not None:
                 atlas.paste((0, 0, 0, 0), (0, row_idx * 64, 256, (row_idx + 1) * 64))
                 atlas.alpha_composite(sheet, (0, row_idx * 64))
@@ -396,6 +420,121 @@ def process_gear_and_stratagems():
         canvas.save(out_path, format="PNG", optimize=True)
         print(f"Saved OpenAI Heirloom Gear/Stratagem sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
 
+def process_npcs_and_banners():
+    src_path = MEDIA_DIR / "openai_npcs_banners.png"
+    if not src_path.exists():
+        return
+    img = Image.open(src_path).convert("RGBA")
+    w, h = img.size
+    hw, hh = w // 2, h // 2
+    quads = {
+        "npc_merchant": (0, 0, hw, hh),
+        "npc_blacksmith": (hw, 0, w, hh),
+        "npc_sage": (0, hh, hw, h),
+        "allied_banner": (hw, hh, w, h),
+    }
+    for name, box in quads.items():
+        q = remove_black_bg(img.crop(box), threshold=14, clear_interior=False)
+        bbox = q.getbbox()
+        if bbox:
+            q = q.crop(bbox)
+        canvas = Image.new("RGBA", (88, 88), (0, 0, 0, 0))
+        scale = min(82 / max(1, q.width), 82 / max(1, q.height))
+        nw = max(1, int(round(q.width * scale)))
+        nh = max(1, int(round(q.height * scale)))
+        resized = q.resize((nw, nh), Image.Resampling.NEAREST)
+        canvas.paste(resized, ((88 - nw) // 2, (88 - nh) // 2))
+        out_path = OUT_DIR / "effects" / f"{name}.png"
+        canvas.save(out_path, format="PNG", optimize=True)
+        print(f"Saved OpenAI NPC/Banner sprite: {out_path.relative_to(ROOT)} ({canvas.size})")
+
+
+def process_pets_v070():
+    src_path = MEDIA_DIR / "openai_pets_v070.png"
+    if not src_path.exists():
+        return
+    img = Image.open(src_path).convert("RGBA")
+    w, h = img.size
+    hw, hh = w // 2, h // 2
+    pet_boxes = [
+        ("redhare", (0, 0, hw, hh)),
+        ("vermilion", (hw, 0, w, hh)),
+        ("white_tiger", (0, hh, hw, h)),
+        ("qilin", (hw, hh, w, h)),
+    ]
+    pets_sheet = Image.new("RGBA", (32 * 4, 32 * 4), (0, 0, 0, 0))
+    for r_idx, (pid, box) in enumerate(pet_boxes):
+        q = remove_black_bg(img.crop(box), threshold=14, clear_interior=False)
+        bbox = q.getbbox()
+        if bbox:
+            q = q.crop(bbox)
+        scale = min(30 / max(1, q.width), 30 / max(1, q.height))
+        bw = max(1, int(round(q.width * scale)))
+        bh = max(1, int(round(q.height * scale)))
+        for f_idx, (dw, dh, dy) in enumerate(((0, 0, 0), (1, -1, -1), (0, 0, 1), (-1, 1, -1))):
+            cell = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            nw = max(1, min(31, bw + dw))
+            nh = max(1, min(31, bh + dh))
+            resized = q.resize((nw, nh), Image.Resampling.NEAREST)
+            cx = (32 - nw) // 2
+            cy = max(0, min(32 - nh, (32 - nh) // 2 + dy))
+            cell.paste(resized, (cx, cy))
+            pets_sheet.paste(cell, (f_idx * 32, r_idx * 32))
+    out_path = OUT_DIR / "pets" / "pets.png"
+    pets_sheet.save(out_path, format="PNG", optimize=True)
+    print(f"Saved OpenAI 4x4 Mythic Pets sheet: {out_path.relative_to(ROOT)} ({pets_sheet.size})")
+
+
+def process_heroes_v070():
+    batches = [
+        (MEDIA_DIR / "openai_heroes_shu.png", ["guanyu", "zhangfei", "zhaoyun", "zhugeliang", "lubu", "sunshangxiang"]),
+        (MEDIA_DIR / "openai_heroes_legends.png", ["caocao", "zhouyu", "diaochan", "machao", "simayi", "menghuo"]),
+    ]
+    for src_path, hero_ids in batches:
+        if not src_path.exists():
+            continue
+        img = Image.open(src_path).convert("RGBA")
+        w, h = img.size
+        cw, ch = w // 3, h // 2
+        for idx, hid in enumerate(hero_ids):
+            col = idx % 3
+            row = idx // 3
+            q = remove_black_bg(img.crop((col * cw + 6, row * ch + 6, (col + 1) * cw - 6, (row + 1) * ch - 6)), threshold=12, clear_interior=False)
+            bbox = q.getbbox()
+            if bbox:
+                q = q.crop(bbox)
+            scale = min(58 / max(1, q.width), 58 / max(1, q.height))
+            bw = max(1, int(round(q.width * scale)))
+            bh = max(1, int(round(q.height * scale)))
+            base_spr = q.resize((bw, bh), Image.Resampling.NEAREST)
+            flipped_spr = base_spr.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+
+            # Build 512x256 sheet (8 cols x 4 rows of 64x64: cols 0..3 = walk, cols 4..7 = attack)
+            sheet = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+            for dir_row in range(4):
+                spr = flipped_spr if dir_row == 1 else base_spr
+                for f_idx, (dx, dy, dw, dh) in enumerate(((0, 0, 0, 0), (0, -2, 1, -1), (0, 0, 0, 0), (0, -1, -1, 1))):
+                    cell = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+                    nw = max(1, min(62, bw + dw))
+                    nh = max(1, min(62, bh + dh))
+                    frame_img = spr.resize((nw, nh), Image.Resampling.NEAREST)
+                    cx = max(0, min(64 - nw, (64 - nw) // 2 + dx))
+                    cy = max(0, min(64 - nh, (64 - nh) // 2 + dy))
+                    cell.paste(frame_img, (cx, cy))
+                    sheet.paste(cell, (f_idx * 64, dir_row * 64))
+                lunge_sign = -1 if dir_row == 1 else 1
+                for a_idx, (lx, ly, rot) in enumerate(((2, -1, -6), (5, -2, 8), (4, 0, 12), (1, 0, 4))):
+                    cell = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+                    rotated = spr.rotate(rot * (-lunge_sign), resample=Image.Resampling.NEAREST, expand=False)
+                    cx = max(0, min(64 - bw, (64 - bw) // 2 + lx * lunge_sign))
+                    cy = max(0, min(64 - bh, (64 - bh) // 2 + ly))
+                    cell.paste(rotated, (cx, cy))
+                    sheet.paste(cell, ((4 + a_idx) * 64, dir_row * 64))
+
+            out_path = OUT_DIR / "heroes" / f"{hid}.png"
+            sheet.save(out_path, format="PNG", optimize=True)
+            print(f"Saved OpenAI 512x256 Hero sheet: {out_path.relative_to(ROOT)} ({sheet.size})")
+
 
 if __name__ == "__main__":
     process_terrains()
@@ -405,3 +544,6 @@ if __name__ == "__main__":
     process_gems_and_forts()
     process_titans()
     process_gear_and_stratagems()
+    process_npcs_and_banners()
+    process_pets_v070()
+    process_heroes_v070()

@@ -278,6 +278,20 @@ export const VANGUARD_SQUADS = {
   xiliang_iron: { id: 'xiliang_iron', name: 'Xiliang Iron Lancers', unitType: 'halberdier', color: 0xfde047, count: 4, dmg: 30, desc: '4 Western Halberdiers cleave surrounding foes' },
   rattan_guard: { id: 'rattan_guard', name: 'Nanman Rattan Vanguard', unitType: 'shield', color: 0xf97316, count: 4, dmg: 28, desc: '4 Armored Shield-Guards bash & block bolts' },
 };
+export const FACTION_TALENTS = {
+  shu_benevolence: { id: 'shu_benevolence', name: 'Shu Benevolence', color: 0x4ade80, hpRegen: 2.0, dmgBonus: 0.15, desc: '+15% Damage & +2 HP/s Natural Regen' },
+  wei_ambition: { id: 'wei_ambition', name: 'Wei Imperial Ambition', color: 0x38bdf8, dmgBonus: 0.20, cdBonus: 0.08, desc: '+20% Damage & -8% Weapon Cooldown' },
+  wu_inferno: { id: 'wu_inferno', name: 'Wu Chibi Inferno', color: 0xef4444, areaBonus: 0.20, dmgBonus: 0.18, desc: '+20% Attack Area & +18% Fire/Blast DMG' },
+  han_mandate: { id: 'han_mandate', name: 'Han Celestial Mandate', color: 0xfde047, xpBonus: 0.30, armorBonus: 2, desc: '+30% XP/Gold Gain & +2 Base Armor' },
+  xiliang_thunder: { id: 'xiliang_thunder', name: 'Xiliang Cavalry Charge', color: 0x2dd4bf, speedBonus: 0.22, desc: '+22% Move Speed & Mount Trample Power' },
+  titan_slayer: { id: 'titan_slayer', name: 'Colossal Titan Hunter', color: 0xc084fc, dmgBonus: 0.30, titanBonus: 0.50, desc: '+30% All DMG & +50% Bonus vs Titans!' },
+};
+
+export const NPC_ENCOUNTERS = {
+  npc_merchant: { id: 'npc_merchant', name: 'Xiliang Caravan Merchant', sprite: 'npc_merchant', color: 0xfde047, desc: 'Gifts Heirloom Gear & Rare Golden Egg!' },
+  npc_blacksmith: { id: 'npc_blacksmith', name: 'Master Blacksmith Pu Yuan', sprite: 'npc_blacksmith', color: 0xf97316, desc: 'Forges +1 Lv on All Weapons & Gem!' },
+  npc_sage: { id: 'npc_sage', name: 'Immortal Sage Zuo Ci', sprite: 'npc_sage', color: 0x4ade80, desc: 'Unlocks Faction Talent, +60 HP & 100% Musou!' },
+};
 
 export const ENEMY_TYPES = {
   soldier: { name:'Militia Spearman', color:0x7a8a9a, hp:8, speed:60, dmg:6, size:14, xp:1, weight:50 },
@@ -307,6 +321,10 @@ export const ENEMY_TYPES = {
   rodan:         { name:'Fire Demon Rodan',     color:0xf97316, hp:11800, speed:52, dmg:11, size:30, xp:270, weight:0, boss:true, isKaiju:true, isRodan:true, knockResist:0.99 },
   mechagodzilla: { name:'Mecha-Godzilla Kiryu', color:0x94a3b8, hp:14000, speed:44, dmg:13, size:32, xp:320, weight:0, boss:true, isKaiju:true, isMechaG:true, knockResist:0.99 },
   biollante:     { name:'Abyssal Biollante',    color:0x4ade80, hp:12800, speed:40, dmg:12, size:32, xp:290, weight:0, boss:true, isKaiju:true, isBiollante:true, knockResist:0.99 },
+  gamera:        { name:'Guardian Turtle Gamera', color:0x38bdf8, hp:12200, speed:46, dmg:11, size:31, xp:280, weight:0, boss:true, isKaiju:true, isGamera:true, knockResist:0.99 },
+  king_kong:     { name:'Eighth Wonder Kong',     color:0xf59e0b, hp:12500, speed:48, dmg:12, size:32, xp:290, weight:0, boss:true, isKaiju:true, isKong:true, knockResist:0.99 },
+  destoroyah:    { name:'Demon Titan Destoroyah', color:0xef4444, hp:14500, speed:43, dmg:13, size:33, xp:340, weight:0, boss:true, isKaiju:true, isDestoroyah:true, knockResist:0.99 },
+  gigan:         { name:'Cyber-Scythe Gigan',     color:0x2dd4bf, hp:13200, speed:50, dmg:12, size:31, xp:310, weight:0, boss:true, isKaiju:true, isGigan:true, knockResist:0.99 },
 };
 
 export const LEVEL_XP = (lvl) => Math.floor(20 * Math.pow(1.15, lvl - 1));
